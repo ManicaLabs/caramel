@@ -1,0 +1,117 @@
+/* ============ « MA BALADE DU JOUR » : sentier dans le pré, 4 pierres, compagnon ============
+   Le pré est un SVG (viewBox 360 × 560) ; étiquettes et compagnon sont posés par-dessus en % du viewBox.
+   Mobile : pré pleine largeur, carte d'action collée en bas ; grand écran : pré à gauche, carte à droite. */
+.bl { display: flex; flex-direction: column; }
+.bl-dur { flex: none; min-height: 34px; padding: 4px 10px; font-size: .82rem; white-space: nowrap; }
+.bl-layout { display: flex; flex-direction: column; gap: 12px; }
+
+/* ---------- pré ---------- */
+.bl-scene {
+  position: relative; width: 100%; aspect-ratio: 360 / 560; border-radius: var(--r-l); overflow: hidden;
+  border: 3px solid #fff; box-shadow: var(--shadow-2); background: #86efac; isolation: isolate;
+}
+.bl-map { position: absolute; inset: 0; width: 100%; height: 100%; }
+.bl-path-edge { fill: none; stroke: var(--amber-200); stroke-width: 46; stroke-linecap: round; stroke-linejoin: round; }
+.bl-path { fill: none; stroke: var(--amber-100); stroke-width: 35; stroke-linecap: round; stroke-linejoin: round; }
+.bl-path-dots { fill: none; stroke: var(--amber-300); stroke-width: 5; stroke-linecap: round; stroke-dasharray: .1 17; opacity: .9; }
+
+/* pierres */
+.bl-stone-shadow { fill: rgba(74, 44, 26, .2); }
+.bl-stone-top { fill: #fff; stroke: var(--pink-200); stroke-width: 3; }
+.bl-stone-shine { fill: #fff; opacity: .75; }
+.bl-stone-emo { font-size: 21px; font-family: var(--font-ui); font-weight: 700; }
+.bl-stone-halo { fill: rgba(251, 191, 36, .32); opacity: 0; transform-box: fill-box; transform-origin: center; }
+.bl-stone.is-done .bl-stone-top { fill: var(--ok-bg); stroke: var(--ok); }
+.bl-stone.is-done .bl-stone-emo { fill: var(--ok); font-size: 24px; }
+.bl-stone.is-now .bl-stone-top { fill: var(--amber-200); stroke: var(--amber-500); }
+.bl-stone.is-now .bl-stone-halo { opacity: 1; animation: bl-halo 2.2s ease-out infinite; }
+@keyframes bl-halo { 0% { transform: scale(.8); opacity: .9; } 100% { transform: scale(1.35); opacity: 0; } }
+
+/* étiquettes des étapes */
+.bl-label {
+  position: absolute; z-index: 3; width: 56%; transform: translateY(-50%);
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-height: 56px; padding: 8px 12px;
+  text-align: left; border-radius: 16px; background: rgba(255, 255, 255, .95); border: 2px solid var(--pink-200); box-shadow: var(--shadow-1);
+  transition: transform var(--dur-1) var(--ease-out);
+}
+.bl-label:active { transform: translateY(-50%) scale(.97); }
+.bl-label.is-left { align-items: flex-end; text-align: right; }
+.bl-k { font-size: .76rem; font-weight: 600; color: var(--ink-3); line-height: 1.15; }
+.bl-g { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: .95rem; color: var(--ink); line-height: 1.2; }
+.bl-label.is-left .bl-g { flex-direction: row-reverse; }
+.bl-g-ico { flex: none; font-size: 1.3rem; line-height: 1; }
+.bl-g-t { min-width: 0; }
+.bl-label.is-now { border-color: var(--amber-500); background: #fffbeb; box-shadow: 0 0 0 4px rgba(251, 191, 36, .28), var(--shadow-2); }
+.bl-label.is-now .bl-k { color: var(--title); }
+.bl-label.is-done { background: rgba(240, 253, 244, .95); border-color: #86efac; }
+.bl-label.is-done .bl-g { color: var(--ink-2); }
+.bl-ok {
+  position: absolute; top: -10px; right: -8px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--ok); color: #fff; font-size: .85rem; font-weight: 700; border: 2px solid #fff; box-shadow: var(--shadow-1);
+}
+.bl-label.is-left .bl-ok { right: auto; left: -8px; }
+
+/* le compagnon, debout sur la pierre de l'étape en cours */
+.bl-buddy { position: absolute; z-index: 2; transform: translate(-50%, -86%); pointer-events: none; line-height: 0; }   /* sous les étiquettes : il passe derrière en marchant */
+.bl-buddy-hop, .bl-buddy-pic { line-height: 0; }
+.bl-buddy-pic.is-left { transform: scaleX(-1); }
+.bl-buddy-pic svg { overflow: visible; filter: drop-shadow(0 3px 2px rgba(74, 44, 26, .22)); }
+
+/* ---------- carte d'action ---------- */
+.bl-cta {
+  position: sticky; bottom: calc(10px + var(--safe-b)); z-index: 5;
+  display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 16px; border-color: var(--amber-200); box-shadow: var(--shadow-2);
+}
+.bl-cta-kick { font-size: .9rem; font-weight: 600; color: var(--ink-2); }
+.bl-cta-title { display: flex; align-items: center; gap: 10px; font-size: 1.2rem; font-weight: 700; color: var(--ink); line-height: 1.2; text-wrap: balance; }
+.bl-cta-ico { flex: none; font-size: 1.9rem; line-height: 1; }
+.bl-cta.is-done { align-items: center; gap: 8px; padding: 12px 14px 14px; text-align: center; border-color: #86efac; background: linear-gradient(160deg, #f0fdf4 0%, #fff 70%); }
+.bl-cta.is-done .bl-cta-kick { font-size: 1.3rem; font-weight: 700; color: var(--title); }
+.bl-cta.is-done .bl-cta-title { justify-content: center; font-size: 1rem; font-weight: 600; color: var(--ink-2); }
+.bl-cta.is-done .bl-cta-btns { flex-direction: row; }
+.bl-cta.is-done .bl-cta-btns .btn { flex: 1 1 0; min-width: 0; min-height: 52px; padding: 10px 12px; font-size: 1.02rem; }
+.bl-prizes { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.bl-prize {
+  display: inline-flex; align-items: center; gap: 4px; padding: 6px 14px; border-radius: var(--r-pill);
+  background: #fff; border: 2px solid var(--amber-200); font-weight: 700; font-size: 1.05rem; color: var(--title);
+}
+.bl-prize.is-fire { border-color: var(--orange-300); color: var(--soft-ink); }
+.bl-cta-btns { display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 2px; }
+
+.bl-empty { margin-top: 30px; text-align: center; display: flex; flex-direction: column; gap: 14px; align-items: center; }
+.bl-empty-ico { font-size: 3rem; line-height: 1; }
+
+/* ---------- choix du jeu libre (feuille) ---------- */
+.bl-pick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.bl-pick-tile {
+  min-height: 100px; padding: 12px 8px; border-radius: var(--r-m); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  background: var(--tint, #fff); border: 3px solid #fff; box-shadow: var(--shadow-1); text-align: center;
+  transition: transform var(--dur-1) var(--ease-out);
+}
+.bl-pick-tile:active { transform: scale(.96); }
+.bl-pick-ico { font-size: 2rem; line-height: 1; }
+.bl-pick-t { font-weight: 700; font-size: .95rem; color: var(--ink); line-height: 1.2; }
+
+@media (hover: hover) and (pointer: fine) {
+  .bl-label.is-now:hover { background: var(--amber-100); }
+  .bl-pick-tile:hover { box-shadow: var(--shadow-2); }
+}
+
+/* ---------- grand écran : pré à gauche, carte d'action à droite ---------- */
+@media (min-width: 900px) {
+  .bl-layout { flex-direction: row; align-items: center; justify-content: center; gap: 32px; }
+  .bl-scene { flex: none; width: auto; height: min(680px, calc(100dvh - 104px)); }
+  .bl-cta { position: static; flex: 0 1 380px; padding: 22px; }
+  .bl-cta.is-done { padding: 22px; gap: 12px; }
+  .bl-cta.is-done .bl-cta-btns { flex-direction: column; }
+  .bl-cta.is-done .bl-cta-btns .btn { flex: none; min-height: 56px; font-size: 1.1rem; }
+  .bl-cta-title { font-size: 1.4rem; }
+  .bl-label { font-size: 1.05rem; }
+  .bl-pick { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* ---------- mouvement réduit / animations douces ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .bl-stone.is-now .bl-stone-halo { animation: none !important; opacity: .7; transform: scale(1.1); }
+}
+html.motion-soft .bl-stone.is-now .bl-stone-halo { animation: none; opacity: .7; transform: scale(1.1); }

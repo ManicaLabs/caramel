@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#fff1f5">
+<title>Caramel 2 · Banc d’essai du kit</title>
+<link rel="icon" type="image/svg+xml" href="../../icon.svg">
+<link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/motion.css">
+<link rel="stylesheet" href="../../css/ui/kit.css">
+<style>
+  /* ---------- banc d'essai uniquement (guide de style du kit) ---------- */
+  .hk { max-width: 560px; margin: 0 auto; padding: 0 calc(14px + var(--safe-r)) calc(40px + var(--safe-b)) calc(14px + var(--safe-l)); }
+  .hk-head {
+    position: sticky; top: 0; z-index: 20; margin: 0 -14px 4px; padding: calc(6px + var(--safe-t)) 14px 10px;
+    background: rgba(255, 241, 245, .88); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border-bottom: 2px solid var(--pink-100);
+  }
+  .hk-head .topbar { margin-bottom: 2px; }
+  .hk-logo { width: 48px; height: 48px; flex: none; display: grid; place-items: center; font-size: 1.6rem; border-radius: 50%;
+    background: #fff; border: 2px solid var(--pink-200); box-shadow: var(--shadow-1); }
+  .hk-head .topbar-title { text-align: left; font-size: 1.2rem; }
+  .hk-wallet { display: flex; justify-content: center; gap: 8px; }
+  .hk-wallet .chip { color: var(--title); font-size: 1rem; }
+  .hk-wallet .chip b { font-variant-numeric: tabular-nums; }
+
+  .hk-hero { display: flex; gap: 14px; align-items: center; margin-top: 12px; }
+  .hk-hero-pony { flex: none; width: 76px; height: 76px; border-radius: 50%; display: grid; place-items: center; font-size: 2.6rem;
+    background: radial-gradient(circle at 35% 30%, #fff 0%, var(--amber-100) 70%); border: 3px solid var(--amber-200); }
+  .hk-hero .title { font-size: 1.45rem; }
+  .hk-hero .subtitle { font-size: .98rem; margin-top: 2px; }
+
+  .hk-sec .section-title { display: flex; align-items: center; gap: 8px; margin-top: 26px; }
+  .hk-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .hk-note { font-size: .85rem; color: var(--ink-3); margin-top: 8px; }
+  .hk-label { font-size: .78rem; font-weight: 600; color: var(--ink-4); text-transform: uppercase; letter-spacing: .5px; }
+
+  /* cartes de démonstration */
+  .hk-game { display: flex; flex-direction: column; gap: 4px; min-height: 132px; }
+  .hk-game-ico { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; font-size: 1.6rem; background: #dcfce7; margin-bottom: 4px; }
+  .hk-lock { display: flex; flex-direction: column; gap: 4px; justify-content: center; align-items: center; text-align: center; min-height: 132px; }
+  .hk-lock .e { font-size: 1.8rem; }
+
+  /* exercice : pavé et QCM */
+  .hk-ex { display: flex; flex-direction: column; gap: 14px; }
+  .hk-ex-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .hk-prompt { text-align: center; font-size: 2.3rem; color: var(--ink); line-height: 1.1; padding: 6px 0 2px; }
+  .hk-prompt.q { font-size: 1.5rem; line-height: 1.25; }
+  .hk-qmark { color: var(--ink-5); }
+  .hk-prompt.read { font-family: var(--font-read); font-size: 1.3rem; font-weight: 700; line-height: 1.35; }
+  .hk-say { min-height: 64px; display: flex; align-items: flex-end; }
+  .hk-say:empty::before { content: attr(data-empty); width: 100%; text-align: center; color: var(--ink-5); font-size: .92rem; align-self: center; }
+  .hk-bubble-act { display: block; margin-top: 10px; }
+  .hk-streak { font-weight: 700; color: var(--title); font-size: .95rem; }
+
+  /* scène d'animation */
+  .hk-stage { position: relative; height: 178px; border-radius: var(--r-m); overflow: hidden;
+    background: linear-gradient(180deg, var(--sky) 0%, #e0f2fe 60%, #86efac 60%, var(--grass) 100%);
+    box-shadow: inset 0 2px 8px rgba(91, 58, 41, .08); }
+  .hk-stage .sun { position: absolute; top: 10px; right: 14px; font-size: 1.6rem; }
+  .hk-stage .cloud { position: absolute; top: 16px; left: 32%; font-size: 1.4rem; }
+  .hk-tree { position: absolute; left: 14px; bottom: 30px; font-size: 4.2rem; line-height: 1; }
+  .hk-pony { position: absolute; left: 50%; bottom: 14px; margin-left: -28px; width: 56px; text-align: center; font-size: 3rem; line-height: 1; }
+  .hk-basket { position: absolute; right: 18px; bottom: 16px; width: 74px; text-align: center; }
+  .hk-basket .e { font-size: 3.1rem; line-height: 1; display: block; }
+  .hk-basket .badge { position: absolute; top: -8px; right: -4px; }
+  .hk-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+  .hk-tile { aspect-ratio: 1; border-radius: var(--r-m); background: #fff; border: 2px solid var(--pink-200); box-shadow: var(--shadow-1);
+    display: grid; place-items: center; font-size: 1.9rem; }
+  .hk-ctrls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+  .hk-ctrls:first-child { margin-top: 0; }
+  .hk-mini {
+    min-height: 56px; border-radius: var(--r-m); background: #fff; border: 2px solid var(--pink-200); box-shadow: 0 3px 0 var(--pink-200);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 6px 4px;
+    font-weight: 600; font-size: .86rem; color: var(--ink-2); line-height: 1.1; text-align: center;
+    transition: transform 90ms var(--ease-out), box-shadow 90ms, background 90ms;
+  }
+  .hk-mini .e { font-size: 1.3rem; line-height: 1; }
+  .hk-mini:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--pink-200); background: var(--pink-50); }
+  .hk-mini.on { background: var(--amber-100); border-color: var(--amber-300); box-shadow: 0 3px 0 var(--amber-300); }
+  .hk-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .hk-panel .card { padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .hk-panel .card > :last-child { flex: 1; display: grid; place-items: center; }
+  .hk-count { font-size: 2rem; color: var(--title); line-height: 1; min-height: 2rem; }
+  .hk-radar { width: 120px; height: 120px; }
+  .hk-vt { view-transition-name: hk-vt; min-height: 92px; display: flex; align-items: center; gap: 12px; }
+  .hk-vt .e { font-size: 2.2rem; }
+
+  /* classes CSS de motion.css */
+  .hk-css { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .hk-css figure { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 0; }
+  .hk-css .hk-tile { width: 100%; }
+  .hk-css figcaption { font-size: .78rem; color: var(--ink-3); font-weight: 600; white-space: nowrap; }
+  .hk-medal { width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; font-size: 1.7rem;
+    background: var(--amber-100); border: 3px solid var(--amber-400); }
+  .hk-gold { padding: 8px 12px; border-radius: var(--r-pill); font-weight: 700; font-size: .85rem; color: var(--amber-900);
+    background: linear-gradient(135deg, var(--amber-300), var(--amber-400)); box-shadow: var(--shadow-btn); }
+  .hk-replay { cursor: pointer; }
+
+  /* métronome */
+  .hk-metro { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+  .hk-lamps { display: flex; gap: 12px; }
+  .hk-lamp { width: 26px; height: 26px; border-radius: 50%; background: var(--pink-50); border: 3px solid var(--pink-200);
+    transition: background 80ms, border-color 80ms, transform 120ms var(--ease-pop); }
+  .hk-lamp.strong { width: 32px; height: 32px; }
+  .hk-lamp.lit { background: var(--amber-300); border-color: var(--amber-500); transform: scale(1.15); }
+  .hk-lamp.strong.lit { background: var(--pink-400); border-color: var(--pink-800); }
+  .hk-bpm { font-size: 1.5rem; color: var(--title); min-width: 92px; text-align: center; }
+
+  /* encouragements */
+  .hk-cheer { display: grid; grid-template-columns: 1fr auto; gap: 8px 10px; align-items: center; }
+  .hk-cheer .kind { grid-column: 1 / -1; margin-top: 6px; }
+  .hk-cheer .phrase { font-size: 1.08rem; font-weight: 600; color: var(--ink); background: #fff; border: 2px solid var(--pink-200);
+    border-radius: var(--r-m); padding: 10px 14px; min-height: 48px; display: flex; align-items: center; }
+
+  .hk-switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 2px solid var(--pink-50); }
+  .hk-switch-row:last-child { border-bottom: none; }
+  .hk-bilan { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .hk-bilan .pony { font-size: 4rem; line-height: 1; margin: 4px 0; }
+  .hk-bilan .gain { font-size: 2.2rem; color: var(--title); }
+  .hk-foot { text-align: center; margin-top: 30px; font-size: .85rem; color: var(--ink-4); }
+  @media (hover: hover) and (pointer: fine) { .hk-mini:hover { background: var(--pink-50); } }
+</style>
+</head>
+<body>
+<div id="app"><main class="hk" id="guide"></main></div>
+<noscript><p class="screen">Ce banc d’essai a besoin de JavaScript.</p></noscript>
+<script type="module">
+/* Banc d'essai du kit : guide de style vivant (composants, animations, sons, encouragements).
+   Ouvrir via un serveur statique : http://127.0.0.1:<port>/tests/harness/kit.html */
+import * as kit from '../../js/ui/kit.js';
+import * as motion from '../../js/core/motion.js';
+import * as audio from '../../js/core/audio.js';
+import { h, svg, frTypo, fmtNum, parseNum } from '../../js/core/util.js';
+import { makeRng } from '../../js/core/rng.js';
+
+const T = frTypo;
+const rng = makeRng(2026);
+const guide = document.getElementById('guide');
+const st = { apples: 12, streak: 0, basket: 0 };
+
+/* rôle de main.js dans l'appli : débloquer le son au premier geste */
+for (const t of ['pointerup', 'keydown']) document.addEventListener(t, () => audio.unlock(), { once: true, capture: true });
+
+/* ---------- petits constructeurs ---------- */
+const btn = (label, cls = '', on) => h('button', { type: 'button', class: 'btn ' + cls, on: on ? { click: on } : null }, T(label));
+const mini = (e, label, on) => h('button', { type: 'button', class: 'hk-mini', on: { click: on } }, h('span', { class: 'e', 'aria-hidden': 'true' }, e), T(label));
+const section = (id, emoji, title, ...kids) => h('section', { class: 'hk-sec', id, 'aria-labelledby': id + '-t' },
+  h('h2', { class: 'section-title', id: id + '-t' }, h('span', { 'aria-hidden': 'true' }, emoji), T(title)), ...kids);
+const same = (a, b) => String(a) === String(b);
+
+/* ---------- en-tête : porte-monnaie (cible des pommes), son, animations douces ---------- */
+const applesNum = h('b', null, fmtNum(st.apples));
+const walletApples = h('span', { class: 'chip', id: 'wallet-apples' }, h('span', { 'aria-hidden': 'true' }, '🍎'), applesNum);
+function addApples(n) {
+  const from = st.apples;
+  st.apples += n;
+  motion.countUp(applesNum, from, st.apples, 300);
+}
+const soundBtn = h('button', { type: 'button', class: 'btn-icon', 'aria-label': 'Couper le son', 'aria-pressed': 'false' }, '🔊');
+soundBtn.addEventListener('click', () => {
+  audio.setMuted(!audio.isMuted());
+  const m = audio.isMuted();
+  soundBtn.textContent = m ? '🔇' : '🔊';
+  soundBtn.setAttribute('aria-pressed', String(m));
+  soundBtn.setAttribute('aria-label', m ? 'Remettre le son' : 'Couper le son');
+  kit.toast(T(m ? '🔇 Son coupé' : '🔊 Son activé'));
+});
+const motionBtn = h('button', { type: 'button', class: 'btn-icon', 'aria-label': 'Animations douces', 'aria-pressed': 'false' }, '✨');
+motionBtn.addEventListener('click', () => {
+  const soft = motion.setMode(motion.getMode() === 'soft' ? 'full' : 'soft') === 'soft';
+  motionBtn.textContent = soft ? '🍃' : '✨';
+  motionBtn.classList.toggle('on', soft);
+  motionBtn.setAttribute('aria-pressed', String(soft));
+  kit.toast(T(soft ? '🍃 Animations douces : fondus seulement' : '✨ Animations normales'));
+});
+guide.append(h('header', { class: 'hk-head' },
+  h('div', { class: 'topbar' },
+    h('span', { class: 'hk-logo', 'aria-hidden': 'true' }, '🐴'),
+    h('h1', { class: 'topbar-title' }, 'Kit de jeu'),
+    motionBtn, soundBtn),
+  h('div', { class: 'hk-wallet' },
+    walletApples,
+    h('span', { class: 'chip' }, h('span', { 'aria-hidden': 'true' }, '⭐'), h('b', null, '45')),
+    h('span', { class: 'chip' }, h('span', { 'aria-hidden': 'true' }, '🔥'), h('b', null, T('3 j'))))));
+
+guide.append(h('div', { class: 'card hero hk-hero' },
+  h('div', { class: 'hk-hero-pony anim-float', 'aria-hidden': 'true' }, '🐴'),
+  h('div', null,
+    h('p', { class: 'title' }, 'Banc d’essai du kit'),
+    h('p', { class: 'subtitle' }, T('Composants, animations et sons partagés par tous les jeux. Touche, écoute, regarde !')))));
+
+/* ---------- boutons ---------- */
+const popMe = e => { const b = e.currentTarget; motion.pop(b, { scale: 1.08 }); audio.tap(); };
+guide.append(section('s-boutons', '🔘', 'Boutons',
+  h('div', { class: 'card stack' },
+    h('div', { class: 'hk-row' }, btn('C’est parti !', '', popMe), btn('Rejouer 🔄', 'pink', popMe), btn('Accueil 🏠', 'white', popMe)),
+    h('div', { class: 'hk-row' }, btn('Petit bouton', 'small', popMe), btn('Plus tard', 'ghost', popMe),
+      h('button', { type: 'button', class: 'btn small', disabled: true }, 'Bientôt')),
+    btn('Continuer la balade ➜', 'big block', popMe),
+    h('div', { class: 'hk-row' },
+      h('button', { type: 'button', class: 'btn-icon on', 'aria-label': 'Joker', on: { click: popMe } }, '💡'),
+      h('button', { type: 'button', class: 'btn-icon', 'aria-label': 'Réglages', on: { click: popMe } }, '⚙️'),
+      h('button', { type: 'button', class: 'btn-icon', 'aria-label': 'Accueil', on: { click: popMe } }, '🏠'),
+      h('span', { class: 'hk-note' }, T('Boutons-icônes : 52 px, état « on ».'))))));
+
+/* ---------- cartes et pastilles ---------- */
+const dot = cls => h('span', { class: 'dot ' + cls });
+guide.append(section('s-cartes', '🃏', 'Cartes et pastilles',
+  h('div', { class: 'card hero stack' },
+    h('div', { class: 'row between' },
+      h('div', null, h('p', { class: 'card-title' }, 'Ma balade du jour'), h('p', { class: 'card-sub' }, T('4 étapes · environ 15 min'))),
+      h('span', { class: 'badge' }, '🔥 3')),
+    h('div', { class: 'dots' }, dot('done'), dot('done'), dot('helped'), dot('now'), dot(''), dot(''), dot(''), dot('')),
+    h('div', { class: 'gauge' }, h('div', { class: 'gauge-fill', style: { width: '45%' } })),
+    btn('Continuer ➜', 'block', popMe)),
+  h('div', { class: 'grid-2 mt-2' },
+    h('div', { class: 'card tap hk-game', on: { click: e => motion.pop(e.currentTarget, { scale: 1.04 }) } },
+      h('div', { class: 'hk-game-ico', 'aria-hidden': 'true' }, '🏇'),
+      h('p', { class: 'card-title' }, 'Le Galop des tables'),
+      h('p', { class: 'card-sub' }, T('Réponds vite et saute les obstacles !'))),
+    h('div', { class: 'card locked hk-lock' },
+      h('span', { class: 'e', 'aria-hidden': 'true' }, '🔒'),
+      h('p', { class: 'card-title' }, 'Les Lettres envolées'),
+      h('p', { class: 'card-sub' }, T('Encore 3 ⭐ pour débloquer')))),
+  h('div', { class: 'card dashed mt-2' }, T('💡 Astuce : pour ajouter 9, ajoute 10 puis enlève 1.')),
+  h('div', { class: 'hk-row mt-2' },
+    h('button', { type: 'button', class: 'chip' }, '🍎 Pommes'),
+    h('button', { type: 'button', class: 'chip on' }, '⭐ Étoiles'),
+    h('button', { type: 'button', class: 'chip' }, '🔥 Série'),
+    h('span', { class: 'badge' }, '7'))));
+
+/* ---------- pavé numérique : un vrai mini-exercice ---------- */
+function intQ() {
+  const a = rng.int(3, 9), b = rng.int(3, 9);
+  const hint = b % 2 === 0 ? `${a} × ${b}, c’est le double de ${a} × ${b / 2}.`
+    : b === 5 ? `${a} × 5, c’est la moitié de ${a} × 10.`
+      : b === 9 ? `${a} × 9, c’est ${a} × 10 moins ${a}.`
+        : `${a} × ${b}, c’est ${a} × ${b - 1} plus ${a}.`;
+  return { text: `${a} × ${b} =`, answer: a * b, hint: T(hint), explain: T(`${a} × ${b} = ${a * b}.`) };
+}
+function decQ() {
+  const a = rng.int(1, 8) + rng.pick([0.25, 0.5, 0.75]), b = rng.int(1, 5) + rng.pick([0.5, 0.25]);
+  const s = Math.round((a + b) * 100) / 100;
+  return { text: `${fmtNum(a)} + ${fmtNum(b)} =`, answer: s,
+    hint: T('Ajoute les unités, puis les dixièmes, puis les centièmes.'), explain: T(`${fmtNum(a)} + ${fmtNum(b)} = ${fmtNum(s)}.`) };
+}
+function keypadDemo() {
+  let kp = null, q = null, tries = 0, busy = false, decimal = false;
+  const prompt = h('div', { class: 'hk-prompt num', 'aria-live': 'polite' });
+  const say = h('div', { class: 'hk-say', 'data-empty': T('Tape ta réponse puis ✓ (ou Entrée au clavier).') });
+  const streak = h('span', { class: 'hk-streak' });
+  const pad = h('div');
+  const segInt = h('button', { type: 'button', class: 'on' }, 'Entiers');
+  const segDec = h('button', { type: 'button' }, 'Décimaux');
+  const setDec = v => { decimal = v; segInt.classList.toggle('on', !v); segDec.classList.toggle('on', v); make(); };
+  segInt.addEventListener('click', () => setDec(false));
+  segDec.addEventListener('click', () => setDec(true));
+  const show = node => { say.replaceChildren(...(node ? [node] : [])); };
+  const showStreak = () => { streak.textContent = st.streak ? T(`🔥 série : ${st.streak}`) : ''; };
+  function next() {
+    tries = 0; busy = false;
+    q = decimal ? decQ() : intQ();
+    prompt.replaceChildren(q.text + ' ', h('span', { class: 'hk-qmark' }, '?'));
+    kp.clear(); kp.disable(false);
+    show(null);
+    motion.enter(prompt, { from: 'scale' });
+  }
+  function make() {
+    if (kp) kp.destroy();
+    kp = kit.keypad({ decimal, onSubmit: check });
+    pad.appendChild(kp.el);
+    next();
+  }
+  function check(v) {
+    if (busy) return;
+    const n = parseNum(v);
+    if (Math.abs(n - q.answer) < 1e-9) {
+      busy = true;
+      st.streak++; showStreak();
+      kp.setState('right'); kp.disable(true);
+      kit.celebrateRight(kp.answer, st.streak);
+      show(kit.bubble(kit.cheer(tries ? 'helped' : 'right', rng), 'good', { icon: '🐴' }));
+      motion.flyTo(kp.answer, walletApples, { onArrive: () => { audio.coin(); addApples(1); } });
+      setTimeout(next, 1600);
+    } else if (tries === 0) {
+      tries = 1; st.streak = 0; showStreak();
+      kp.setState('wrong');
+      kit.gentleWrong(kp.answer);
+      show(kit.bubble(h('span', null, h('b', null, kit.cheer('retry', rng)), '\n', q.hint), 'hint'));
+    } else {
+      busy = true;
+      kp.set(String(q.answer)); kp.setState('right'); kp.disable(true);
+      kit.gentleWrong(kp.answer);
+      const ok = btn('J’ai compris ✓', '', next);
+      show(kit.bubble(h('span', null, h('b', null, kit.cheer('learn', rng)), '\n', q.explain, h('span', { class: 'hk-bubble-act' }, ok)), 'soft'));
+    }
+  }
+  make();
+  return h('div', { class: 'card hk-ex' },
+    h('div', { class: 'hk-ex-head' }, h('div', { class: 'seg', role: 'group', 'aria-label': 'Type de nombres' }, segInt, segDec), streak),
+    prompt, say, pad);
+}
+guide.append(section('s-pave', '🔢', 'Pavé numérique', keypadDemo(),
+  h('p', { class: 'hk-note' }, T('Juste : pop, paillettes, note qui monte avec la série et 🍎 qui vole vers le porte-monnaie. 1re erreur : secousse douce, son de bois, indice. 2e erreur : la réponse est montrée.'))));
+
+/* ---------- QCM ---------- */
+const QCM_NUM = [
+  { text: 'Quel est le double de 24 ?', choices: [42, 48, 44, 52], answer: 48, hint: 'Double de 24 : 20 + 20, puis 4 + 4.', explain: '24 + 24 = 48.' },
+  { text: '7 × 6 = ?', choices: [36, 42, 48, 54], answer: 42, hint: '7 × 6, c’est 7 × 5 plus 7.', explain: '7 × 6 = 42.' },
+  { text: 'Combien de dizaines dans 370 ?', choices: [3, 37, 70, 307], answer: 37, hint: '370, c’est 37 paquets de 10.', explain: '370 = 37 dizaines.' }
+];
+const QCM_READ = [
+  { text: 'Pourquoi le poney recule-t-il sur la plage ?', answer: 'sable',
+    choices: [{ label: 'Le sable chaud le surprend.', value: 'sable' }, { label: 'Il a peur des mouettes.', value: 'mouettes' },
+      { label: 'Il a très faim.', value: 'faim' }, { label: 'Il veut rentrer dormir.', value: 'dormir' }],
+    hint: 'Relis le début : il pose une patte sur le sable…', explain: 'Le sable est chaud : le poney est surpris et recule.' }
+];
+function qcmDemo(bank, { read = false, cols = 2 } = {}) {
+  let idx = 0;
+  const holder = h('div', { class: 'hk-ex' });
+  const card = h('div', { class: 'card' }, holder);
+  function build() {
+    const q = bank[idx % bank.length];
+    let tries = 0;
+    const prompt = h('div', { class: 'hk-prompt ' + (read ? 'read' : 'q') }, /=\s*\?$/.test(q.text) ? [q.text.replace(/\s*\?$/, ' '), h('span', { class: 'hk-qmark' }, '?')] : T(q.text));
+    const say = h('div', { class: 'hk-say', 'data-empty': T(read ? 'Choisis la bonne phrase.' : 'Touche la bonne réponse.') });
+    const show = node => say.replaceChildren(...(node ? [node] : []));
+    const items = q.choices.map(c => (typeof c === 'object' ? { ...c, label: T(c.label) } : c));
+    const grid = kit.choiceGrid(items, {
+      read, cols, onPick: (v, b) => {
+        if (same(v, q.answer)) {
+          grid.mark(v, 'right'); grid.dimOthers(v); grid.disable();
+          kit.celebrateRight(b, ++st.streak);
+          show(kit.bubble(kit.cheer(tries ? 'helped' : 'right', rng), 'good', { icon: '🐴' }));
+        } else if (tries === 0) {
+          tries = 1; st.streak = 0;
+          grid.mark(v, 'wrong');
+          kit.gentleWrong(b);
+          show(kit.bubble(h('span', null, h('b', null, kit.cheer('retry', rng)), '\n', T(q.hint)), 'hint'));
+        } else {
+          grid.mark(v, 'wrong'); kit.gentleWrong(b);
+          grid.reveal(q.answer); grid.dimOthers(q.answer); grid.disable();
+          show(kit.bubble(h('span', null, h('b', null, kit.cheer('learn', rng)), '\n', T(q.explain)), 'soft'));
+        }
+      }
+    });
+    const again = btn('Nouvelle question ↻', 'white', () => { idx++; build(); });
+    holder.replaceChildren(prompt, grid.el, say, h('div', { class: 'hk-row' }, again));
+    motion.stagger(grid.buttons, el => motion.enter(el, { from: 'scale' }), 50);
+  }
+  build();
+  return card;
+}
+guide.append(section('s-qcm', '🔤', 'QCM (choix multiples)',
+  qcmDemo(QCM_NUM),
+  h('div', { class: 'mt-2' }, qcmDemo(QCM_READ, { read: true, cols: 1 })),
+  h('p', { class: 'hk-note' }, T('Juste : vert. Erreur : orange doux (jamais rouge). 2e erreur : la bonne réponse est révélée avec une pastille ✓.'))));
+
+/* ---------- bulles ---------- */
+guide.append(section('s-bulles', '💬', 'Bulles',
+  h('div', { class: 'card stack' },
+    kit.bubble(T('Petit coup de pouce : pour ajouter 9, ajoute 10 puis enlève 1.'), 'hint'),
+    kit.bubble(T('Presque ! Relis la phrase, la réponse s’y cache.'), 'soft'),
+    kit.bubble(T('Bravo, tu as trouvé du premier coup !'), 'good'),
+    kit.bubble(T('Caramel est tout content de jouer avec toi !'), 'good', { icon: '🐴' }),
+    kit.bubble(T('Une bulle sans pastille, pour un message neutre.'), 'hint', { icon: '' }))));
+
+/* ---------- toast et feuilles ---------- */
+function settingsSheet() {
+  const row = (label, on, fn) => {
+    const sw = h('button', { type: 'button', class: 'switch', role: 'switch', 'aria-checked': String(on), 'aria-label': label });
+    sw.addEventListener('click', () => { const v = sw.getAttribute('aria-checked') !== 'true'; sw.setAttribute('aria-checked', String(v)); fn(v); });
+    return h('div', { class: 'hk-switch-row' }, h('span', null, label), sw);
+  };
+  kit.sheet({
+    title: 'Réglages rapides',
+    content: h('div', null,
+      row('Sons du jeu', !audio.isMuted(), v => { audio.setMuted(!v); soundBtn.textContent = v ? '🔊' : '🔇'; }),
+      row('Animations douces', motion.getMode() === 'soft', v => { motion.setMode(v ? 'soft' : 'full'); motionBtn.textContent = v ? '🍃' : '✨'; }),
+      h('p', { class: 'hk-note' }, T('Glisse la feuille vers le bas, touche le fond ou appuie sur Échap pour fermer.'))),
+    actions: [{ label: 'Terminé ✓' }]
+  });
+}
+function bilanSheet() {
+  const gain = h('span', { class: 'num' }, '0');
+  const s = kit.sheet({
+    center: true,
+    title: kit.cheer('end', rng),
+    content: h('div', { class: 'hk-bilan' },
+      h('div', { class: 'pony anim-dance', 'aria-hidden': 'true' }, '🐴'),
+      h('div', { class: 'gain num' }, '🍎 +', gain),
+      h('p', null, T('Tu as trouvé 7 réponses du premier coup !')),
+      h('p', { class: 'small muted' }, T('🔥 3 jours de suite : +10 🍎'))),
+    actions: [{ label: 'Rejouer 🔄', kind: 'pink' }, { label: 'Accueil 🏠', kind: 'white' }]
+  });
+  motion.countUp(gain, 0, 18, 900);
+  audio.fanfare();
+  setTimeout(() => motion.confetti(), 150);
+  return s;
+}
+guide.append(section('s-feuilles', '🪟', 'Toast et feuilles',
+  h('div', { class: 'card' },
+    h('div', { class: 'hk-ctrls' },
+      mini('🍞', 'Toast', () => kit.toast(T(`🍎 +3 pommes ! ${kit.cheer('right', rng)}`))),
+      mini('⚙️', 'Feuille', settingsSheet),
+      mini('❓', 'Confirmer', () => kit.confirmSheet(T('Tu veux quitter la manche ? Tes pommes sont bien gardées.'),
+        { ok: 'Oui, quitter', cancel: 'Non, je reste', icon: '🐴' })
+        .then(ok => kit.toast(T(ok ? 'D’accord, à bientôt ! 👋' : 'Super, on continue ! 💪')))),
+      mini('🏁', 'Bilan', bilanSheet),
+      mini('📜', 'Longue feuille', () => kit.sheet({
+        title: 'Une feuille qui défile',
+        content: h('div', { class: 'stack' }, Array.from({ length: 14 }, (_, i) =>
+          h('div', { class: 'card flat' }, T(`Ligne ${i + 1} : la feuille défile, le fond reste immobile.`)))),
+        actions: [{ label: 'Fermer' }]
+      })),
+      mini('🔒', 'Non fermable', () => kit.sheet({
+        title: 'Choix obligatoire',
+        content: T('Cette feuille ne se ferme que par ses boutons (dismissable : false).'),
+        dismissable: false,
+        actions: [{ label: 'Compris ✓' }]
+      }))))));
+
+/* ---------- animations (motion.js) ---------- */
+const tree = h('div', { class: 'hk-tree', 'aria-hidden': 'true' }, '🌳');
+const pony = h('div', { class: 'hk-pony', 'aria-hidden': 'true' }, '🐴');
+const basketCount = h('span', { class: 'badge num' }, '0');
+const basket = h('div', { class: 'hk-basket', 'aria-hidden': 'true' }, h('span', { class: 'e' }, '🧺'), basketCount);
+const stage = h('div', { class: 'hk-stage' },
+  h('span', { class: 'sun', 'aria-hidden': 'true' }, '☀️'), h('span', { class: 'cloud anim-float', 'aria-hidden': 'true' }, '☁️'),
+  tree, pony, basket);
+const tiles = ['⭐', '🏅', '🎁', '🌈'].map(e => h('div', { class: 'hk-tile', 'aria-hidden': 'true' }, e));
+const counter = h('div', { class: 'hk-count num' }, '0');
+let counterTo = 1250;
+
+/* radar miniature : 6 axes, anneaux + polygone animé */
+const R = 50, C = 60;
+const pts = vals => vals.map((v, i) => { const a = (Math.PI * 2 * i) / vals.length - Math.PI / 2; return [C + Math.cos(a) * R * v, C + Math.sin(a) * R * v]; });
+const ring = f => svg('polygon', { points: pts([f, f, f, f, f, f]).map(p => p.join(',')).join(' '), fill: 'none', stroke: 'var(--pink-200)', 'stroke-width': 1.5 });
+const SHAPES = [[0.45, 0.7, 0.5, 0.8, 0.35, 0.6], [0.85, 0.55, 0.9, 0.6, 0.75, 0.95], [0.6, 0.9, 0.7, 0.4, 0.85, 0.5]];
+let shapeIdx = 0;
+const radarPoly = svg('polygon', { points: pts(SHAPES[0]).map(p => p.join(',')).join(' '), fill: 'var(--ma-fill)', stroke: 'var(--ma)', 'stroke-width': 2.5, 'stroke-linejoin': 'round', 'fill-opacity': 0.85 });
+const radar = svg('svg', { class: 'hk-radar', viewBox: '0 0 120 120', role: 'img', 'aria-label': 'Radar miniature' },
+  ring(1), ring(0.75), ring(0.5), radarPoly, svg('circle', { cx: C, cy: C, r: 3, fill: 'var(--ma)' }));
+
+const vtBox = h('div', { class: 'card hk-vt' });
+let vtState = 0;
+const vtRender = () => vtBox.replaceChildren(
+  h('span', { class: 'e', 'aria-hidden': 'true' }, vtState ? '🏰' : '🏡'),
+  h('div', null, h('p', { class: 'card-title' }, vtState ? 'Écran B' : 'Écran A'),
+    h('p', { class: 'card-sub' }, T(vtState ? 'Transition de vue (fondu + élément partagé).' : 'Touche « Transition » pour changer d’écran.'))));
+vtRender();
+
+const ctrls = h('div', { class: 'hk-ctrls' },
+  mini('🍎', 'Pommes ➜ panier', () => motion.flyTo(tree, basket, {
+    count: 5, onArrive: () => { audio.coin(); const f = st.basket++; motion.countUp(basketCount, f, st.basket, 200); }
+  })),
+  mini('🎈', 'Pop', () => motion.pop(tiles[0])),
+  mini('🐴', 'Squash', () => motion.squash(pony)),
+  mini('〰️', 'Secousse', () => { motion.shake(tiles[1]); audio.soft(); }),
+  mini('✨', 'Paillettes', () => { motion.sparkle(tiles[2]); audio.success(st.streak++); }),
+  mini('💥', 'Explosion', () => { motion.burst(tiles[3]); audio.fanfare(); }),
+  mini('🎉', 'Confettis', () => { motion.confetti(); audio.fanfare(); }),
+  mini('🃏', 'Cascade', () => motion.stagger(tiles, el => motion.enter(el, { from: 'bottom' }), 70)),
+  mini('🔢', 'Compteur', () => { const from = parseNum(counter.textContent) || 0; motion.countUp(counter, from, counterTo); counterTo = counterTo === 1250 ? 0 : 1250; }),
+  mini('🕸️', 'Radar', () => { shapeIdx = (shapeIdx + 1) % SHAPES.length; motion.morphPolygon(radarPoly, null, pts(SHAPES[shapeIdx])); }),
+  mini('🎬', 'Transition', () => { audio.whoosh(); motion.viewTransition(() => { vtState = 1 - vtState; vtRender(); }); }),
+  mini('💃', 'Danse', () => { pony.classList.remove('anim-dance'); void pony.offsetWidth; pony.classList.add('anim-dance'); audio.neigh(); }));
+
+guide.append(section('s-anim', '🎞️', 'Animations',
+  h('div', { class: 'card' }, stage, h('div', { class: 'hk-tiles' }, tiles), ctrls,
+    h('div', { class: 'hk-panel' },
+      h('div', { class: 'card flat' }, h('span', { class: 'hk-label' }, 'countUp'), counter),
+      h('div', { class: 'card flat' }, h('span', { class: 'hk-label' }, 'morphPolygon'), radar)),
+    h('div', { class: 'mt-2' }, vtBox)),
+  h('p', { class: 'hk-note' }, T('Mode « animations douces » (bouton 🍃 en haut) : fondus courts uniquement, aucune particule.'))));
+
+/* ---------- classes CSS de motion.css ---------- */
+const replay = (el, cls) => { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); };
+const fig = (node, name) => h('figure', null, node, h('figcaption', null, name));
+const replayTile = (e, cls) => {
+  const inner = h('span', { class: cls, style: { display: 'inline-block' } }, e);
+  const t = h('button', { type: 'button', class: 'hk-tile hk-replay', 'aria-label': 'Rejouer ' + cls }, inner);
+  t.addEventListener('click', () => replay(inner, cls));
+  return fig(t, cls.replace('anim-', ''));
+};
+guide.append(section('s-css', '🎨', 'Classes de motion.css',
+  h('div', { class: 'card' },
+    h('div', { class: 'hk-css' },
+      fig(h('div', { class: 'hk-tile' }, h('span', { class: 'anim-float', style: { display: 'inline-block' } }, '🎈')), 'float'),
+      fig(h('div', { class: 'hk-tile' }, h('span', { class: 'anim-twinkle', style: { display: 'inline-block' } }, '✨')), 'twinkle'),
+      fig(h('div', { class: 'hk-tile' }, h('span', { class: 'hk-medal anim-halo' }, '🏅')), 'halo'),
+      fig(h('div', { class: 'hk-tile' }, h('span', { class: 'hk-gold anim-shimmer' }, 'Or')), 'shimmer'),
+      replayTile('🔔', 'anim-wiggle'), replayTile('🐴', 'anim-dance'), replayTile('🏆', 'anim-spin-in'), replayTile('🍎', 'anim-pop-in')),
+    h('p', { class: 'hk-note' }, T('Classes .anim-* : la 1re ligne tourne en boucle (sauf en mode doux) ; touche une tuile de la 2e ligne pour rejouer son animation.')))));
+
+/* ---------- sons (audio.js) ---------- */
+let step = 0;
+const lamps = [0, 1, 2, 3].map(i => h('span', { class: 'hk-lamp' + (i === 0 ? ' strong' : '') }));
+const bpmEl = h('span', { class: 'hk-bpm num' }, '72 bpm');
+let metro = null, bpm = 72;
+const metroBtn = btn('▶ Démarrer', '', () => {
+  if (metro) { metro.stop(); metro = null; metroBtn.textContent = T('▶ Démarrer'); lamps.forEach(l => l.classList.remove('lit')); return; }
+  metro = audio.metronome({ bpm, beatsPerBar: 4, onBeat: (i, strong, { pos }) => {
+    lamps.forEach((l, k) => l.classList.toggle('lit', k === pos));
+    window.hkBeats = (window.hkBeats || 0) + 1;
+  } });
+  metroBtn.textContent = T('⏸ Arrêter');
+});
+const setBpm = d => { bpm = Math.max(40, Math.min(160, bpm + d)); bpmEl.textContent = bpm + ' bpm'; if (metro) metro.setBpm(bpm); };
+guide.append(section('s-sons', '🔊', 'Sons',
+  h('div', { class: 'card' },
+    h('div', { class: 'hk-ctrls' },
+      mini('🔔', 'Bip (v11)', () => audio.beep(880, 0.12, 0.12)),
+      mini('🎵', 'Réussite', () => { audio.success(step); step = (step + 1) % 11; }),
+      mini('🪵', 'Bois doux', () => audio.soft()),
+      mini('👆', 'Tap', () => audio.tap()),
+      mini('🍎', 'Pomme', () => audio.coin()),
+      mini('🎺', 'Fanfare', () => audio.fanfare()),
+      mini('💨', 'Souffle', () => audio.whoosh()),
+      mini('🐴', 'Hennissement', () => audio.neigh()),
+      mini('🐾', 'Sabots', () => audio.clipClop()),
+      mini('🎶', 'Gamme', () => audio.melody([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 0.16)),
+      mini('🎼', 'Mélodie', () => audio.melody([4, 4, 5, 7, null, 7, 5, 4, 2, 0, 0, 2, 4], 0.2)),
+      mini('🔇', 'Muet', () => soundBtn.click())),
+    h('div', { class: 'hk-metro mt-2' },
+      h('span', { class: 'hk-label' }, T('Métronome (temps fort en rose)')),
+      h('div', { class: 'hk-lamps' }, lamps),
+      h('div', { class: 'hk-row' },
+        h('button', { type: 'button', class: 'btn-icon', 'aria-label': 'Plus lent', on: { click: () => setBpm(-8) } }, '−'), bpmEl,
+        h('button', { type: 'button', class: 'btn-icon', 'aria-label': 'Plus rapide', on: { click: () => setBpm(8) } }, '+')),
+      metroBtn)),
+  h('p', { class: 'hk-note' }, T('Tous les sons sont synthétisés (aucun fichier). Le muet coupe tout, même un son en cours.'))));
+
+/* ---------- encouragements ---------- */
+const KINDS = [['right', 'Juste du premier coup'], ['retry', 'Après une première erreur'], ['helped', 'Juste avec de l’aide'], ['learn', 'Réponse montrée'], ['end', 'Fin de manche']];
+guide.append(section('s-cheer', '💛', 'Encouragements (cheer)',
+  h('div', { class: 'card hk-cheer' }, KINDS.flatMap(([k, label]) => {
+    const phrase = h('div', { class: 'phrase' }, kit.cheer(k, rng));
+    const again = h('button', { type: 'button', class: 'btn-icon', 'aria-label': 'Une autre phrase : ' + label }, '↻');
+    again.addEventListener('click', () => { phrase.textContent = kit.cheer(k, rng); motion.pop(phrase, { scale: 1.04 }); });
+    return [h('span', { class: 'kind hk-label' }, T(label) + ' · ' + kit.CHEERS[k].length + ' phrases'), phrase, again];
+  }))));
+
+guide.append(h('p', { class: 'hk-foot' }, T('Banc d’essai de Caramel 2 — rien n’est enregistré.')));
+
+/* accès pour les vérifications automatiques */
+window.hk = { kit, motion, audio, st };
+window.hkReady = true;
+</script>
+</body>
+</html>

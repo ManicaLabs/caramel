@@ -1,0 +1,45 @@
+/* ============ « QUI JOUE AUJOURD'HUI ? » ============ */
+.pf { position: relative; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; }
+.pf-top { position: absolute; top: calc(10px + var(--safe-t)); left: calc(10px + var(--safe-l)); }
+.pf-back[hidden] { display: none; }
+.pf-head { text-align: center; display: flex; flex-direction: column; gap: 6px; padding: 0 8px; }
+.pf-title { font-size: 2rem; }
+.pf-sub { color: var(--ink-2); }
+
+.pf-grid { width: 100%; max-width: 560px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.pf-grid.is-one { grid-template-columns: minmax(0, 220px); justify-content: center; }
+.pf-card {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 10px 14px; border-radius: var(--r-l);
+  background: #fff; border: 3px solid var(--pink-200); box-shadow: var(--shadow-1); min-width: 0;
+  transition: transform var(--dur-1) var(--ease-out), box-shadow var(--dur-2), opacity var(--dur-2), border-color var(--dur-2);
+}
+.pf-card:active { transform: scale(.97); }
+.pf-card.is-dim { opacity: .45; }
+.pf-stage {
+  position: relative; width: 100%; height: 118px; border-radius: var(--r-m); overflow: hidden; display: grid; place-items: end center;
+  background: linear-gradient(180deg, #bae6fd 0%, #e0f2fe 58%, #86efac 58%, #4ade80 100%);
+}
+.pf-pic { line-height: 0; margin-bottom: 4px; }
+.pf-pic svg { overflow: visible; }
+.pf-name { margin-top: 6px; font-size: 1.4rem; font-weight: 700; color: var(--title); line-height: 1.15; max-width: 100%; overflow-wrap: anywhere; text-align: center; }
+.pf-info { font-size: .95rem; font-weight: 600; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+.pf-add {
+  width: 100%; max-width: 560px; min-height: 60px; display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  border-radius: var(--r-l); background: var(--orange-50); border: 2px dashed var(--orange-300);
+  font-weight: 600; font-size: 1.1rem; color: var(--title);
+  transition: transform var(--dur-1) var(--ease-out), background var(--dur-2);
+}
+.pf-add:active { transform: scale(.98); background: var(--amber-100); }
+.pf-add-ico { font-size: 1.2rem; }
+
+@media (hover: hover) and (pointer: fine) {
+  .pf-card:hover { border-color: var(--pink-400); box-shadow: var(--shadow-2); transform: translateY(-2px); }
+  .pf-add:hover { background: var(--amber-100); }
+}
+@media (min-width: 900px) {
+  .pf-grid { max-width: 860px; grid-template-columns: repeat(auto-fit, minmax(190px, 220px)); justify-content: center; }
+  .pf-stage { height: 140px; }
+  .pf-add { max-width: 460px; }
+  .pf-title { font-size: 2.4rem; }
+}

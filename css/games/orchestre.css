@@ -1,0 +1,315 @@
+/* ============ LE CHEF D’ORCHESTRE (js/games/orchestre.js) ============
+   Mobile d'abord (390 × 844) : portée en haut, scène (qui cède sa place quand une bulle s'ouvre),
+   carte de la phrase (Andika), bulle d'aide, choix à portée de pouce. Couleurs = jetons de base.css.
+   Mouvement : balancements et battue pilotés par le JS (désactivés en mouvement réduit) ; ici, impulsions
+   sur le temps (choix, sujet, trou) avec des variantes « couleur seule » en mouvement réduit / animations douces. */
+
+.orc {
+  flex: 1; min-height: 0; width: 100%; max-width: 760px; margin: 0 auto;
+  display: flex; flex-direction: column; gap: 8px; padding-top: 2px;
+  overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
+}
+.orc::-webkit-scrollbar { display: none; }
+.orc-left, .orc-right { display: contents; }
+
+/* ---------- portée ---------- */
+.orc-staff {
+  flex: none; align-self: center; width: min(100%, 540px); aspect-ratio: 364 / 62;
+  background: #fff; border: 2px solid var(--pink-200); border-radius: var(--r-m); box-shadow: var(--shadow-1);
+  padding: 1px 2px; overflow: hidden;
+}
+.orc-staff-svg { width: 100%; height: 100%; overflow: visible; }
+.orc-staff-svg .sf-lines line, .orc-staff-svg .sf-bars line { stroke: var(--ink-5); stroke-width: 1.1; }
+.orc-staff-svg .sf-bars .sf-end { stroke: var(--ink-4); }
+.orc-staff-svg .sf-clef { fill: none; stroke: var(--ink-2); stroke-width: 2.3; stroke-linecap: round; stroke-linejoin: round; }
+.orc-staff-svg .sf-clef-dot { fill: var(--ink-2); }
+.orc-staff-svg .sf-time { font-family: var(--font-ui); font-weight: 700; font-size: 16.5px; fill: var(--ink-2); }
+.orc-staff-svg .sf-note { color: var(--ink); }
+.orc-staff-svg .sf-note.is-rabbit { color: var(--pink-400); }
+.orc-staff-svg .sf-note.is-frog { color: var(--ok); }
+.orc-staff-svg .sf-note.is-fox { color: var(--title); }
+.orc-staff-svg .sf-head { fill: currentColor; }
+.orc-staff-svg .sf-stem { stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
+.orc-staff-svg .sf-ledger { stroke: var(--ink-4); stroke-width: 1.2; }
+.orc-staff-svg .sf-note-in { transform-box: fill-box; transform-origin: 50% 50%; }
+.orc-staff-svg .sf-note.is-glow .sf-note-in { animation: sf-glow 560ms var(--ease-out); }
+.orc-staff-svg .sf-final line { stroke: var(--ink-2); stroke-width: 1.2; }
+.orc-staff-svg .sf-final rect { fill: var(--ink-2); }
+@keyframes sf-glow {
+  0%   { scale: 1; }
+  30%  { scale: 1.5; filter: drop-shadow(0 0 2.5px var(--amber-300)); }
+  100% { scale: 1; }
+}
+
+/* ---------- scène ---------- */
+.orc-stage {
+  flex: 0 1 auto; width: 100%; aspect-ratio: 360 / 214; min-height: 72px; max-height: 270px;
+  position: relative; container-type: size; display: grid; place-items: center;
+}
+.orc-stage-in { position: relative; width: 100%; height: 100%; }
+@supports (width: 1cqw) {
+  .orc-stage-in { width: min(100cqw, 168.22cqh); height: min(100cqh, 59.44cqw); }
+}
+.orc-scene { position: absolute; inset: 0; width: 100%; height: 100%; filter: drop-shadow(0 4px 10px rgba(180, 83, 9, .14)); }
+.orc-scene .g-wall-a { stop-color: var(--pink-100); }
+.orc-scene .g-wall-b { stop-color: var(--bg-2); }
+.orc-scene .g-floor-a { stop-color: var(--amber-300); }
+.orc-scene .g-floor-b { stop-color: var(--amber-400); }
+.orc-scene .g-beam-a { stop-color: #fff; stop-opacity: .95; }
+.orc-scene .g-beam-b { stop-color: #fff; stop-opacity: 0; }
+.orc-scene .st-garland .c-pink { fill: var(--pink-400); }
+.orc-scene .st-garland .c-amber { fill: var(--amber-300); }
+.orc-scene .st-garland .c-sky { fill: var(--sky); }
+.orc-scene .st-string { stroke: var(--ink-4); stroke-width: 1; }
+.orc-scene .st-planks line { stroke: var(--amber-500); stroke-opacity: .32; stroke-width: 1; }
+.orc-scene .st-edge { fill: var(--amber-200); }
+.orc-scene .st-riser-top { fill: var(--amber-300); }
+.orc-scene .st-riser { fill: var(--amber-500); }
+.orc-scene .st-riser-lines line { stroke: var(--amber-900); stroke-opacity: .16; stroke-width: 1.2; }
+.orc-scene .st-lip { fill: var(--amber-500); }
+.orc-scene .st-pools ellipse { fill: #fff; opacity: .6; }
+.orc-scene .st-lamps rect { fill: var(--ink-2); transition: fill var(--dur-3); }
+.orc-stage.is-playing .orc-scene .st-lamps rect { fill: var(--amber-300); }
+.orc-scene .c-podium-top { fill: var(--pink-400); }
+.orc-scene .c-podium { fill: var(--pink-200); }
+.orc-scene .c-podium-star { fill: var(--amber-400); }
+.orc-scene .c-baton { stroke: var(--ink); stroke-width: 2.2; stroke-linecap: round; }
+.orc-scene .c-baton-tip { fill: #fff; stroke: var(--ink-4); stroke-width: .8; }
+.orc-scene .c-baton-grip { fill: var(--ink-2); }
+.orc-scene .st-curtain, .orc-scene .st-valance { fill: var(--pink-400); }
+.orc-scene .st-curtain-fold { stroke: var(--pink-800); stroke-opacity: .22; stroke-width: 2.2; stroke-linecap: round; }
+.orc-scene .st-trim { stroke: var(--amber-300); stroke-width: 2.4; stroke-linecap: round; }
+
+/* musiciens (aplats) */
+.orc-scene .c-shadow { fill: var(--amber-500); opacity: .28; }
+.orc-scene .c-eye, .orc-scene .c-nose { fill: var(--ink); }
+.orc-scene .c-shine, .orc-scene .c-white { fill: #fff; }
+.orc-scene .c-blush { fill: var(--pink-200); opacity: .9; }
+.orc-scene .c-mouth { fill: none; stroke: var(--ink); stroke-width: 1.2; stroke-linecap: round; }
+.orc-scene .c-bear { fill: var(--ink-3); }
+.orc-scene .c-bear-d { fill: var(--ink-2); }
+.orc-scene .c-bear-l { fill: var(--ink-5); }
+.orc-scene .c-drum { fill: var(--pink-400); }
+.orc-scene .c-drum-cord { stroke: #fff; stroke-width: 1.4; stroke-linejoin: round; }
+.orc-scene .c-drum-rim { fill: var(--amber-300); }
+.orc-scene .c-drum-skin { fill: var(--amber-100); }
+.orc-scene .c-stick { stroke: var(--ink-2); stroke-width: 2; stroke-linecap: round; }
+.orc-scene .c-stick-tip { fill: var(--amber-100); stroke: var(--ink-2); stroke-width: .8; }
+.orc-scene .c-rabbit { fill: #fff; stroke: var(--pink-200); stroke-width: 1; }
+.orc-scene .c-rabbit-b { fill: var(--pink-50); }
+.orc-scene .c-rabbit-s { fill: var(--pink-100); }
+.orc-scene .c-rabbit-e { fill: var(--pink-200); }
+.orc-scene .c-rnose { fill: var(--pink-400); }
+.orc-scene .c-whisk { fill: none; stroke: var(--ink-4); stroke-width: .7; stroke-linecap: round; }
+.orc-scene .c-violin { fill: var(--title); }
+.orc-scene .c-neck { fill: var(--ink-2); }
+.orc-scene .c-fhole { stroke: var(--amber-900); stroke-width: .8; stroke-linecap: round; }
+.orc-scene .c-string { stroke: var(--amber-100); stroke-width: .6; }
+.orc-scene .c-bridge { fill: var(--amber-100); }
+.orc-scene .c-bow { stroke: var(--ink-2); stroke-width: 1.7; stroke-linecap: round; }
+.orc-scene .c-bow-hair { stroke: #fff; stroke-width: .8; }
+.orc-scene .c-frog { fill: var(--grass); }
+.orc-scene .c-frog-d { fill: var(--ok); }
+.orc-scene .c-frog-b { fill: var(--ok-bg); }
+.orc-scene .c-frog-spot { fill: var(--ok); opacity: .35; }
+.orc-scene .c-fmouth { fill: none; stroke: var(--ok-ink); stroke-width: 1.4; stroke-linecap: round; }
+.orc-scene .c-brass { fill: var(--amber-400); stroke: var(--amber-900); stroke-opacity: .5; stroke-width: .7; stroke-linejoin: round; }
+.orc-scene .c-brass-d { fill: var(--amber-500); stroke: var(--amber-900); stroke-opacity: .4; stroke-width: .5; }
+.orc-scene .c-brass-l { fill: var(--amber-200); stroke: var(--amber-500); stroke-width: .8; }
+.orc-scene .c-fox { fill: var(--amber-500); }
+.orc-scene .c-fox-d { fill: var(--ink-2); }
+.orc-scene .c-fox-in { fill: var(--amber-100); }
+.orc-scene .c-piano { fill: var(--ink); }
+.orc-scene .c-piano-d { fill: var(--ink-2); }
+.orc-scene .c-keys { fill: #fff; }
+.orc-scene .c-keyline { stroke: var(--ink-5); stroke-width: .6; }
+.orc-scene .c-bkey { fill: var(--ink); }
+.orc-scene .c-piano-dot { fill: var(--amber-300); }
+
+/* pivots des animations (pilotées par motion WAAPI) */
+.orc-scene .mus, .orc-scene .mus-body { transform-box: fill-box; transform-origin: 50% 100%; }
+.orc-scene .mus-extra { transform-box: fill-box; transform-origin: 50% 50%; }
+.orc-scene .mus-frog .mus-extra { transform-origin: 0% 55%; }
+.orc-scene .st-baton { transform-box: fill-box; transform-origin: 3.3% 50%; rotate: -24deg; }
+.orc-scene .bear-stick-r { transform-box: fill-box; transform-origin: 69% 25%; }
+.orc-scene .drum-skin { transform-box: fill-box; transform-origin: 50% 50%; }
+.orc-scene .st-cond-svg { transform-box: fill-box; transform-origin: 50% 100%; }
+.orc-scene .st-fx-in { transform-box: fill-box; transform-origin: 50% 50%; opacity: 0; }
+.orc-scene .st-fx ellipse { fill: currentColor; }
+.orc-scene .st-fx path { stroke: currentColor; }
+.orc-scene .st-fx.is-rabbit { color: var(--pink-400); }
+.orc-scene .st-fx.is-frog { color: var(--ok); }
+.orc-scene .st-fx.is-fox { color: var(--title); }
+
+/* tempo (♩ = 72) */
+.orc-tempo {
+  position: absolute; bottom: 5.5%; right: 2.6%; display: inline-flex; align-items: baseline; gap: 3px;
+  padding: 1px 9px 2px; border-radius: var(--r-pill); background: #fff; border: 2px solid var(--amber-200);
+  font-weight: 700; font-size: .82rem; line-height: 1.2; color: var(--amber-900); font-variant-numeric: tabular-nums;
+  box-shadow: var(--shadow-1); transition: background var(--dur-2), border-color var(--dur-2);
+}
+@container (max-height: 130px) { .orc-tempo { display: none; } }
+.orc-tempo-ico { display: inline-flex; align-self: center; }
+.orc-tempo-ico svg { display: block; fill: currentColor; }
+.orc-tempo.is-max { background: var(--amber-200); border-color: var(--amber-400); }
+
+/* ---------- carte de la phrase ---------- */
+.orc-card {
+  flex: none; background: var(--card); border: var(--line); border-radius: var(--r-l);
+  padding: 10px 14px 12px; box-shadow: var(--shadow-1);
+}
+.orc-prompt { font-weight: 600; font-size: 1rem; line-height: 1.4; color: var(--ink-2); }
+.orc-tense {
+  display: inline-block; padding: 0 9px; margin: 0 1px; border-radius: var(--r-pill);
+  background: var(--amber-100); border: 2px solid var(--amber-300); color: var(--amber-900);
+  font-weight: 700; white-space: nowrap; line-height: 1.35;
+}
+.orc-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 7px; }
+.orc-tags[hidden], .orc-model[hidden] { display: none; }
+.orc-verb {
+  display: inline-flex; align-items: baseline; gap: 6px; padding: 1px 12px 2px; border-radius: var(--r-pill);
+  background: var(--pink-50); border: 2px solid var(--pink-200); color: var(--pink-800);
+}
+.orc-verb-k { font-size: .74rem; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; color: var(--ink-3); }
+.orc-verb b { font-size: 1.12rem; font-weight: 700; }
+.orc-model {
+  margin-top: 7px; padding: 5px 10px; border-radius: var(--r-s); background: var(--orange-50);
+  border: 2px dashed var(--orange-300); font-size: 1.08rem; line-height: 1.35; color: var(--ink-2);
+}
+.orc-model-k { font-family: var(--font-ui); font-weight: 700; font-size: .74rem; letter-spacing: .5px; text-transform: uppercase; color: var(--ink-3); }
+.orc-sentence {
+  margin-top: 8px; font-size: 1.6rem; line-height: 1.5; color: var(--ink);
+  overflow-wrap: break-word; text-wrap: pretty;
+}
+.orc-card.is-intro .orc-sentence, .orc-card.is-finale .orc-sentence { font-size: 1.12rem; line-height: 1.45; color: var(--ink-2); margin-top: 4px; }
+.orc-intro-title { font-weight: 700; font-size: 1.3rem; color: var(--title); }
+
+/* trou (largeur du plus long choix possible, jamais de la bonne réponse) */
+.orc-slot {
+  display: inline-block; vertical-align: baseline; max-width: 100%;
+  min-width: min(100%, calc(var(--len, 6) * .5em + .6em)); padding: 0 .2em; margin: 0 .03em;
+  border-radius: 10px 10px 4px 4px; background: var(--amber-100); border-bottom: 3px dashed var(--amber-400);
+  color: var(--ink); text-align: center; line-height: 1.22;
+  transition: background var(--dur-2), border-color var(--dur-2), color var(--dur-2);
+}
+.orc-slot-in:empty::before { content: '\00a0'; }
+.orc-slot.is-ending {
+  min-width: calc(var(--len, 3) * .56em + .3em); margin-left: 0; padding: 0 .12em 0 0;
+  border-radius: 3px 10px 4px 3px; text-align: left;
+}
+.orc-slot.is-filled { min-width: 0; background: var(--ok-bg); border-bottom: 3px solid var(--ok); color: var(--ok-ink); }
+.orc-word { white-space: nowrap; }
+.orc-slot.beat-a { animation: orc-slot-a 520ms var(--ease-out); }
+.orc-slot.beat-b { animation: orc-slot-b 520ms var(--ease-out); }
+@keyframes orc-slot-a { 0% { scale: 1; } 24% { scale: 1.07; background-color: var(--amber-200); border-bottom-color: var(--amber-500); } 100% { scale: 1; } }
+@keyframes orc-slot-b { 0% { scale: 1; } 24% { scale: 1.07; background-color: var(--amber-200); border-bottom-color: var(--amber-500); } 100% { scale: 1; } }
+
+/* sujet mis en valeur (trait de surligneur), qui s'allume sur le temps fort */
+.orc-sentence.show-subj .orc-subj {
+  background-image: linear-gradient(transparent 58%, var(--amber-200) 58%);
+  border-radius: 3px; padding: 0 .05em; -webkit-box-decoration-break: clone; box-decoration-break: clone;
+}
+.orc-sentence.show-subj .orc-subj.beat-a { animation: orc-subj-a 640ms var(--ease-out); }
+.orc-sentence.show-subj .orc-subj.beat-b { animation: orc-subj-b 640ms var(--ease-out); }
+@keyframes orc-subj-a { 0% { background-color: transparent; } 16% { background-color: var(--amber-200); color: var(--amber-900); } 100% { background-color: transparent; } }
+@keyframes orc-subj-b { 0% { background-color: transparent; } 16% { background-color: var(--amber-200); color: var(--amber-900); } 100% { background-color: transparent; } }
+
+/* verbe souligné (« À quel temps est conjugué le verbe souligné ? ») */
+.orc-verbu {
+  display: inline-block; font-weight: 700; padding: 0 .08em; border-radius: 6px;
+  text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 5px;
+  text-decoration-color: var(--amber-500); text-decoration-skip-ink: none;
+}
+.orc-verbu.is-right, .orc-verbu.is-shown { color: var(--ok-ink); background: var(--ok-bg); text-decoration-color: var(--ok); }
+.orc-verbu.beat-a { animation: orc-verb-a 600ms var(--ease-out); }
+.orc-verbu.beat-b { animation: orc-verb-b 600ms var(--ease-out); }
+@keyframes orc-verb-a { 0% { background-color: transparent; } 18% { background-color: var(--amber-100); color: var(--amber-900); } 100% { background-color: transparent; } }
+@keyframes orc-verb-b { 0% { background-color: transparent; } 18% { background-color: var(--amber-100); color: var(--amber-900); } 100% { background-color: transparent; } }
+
+/* ---------- bas de l'écran (à portée de pouce) : bulle d'aide + choix ---------- */
+.orc-bottom { flex: none; margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
+.orc-okbox:empty { display: none; }
+.orc-help { flex: none; display: flex; flex-direction: column; gap: 8px; }
+.orc-help:empty { display: none; }
+.orc-help .kit-bubble-body { font-size: .98rem; line-height: 1.38; }
+.orc-ok { min-height: 52px; }
+
+/* ---------- choix ---------- */
+.orc-answers { flex: none; padding-bottom: 2px; }
+.orc-grid { gap: 10px; }
+.orc-grid .choice.read { justify-content: center; text-align: center; font-size: 1.28rem; min-height: 60px; padding: 8px 12px; }
+.orc-grid .choice.read.is-long { font-size: 1.05rem; }
+.orc-grid.is-tiles .choice.read { font-size: 1.6rem; letter-spacing: .5px; }
+.orc-answers.beat-a .choice:not(:disabled):not(.wrong):not(.right) { animation: orc-pulse-a 340ms var(--ease-out); }
+.orc-answers.beat-b .choice:not(:disabled):not(.wrong):not(.right) { animation: orc-pulse-b 340ms var(--ease-out); }
+.orc-answers.is-strong.beat-a .choice:not(:disabled):not(.wrong):not(.right) { animation-name: orc-pulse-sa; animation-duration: 420ms; }
+.orc-answers.is-strong.beat-b .choice:not(:disabled):not(.wrong):not(.right) { animation-name: orc-pulse-sb; animation-duration: 420ms; }
+@keyframes orc-pulse-a { 0% { scale: 1; } 30% { scale: 1.02; } 100% { scale: 1; } }
+@keyframes orc-pulse-b { 0% { scale: 1; } 30% { scale: 1.02; } 100% { scale: 1; } }
+@keyframes orc-pulse-sa { 0% { scale: 1; } 28% { scale: 1.04; border-color: var(--pink-400); } 100% { scale: 1; } }
+@keyframes orc-pulse-sb { 0% { scale: 1; } 28% { scale: 1.04; border-color: var(--pink-400); } 100% { scale: 1; } }
+.orc-grid.is-learn .choice:not(.revealed) { display: none; }
+.orc-grid.is-learn .choice.revealed { grid-column: 1 / -1; }
+.orc-go, .orc-skip { min-height: 60px; }
+
+/* ---------- petits écrans (≤ 700 px de haut) : tout tient, la scène cède sa place ---------- */
+@media (max-height: 700px) {
+  .orc { gap: 6px; }
+  .orc-staff { width: min(100%, 300px); }
+  .orc-stage { min-height: 52px; }
+  .orc-card { padding: 8px 12px 10px; }
+  .orc-prompt { font-size: .94rem; }
+  .orc-tags { margin-top: 5px; }
+  .orc-model { margin-top: 5px; font-size: 1rem; }
+  .orc-sentence { font-size: 1.5rem; line-height: 1.42; margin-top: 6px; }
+  .orc-help .kit-bubble-body { font-size: .92rem; line-height: 1.32; }
+  .orc-bottom { gap: 8px; }
+  .orc-grid { gap: 8px; }
+  .orc-grid .choice.read { min-height: 52px; font-size: 1.15rem; }
+  .orc-grid.is-tiles .choice.read { font-size: 1.4rem; }
+}
+
+/* ---------- écrans hauts : plus de place pour les doigts et les yeux ---------- */
+@media (min-height: 780px) {
+  .orc-sentence { font-size: 1.72rem; }
+  .orc-grid .choice.read { min-height: 68px; }
+  .orc-grid { gap: 12px; }
+}
+
+/* ---------- grand écran ---------- */
+@media (min-width: 700px) {
+  .orc { gap: 10px; }
+  .orc-sentence { font-size: 1.85rem; }
+  .orc-card { padding: 14px 20px 16px; }
+}
+/* paysage large (PC, tablette couchée) : décor à gauche, phrase et choix à droite */
+@media (min-width: 900px) and (min-aspect-ratio: 5/4) {
+  .orc { flex-direction: row; align-items: stretch; gap: 24px; max-width: 980px; padding-top: 6px; }
+  .orc-left { display: flex; flex-direction: column; gap: 12px; flex: 1.08 1 0; min-width: 0; }
+  .orc-right { display: flex; flex-direction: column; gap: 10px; flex: 1 1 0; min-width: 0; }
+  .orc-staff { width: 100%; }
+  .orc-stage { max-height: none; }
+  .orc-sentence { font-size: 1.75rem; }
+}
+@media (hover: hover) and (pointer: fine) {
+  .orc-grid .choice:hover:not(:disabled) { border-color: var(--pink-400); }
+}
+
+/* ---------- mouvement réduit / animations douces : couleurs seulement ---------- */
+@keyframes orc-color-a { 0% { border-color: var(--pink-200); } 30% { border-color: var(--pink-400); } 100% { border-color: var(--pink-200); } }
+@keyframes orc-color-b { 0% { border-color: var(--pink-200); } 30% { border-color: var(--pink-400); } 100% { border-color: var(--pink-200); } }
+@keyframes orc-slot-ca { 24% { background-color: var(--amber-200); border-bottom-color: var(--amber-500); } }
+@keyframes orc-slot-cb { 24% { background-color: var(--amber-200); border-bottom-color: var(--amber-500); } }
+@keyframes sf-glow-c { 30% { filter: drop-shadow(0 0 2.5px var(--amber-300)); opacity: .55; } }
+html.motion-soft .orc-answers.beat-a .choice:not(:disabled):not(.wrong):not(.right) { animation: orc-color-a 420ms ease-out; }
+html.motion-soft .orc-answers.beat-b .choice:not(:disabled):not(.wrong):not(.right) { animation: orc-color-b 420ms ease-out; }
+html.motion-soft .orc-slot.beat-a { animation: orc-slot-ca 520ms ease-out; }
+html.motion-soft .orc-slot.beat-b { animation: orc-slot-cb 520ms ease-out; }
+html.motion-soft .orc-staff-svg .sf-note.is-glow .sf-note-in { animation: sf-glow-c 560ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .orc-answers.beat-a .choice:not(:disabled):not(.wrong):not(.right) { animation: orc-color-a 420ms ease-out; }
+  .orc-answers.beat-b .choice:not(:disabled):not(.wrong):not(.right) { animation: orc-color-b 420ms ease-out; }
+  .orc-slot.beat-a { animation: orc-slot-ca 520ms ease-out; }
+  .orc-slot.beat-b { animation: orc-slot-cb 520ms ease-out; }
+  .orc-staff-svg .sf-note.is-glow .sf-note-in { animation: sf-glow-c 560ms ease-out; }
+}

@@ -1,0 +1,70 @@
+/* ============ « MES PROGRÈS » (js/ui/progres.js) ============ */
+.pg-screen { display: flex; flex-direction: column; gap: 12px; }
+.pg-top-gap { width: 48px; flex: none; }
+
+/* ---------- bulle d'encouragement ---------- */
+.pg-hero {
+  display: flex; align-items: center; gap: 14px; padding: 14px 16px;
+  border-color: var(--amber-200); background: linear-gradient(160deg, #fffbeb 0%, #fff 55%, var(--pink-50) 100%);
+}
+.pg-hero-ava {
+  flex: none; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; font-size: 2.3rem; line-height: 1;
+  background: radial-gradient(circle at 35% 30%, #fff 0%, var(--amber-100) 75%); border: 3px solid var(--amber-200);
+}
+.pg-hero-txt { min-width: 0; }
+.pg-hero-title { font-size: 1.3rem; font-weight: 700; color: var(--title); line-height: 1.2; }
+.pg-hero-msg { margin-top: 4px; color: var(--ink-2); font-size: 1rem; line-height: 1.4; }
+
+/* ---------- légende ---------- */
+.pg-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; font-size: .92rem; font-weight: 600; color: var(--ink-2); }
+.pg-legend-item { display: inline-flex; align-items: center; gap: 7px; }
+.pg-key { display: inline-block; flex: none; }
+.pg-key--ref { width: 26px; height: 0; border-top: 2.5px dashed var(--ink-3); }
+.pg-key--cur { width: 22px; height: 14px; border-radius: 4px; background: linear-gradient(90deg, var(--fr-fill) 50%, var(--ma-fill) 50%);
+  box-shadow: inset 0 0 0 2px var(--ink-5); }
+.pg-key--star { font-size: 1rem; line-height: 1; }
+
+/* ---------- radars ---------- */
+.pg-radars { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.pg-card { padding: 12px 6px 10px; }
+.pg-card-title { display: flex; align-items: center; gap: 8px; padding: 0 10px 2px; font-size: 1.15rem; font-weight: 700; color: var(--ink); }
+.pg-card-emo { font-size: 1.3rem; line-height: 1; }
+.pg-card--fr { border-color: var(--fr-fill); }
+.pg-card--ma { border-color: var(--ma-fill); }
+
+/* ---------- médailles ---------- */
+.pg-medals-sec .section-title { margin-top: 10px; }
+.pg-medals { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 14px 8px; padding: 6px 2px 2px; }
+.pg-medal { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+.pg-medal.is-waiting { opacity: 0; }
+.pg-medal--or     { --m1: var(--amber-200); --m2: var(--amber-400); --m3: var(--amber-500); }
+.pg-medal--argent { --m1: #fff;             --m2: var(--fr-fill);   --m3: var(--fr); }
+.pg-medal--bronze { --m1: var(--ma-fill);   --m2: var(--orange-300); --m3: var(--ma); }
+.pg-medal-disc {
+  position: relative; width: 66px; height: 66px; margin-top: 16px; border-radius: 50%; display: grid; place-items: center;
+  background: radial-gradient(circle at 34% 28%, #fff 0 14%, var(--m1) 15% 55%, var(--m2) 56% 100%);
+  border: 3px solid var(--m3); box-shadow: 0 3px 0 var(--m3), var(--shadow-1);
+}
+.pg-medal-disc::before {                       /* ruban */
+  content: ''; position: absolute; z-index: -1; left: 50%; top: -18px; width: 34px; height: 26px; transform: translateX(-50%);
+  background: linear-gradient(90deg, var(--pink-400) 0 50%, var(--sky) 50% 100%);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%);
+}
+.pg-medal-disc::after {                        /* reflet */
+  content: ''; position: absolute; inset: 7px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .7); border-bottom-color: transparent; border-right-color: transparent;
+}
+.pg-medal-emo { font-size: 1.75rem; line-height: 1; position: relative; z-index: 1; }
+.pg-medal-name { font-weight: 700; font-size: .92rem; line-height: 1.2; color: var(--ink); }
+.pg-medal-tier { font-size: .8rem; color: var(--ink-3); font-weight: 600; }
+.pg-medal.anim-spin-in { animation-delay: calc(var(--i, 0) * 90ms); }
+.pg-medals-empty { display: flex; align-items: center; gap: 12px; color: var(--ink-2); }
+.pg-medals-empty-emo { font-size: 2rem; line-height: 1; filter: grayscale(.3); }
+
+.pg-home { margin-top: 8px; }
+
+/* ---------- grand écran : radars côte à côte ---------- */
+@media (min-width: 900px) {
+  .pg-radars { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pg-hero { padding: 18px 22px; }
+  .pg-medals { grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); }
+}

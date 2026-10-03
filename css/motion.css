@@ -1,0 +1,100 @@
+/* ============ CARAMEL 2 · MOUVEMENT (keyframes génériques + classes utilitaires) ============
+   Complète js/core/motion.js (Web Animations API) pour les animations déclaratives.
+   Courbes et durées : jetons de base.css (--ease-out, --ease-pop, --dur-1/2/3).
+   Mouvement réduit : préférence système → fondus courts seulement ;
+   réglage « animations douces » (html.motion-soft, posé par motion.setMode) → aucune boucle infinie,
+   entrées en simple fondu.
+   Usage : <span class="anim-float">🎈</span> ; rejouer une animation ponctuelle = retirer la classe,
+   forcer un reflow (el.offsetWidth), remettre la classe. Délais en cascade : .anim-d1 … .anim-d6. */
+
+/* ---------- keyframes ---------- */
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fade-up { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes pop-in {
+  0%   { opacity: 0; transform: scale(.6); }
+  60%  { opacity: 1; transform: scale(1.07); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes twinkle {                       /* étoiles des axes en progrès (radar) */
+  0%, 100% { opacity: .55; transform: scale(.82) rotate(0deg); }
+  50%      { opacity: 1;   transform: scale(1.14) rotate(14deg); }
+}
+@keyframes float {                         /* flottement doux (ballons, nuages, icônes) */
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+@keyframes wiggle {                        /* petit « coucou » pour attirer l'œil */
+  0%, 100% { transform: rotate(0deg); }
+  18% { transform: rotate(-8deg); }
+  36% { transform: rotate(7deg); }
+  54% { transform: rotate(-4deg); }
+  72% { transform: rotate(2deg); }
+}
+/* danse du compagnon en fin de balade : élan, saut, atterrissage, puis petite vrille sur lui-même.
+   Même liste de fonctions dans chaque étape (interpolation fonction par fonction, pas de matrice). */
+@keyframes dance {
+  0%   { transform: translateY(0)     rotate(0deg)  rotateY(0deg)   scale(1, 1); }
+  10%  { transform: translateY(0)     rotate(0deg)  rotateY(0deg)   scale(1.1, .88); }
+  28%  { transform: translateY(-34px) rotate(-7deg) rotateY(0deg)   scale(.94, 1.07); }
+  44%  { transform: translateY(0)     rotate(0deg)  rotateY(0deg)   scale(1.08, .92); }
+  54%  { transform: translateY(0)     rotate(0deg)  rotateY(0deg)   scale(1, 1); }
+  74%  { transform: translateY(-24px) rotate(4deg)  rotateY(180deg) scale(1, 1); }
+  90%  { transform: translateY(0)     rotate(0deg)  rotateY(360deg) scale(1.06, .94); }
+  100% { transform: translateY(0)     rotate(0deg)  rotateY(360deg) scale(1, 1); }
+}
+@keyframes shimmer {                       /* reflet qui traverse (badge or, chargement) */
+  0%        { transform: translateX(-110%); }
+  60%, 100% { transform: translateX(110%); }
+}
+@keyframes halo {                          /* halo qui pulse autour d'un badge */
+  0%   { box-shadow: 0 0 0 0 rgba(251, 191, 36, .55); }
+  70%  { box-shadow: 0 0 0 16px rgba(251, 191, 36, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
+}
+@keyframes spin-in {                       /* révélation rotative (badge, récompense) */
+  0%   { opacity: 0; transform: rotate(-200deg) scale(.3); }
+  70%  { opacity: 1; transform: rotate(12deg) scale(1.08); }
+  100% { opacity: 1; transform: rotate(0deg) scale(1); }
+}
+
+/* ---------- classes utilitaires ---------- */
+.anim-fade-in  { animation: fade-in var(--dur-2) ease-out both; }
+.anim-fade-up  { animation: fade-up var(--dur-3) var(--ease-out) both; }
+.anim-pop-in   { animation: pop-in 460ms var(--ease-out) both; }
+.anim-spin-in  { animation: spin-in 720ms var(--ease-out) both; }
+.anim-wiggle   { animation: wiggle 640ms var(--ease-out) both; transform-origin: 50% 85%; }
+.anim-dance    { animation: dance 1.4s var(--ease-out) both; transform-origin: 50% 100%; transform-box: fill-box; }
+.anim-twinkle  { animation: twinkle 1.8s ease-in-out infinite; }
+.anim-float    { animation: float 3.5s ease-in-out infinite; }
+.anim-halo     { animation: halo 2.2s ease-out infinite; }
+/* reflet : pseudo-élément par-dessus le contenu (l'élément devient le bloc de référence) */
+.anim-shimmer  { position: relative; overflow: hidden; isolation: isolate; }
+.anim-shimmer::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, .7) 50%, transparent 70%);
+  transform: translateX(-110%); animation: shimmer 2.8s ease-in-out infinite;
+}
+.anim-d1 { animation-delay: 60ms; }  .anim-d2 { animation-delay: 120ms; } .anim-d3 { animation-delay: 180ms; }
+.anim-d4 { animation-delay: 240ms; } .anim-d5 { animation-delay: 300ms; } .anim-d6 { animation-delay: 360ms; }
+
+/* éléments créés par motion.js (styles en ligne aussi posés par le JS : rien ne dépend de ce fichier) */
+.mo-fx, .mo-confetti, .mo-fly { pointer-events: none; }
+
+/* ---------- transitions d'écran (document.startViewTransition, cf. motion.viewTransition) ---------- */
+::view-transition-old(root) { animation: 160ms ease-in both vt-out; }
+::view-transition-new(root) { animation: 320ms var(--ease-out) both vt-in; }
+::view-transition-group(*)  { animation-duration: 380ms; animation-timing-function: var(--ease-out); }
+@keyframes vt-out { to { opacity: 0; } }
+@keyframes vt-in  { from { opacity: 0; transform: translateY(10px); } }
+
+/* ---------- mouvement réduit (préférence système) : fondus courts uniquement ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .anim-float, .anim-twinkle, .anim-halo, .anim-wiggle, .anim-dance, .anim-shimmer::after { animation: none !important; }
+  .anim-fade-up, .anim-pop-in, .anim-spin-in, .anim-fade-in { animation: fade-in var(--dur-1) ease-out both !important; }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}
+/* ---------- réglage « animations douces » : aucune boucle infinie, entrées en fondu ---------- */
+html.motion-soft .anim-float, html.motion-soft .anim-twinkle, html.motion-soft .anim-halo,
+html.motion-soft .anim-wiggle, html.motion-soft .anim-dance, html.motion-soft .anim-shimmer::after { animation: none !important; }
+html.motion-soft .anim-fade-up, html.motion-soft .anim-pop-in,
+html.motion-soft .anim-spin-in, html.motion-soft .anim-fade-in { animation: fade-in var(--dur-1) ease-out both !important; }

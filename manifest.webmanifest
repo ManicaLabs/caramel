@@ -1,13 +1,16 @@
 {
-  "name": "La course de Caramel",
+  "id": "./",
+  "name": "Caramel — lire et compter",
   "short_name": "Caramel",
-  "description": "Le jeu qui fait galoper la lecture des enfants",
+  "description": "Le compagnon qui fait progresser en lecture et en maths, du CP au CM2",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#fff1f5",
-  "theme_color": "#fbcfe8",
+  "theme_color": "#fff1f5",
   "lang": "fr",
+  "dir": "ltr",
+  "categories": ["education", "kids"],
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }

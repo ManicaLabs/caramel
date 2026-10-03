@@ -1,0 +1,126 @@
+/* ============ CARAMEL 2 · KIT DE JEU (styles propres à js/ui/kit.js) ============
+   Complète css/base.css (.keypad .key .answer .choices .choice .bubble .sheet .overlay .toast)
+   sans redéfinir ses jetons ni ses couleurs. Mobile d'abord : cibles ≥ 48 px, retour tactile
+   sur :active et .is-pressed (posé au pointerdown et pour le clavier physique). */
+
+/* ---------- pavé numérique ---------- */
+.kit-keypad { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
+.kit-answer {
+  min-width: 168px; max-width: 100%; padding: 6px 22px;
+  transition: background var(--dur-2), border-color var(--dur-2), color var(--dur-2);
+}
+.kit-answer-val { white-space: nowrap; }
+.kit-keys .key { min-height: clamp(48px, 6.6dvh, 58px); display: grid; place-items: center; line-height: 1; }
+.kit-keys .key.ok { grid-column: 1 / -1; font-size: 1.55rem; }
+.kit-keys .key.del { font-size: 1.35rem; }
+.kit-keys .key.kit-comma { font-size: 2.2rem; padding-bottom: .35em; }   /* virgule bien visible */
+.kit-keys .key.is-pressed { transform: translateY(2px); box-shadow: 0 1px 0 var(--pink-200); background: var(--pink-50); }
+.kit-keys .key.ok:active, .kit-keys .key.ok.is-pressed { box-shadow: 0 1px 0 var(--amber-500); background: var(--amber-300); }
+.kit-key-gap { visibility: hidden; }          /* case vide quand il n'y a pas de virgule */
+
+/* ---------- QCM ---------- */
+.kit-choices .choice { position: relative; display: flex; align-items: center; justify-content: center; text-align: center; }
+.kit-choices .choice.read { justify-content: flex-start; text-align: left; font-size: 1.12rem; padding: 12px 16px; }
+.kit-choices .choice.is-long { font-size: 1.05rem; }
+.kit-choices .choice.right { animation: kit-glow 1.4s ease-out 1; }
+.kit-choices .choice.revealed::after {         /* pastille ✓ : « voici la bonne réponse » */
+  content: '✓'; position: absolute; top: -10px; right: -8px; width: 28px; height: 28px; border-radius: 50%;
+  display: grid; place-items: center; font-size: .95rem; font-weight: 700; line-height: 1;
+  background: var(--ok); color: #fff; border: 2px solid #fff; box-shadow: var(--shadow-1);
+}
+.kit-choices .choice[aria-disabled="true"] { cursor: default; }
+
+/* ---------- bulles ---------- */
+.kit-bubble {
+  display: flex; align-items: flex-end; gap: 10px; width: 100%;
+  animation: kit-bubble-in 340ms var(--ease-pop) both; transform-origin: 22px 100%;
+}
+.kit-bubble-ava {
+  flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 1.45rem; line-height: 1; background: #fff; border: 2px solid var(--pink-200); box-shadow: var(--shadow-1);
+}
+.kit-bubble--hint .kit-bubble-ava { background: var(--amber-100); border-color: var(--amber-300); }
+.kit-bubble--soft .kit-bubble-ava { background: var(--orange-50); border-color: var(--orange-300); }
+.kit-bubble--good .kit-bubble-ava { background: #f0fdf4; border-color: #86efac; }
+.kit-bubble-body {
+  flex: 1; min-width: 0; white-space: pre-line; font-size: 1.02rem; line-height: 1.4;
+  border-bottom-left-radius: 6px; overflow-wrap: break-word;
+}
+.kit-bubble:not(.no-ava) .kit-bubble-body::before {   /* petite queue tournée vers la pastille */
+  content: ''; position: absolute; left: -7px; bottom: 12px; width: 12px; height: 12px;
+  background: inherit; border-left: inherit; border-bottom: inherit;
+  transform: rotate(45deg); border-bottom-left-radius: 3px;
+}
+
+/* ---------- toast (ne capte pas les touches : le pavé dessous reste utilisable) ---------- */
+.kit-toast {                   /* left: 50 % ne laisse que la moitié de l'écran au texte : largeur au contenu */
+  width: max-content; max-width: calc(100vw - 32px); pointer-events: none;
+  animation: kit-toast-in var(--dur-2) var(--ease-out) both;
+}
+.kit-toast.is-out { animation: kit-toast-out 220ms ease-in both; }
+
+/* ---------- feuille du bas ---------- */
+html.kit-lock { overflow: hidden; }
+.kit-overlay { touch-action: none; overscroll-behavior: contain; }
+.kit-sheet { position: relative; }
+.kit-sheet:focus { outline: none; }
+.kit-sheet-head {                            /* collé en haut de la feuille quand le contenu défile */
+  position: sticky; top: -22px; z-index: 2; background: #fff;   /* -22px = marge haute de .sheet (le collage se mesure depuis le bord du contenu) */
+  margin: -22px -18px 0; padding: 8px 18px 4px; border-radius: 28px 28px 0 0;
+}
+.kit-sheet-head.no-grab { padding-top: 18px; }
+.kit-sheet-head.no-grab.no-title { min-height: 56px; }
+.kit-sheet-grab {                            /* poignée : glisser vers le bas pour fermer */
+  height: 22px; margin: 0 auto 2px; display: grid; place-items: center; touch-action: none; cursor: grab;
+}
+.kit-sheet-grab::before { content: ''; width: 44px; height: 5px; border-radius: 3px; background: var(--pink-200); }
+.kit-sheet-x {
+  position: absolute; top: 8px; right: 8px; width: 48px; height: 48px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 1.05rem; color: var(--ink-3); background: var(--pink-50);
+  transition: transform var(--dur-1) var(--ease-out), background var(--dur-1);
+}
+.kit-sheet-x:active { transform: scale(.92); background: var(--pink-100); }
+.kit-sheet-title {
+  font-size: 1.35rem; font-weight: 700; color: var(--title); line-height: 1.2;
+  margin: 4px 52px 10px 2px; touch-action: none;
+}
+.kit-sheet-head.no-grab .kit-sheet-title { margin-top: 6px; }
+.kit-sheet.is-center .kit-sheet-title { margin: 6px 48px 10px; text-align: center; }
+.kit-sheet-body { color: var(--ink-2); font-size: 1.05rem; line-height: 1.45; }
+.kit-sheet-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+.kit-sheet-actions.is-pair { display: grid; grid-template-columns: 1fr 1fr; }
+.kit-sheet-actions.is-pair .btn { padding-left: 12px; padding-right: 12px; }
+.overlay.middle .kit-sheet { max-width: 420px; }
+
+/* confirmation */
+.kit-confirm { text-align: center; padding: 4px 6px 0; }
+.kit-confirm-ico { font-size: 2.6rem; line-height: 1; margin: 2px 0 10px; }
+.kit-confirm-text { font-size: 1.18rem; font-weight: 600; color: var(--ink); line-height: 1.35; }
+
+/* ---------- survol (souris uniquement) ---------- */
+@media (hover: hover) and (pointer: fine) {
+  .kit-sheet-x:hover { background: var(--pink-100); }
+}
+
+/* ---------- keyframes du kit ---------- */
+@keyframes kit-bubble-in { from { opacity: 0; transform: scale(.72) translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes kit-toast-in { from { opacity: 0; transform: translate(-50%, 14px) scale(.96); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes kit-toast-out { to { opacity: 0; transform: translate(-50%, 10px); } }
+@keyframes kit-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes kit-fade-out { to { opacity: 0; } }
+@keyframes kit-glow {                          /* halo vert discret sur la bonne réponse */
+  0%   { box-shadow: 0 0 0 0 rgba(22, 163, 74, .35), var(--shadow-1); }
+  100% { box-shadow: 0 0 0 14px rgba(22, 163, 74, 0), var(--shadow-1); }
+}
+
+/* ---------- mouvement réduit / animations douces : fondus uniquement ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .kit-bubble { animation: kit-fade-in var(--dur-1) ease-out both !important; }
+  .kit-toast { animation: kit-fade-in var(--dur-1) ease-out both !important; }
+  .kit-toast.is-out { animation: kit-fade-out var(--dur-1) ease-in both !important; }
+  .kit-choices .choice.right { animation: none !important; }
+}
+html.motion-soft .kit-bubble { animation: kit-fade-in var(--dur-1) ease-out both; }
+html.motion-soft .kit-toast { animation: kit-fade-in var(--dur-1) ease-out both; }
+html.motion-soft .kit-toast.is-out { animation: kit-fade-out var(--dur-1) ease-in both; }
+html.motion-soft .kit-choices .choice.right { animation: none; }

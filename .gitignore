@@ -1,0 +1,6 @@
+# Données d'enfants : jamais dans le repo public
+docs/profil-*.json
+*.caramel-eval.json
+# Outillage local
+node_modules/
+tests/.cache/

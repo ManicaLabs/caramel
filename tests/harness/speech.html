@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- base à la racine du site : MODEL_URL ('models/fr.tar.gz') et les modules se résolvent comme dans l'appli -->
+<base href="../../">
+<title>Banc d’essai · moteur vocal</title>
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="stylesheet" href="css/base.css">
+<style>
+  .log { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .82rem; white-space: pre-wrap;
+    background: #fff; border: 2px solid var(--pink-200); border-radius: var(--r-s); padding: 10px; max-height: 40vh; overflow: auto; }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; font-size: .95rem; }
+  .kv dt { color: var(--ink-3); } .kv dd { font-weight: 600; word-break: break-word; }
+  .heard { font-family: var(--font-read); font-size: 1.4rem; min-height: 2em; }
+</style>
+</head>
+<body>
+<main class="screen stack">
+  <h1 class="title">🎙 Moteur vocal — banc d’essai</h1>
+  <p class="muted small">Charge Vosk (modèle <code>models/fr.tar.gz</code>, cache <code>vosk-model-v1</code>), puis écoute avec une grammaire réduite. <code>?auto=1</code> : scénario automatique (chargement → écoute 3 s → arrêt) ; <code>?libre=1</code> : sans grammaire ; <code>?mots=bonjour,caramel</code> : grammaire.</p>
+  <div class="card">
+    <dl class="kv">
+      <dt>Statut</dt><dd id="status">—</dd>
+      <dt>Téléchargement</dt><dd id="pct">—</dd>
+      <dt>Chargement</dt><dd id="load">—</dd>
+      <dt>Moteur</dt><dd id="engine">—</dd>
+      <dt>Grammaire</dt><dd id="grammar">—</dd>
+      <dt>Erreur</dt><dd id="error">aucune</dd>
+    </dl>
+  </div>
+  <div class="card"><p class="label">Entendu</p><p class="heard" id="heard"></p></div>
+  <div class="row wrap">
+    <button class="btn" id="start" type="button">🎤 Écouter</button>
+    <button class="btn pink" id="stop" type="button">⏹ Arrêter</button>
+    <button class="btn white small" id="reset" type="button">↺ Oublier le texte</button>
+    <button class="btn ghost" id="purge" type="button">Vider le cache du modèle</button>
+  </div>
+  <div class="log" id="log" aria-live="polite"></div>
+</main>
+<script type="module">
+  import * as speech from './js/core/speech.js';
+
+  const $ = id => document.getElementById(id);
+  const q = new URLSearchParams(location.search);
+  const grammar = q.has('libre') ? null : (q.get('mots') || 'bonjour,caramel').split(',').map(s => s.trim()).filter(Boolean);
+  const t0 = performance.now();
+  const H = window.__harness = { statuses: [], pcts: [], texts: [], errors: [], engine: null, loadMs: null, ok: null, done: false };
+  const log = msg => { const s = ((performance.now() - t0) / 1000).toFixed(2) + ' s  ' + msg; $('log').textContent += s + '\n'; console.log('[banc] ' + s); };
+
+  $('grammar').textContent = grammar ? JSON.stringify(grammar) + ' + [unk]' : 'aucune (reconnaissance libre)';
+  speech.onStatus(s => { if (!s) return; H.statuses.push(s); $('status').textContent = s; log('statut : ' + s); });
+
+  async function load() {
+    const t = performance.now();
+    const ok = await speech.ensureVosk(p => { H.pcts.push(p); $('pct').textContent = p + ' %'; });
+    H.ok = ok;
+    H.loadMs = Math.round(performance.now() - t);
+    $('load').textContent = (ok ? 'Vosk prêt' : 'Vosk indisponible') + ' en ' + (H.loadMs / 1000).toFixed(1).replace('.', ',') + ' s';
+    log('ensureVosk → ' + ok + ' (' + H.loadMs + ' ms)');
+    return ok;
+  }
+  async function listen() {
+    const r = await speech.startListening({
+      grammar,
+      onText: (text, final) => { H.texts.push({ text, final }); $('heard').textContent = text.trim() || '…'; },
+      onError: (code, msg) => { H.errors.push({ code, msg }); $('error').textContent = code + ' — ' + msg; log('erreur : ' + code); }
+    });
+    H.engine = r.engine;
+    $('engine').textContent = r.engine || 'aucun';
+    log('startListening → ' + JSON.stringify(r) + ', écoute : ' + speech.isListening());
+    return r;
+  }
+  function stop() {
+    speech.stopListening();
+    $('engine').textContent += ' (arrêté)';
+    log('stopListening → écoute : ' + speech.isListening());
+  }
+
+  $('start').addEventListener('click', async () => { await load(); await listen(); });
+  $('stop').addEventListener('click', stop);
+  $('reset').addEventListener('click', () => { speech.resetTranscript(); $('heard').textContent = ''; log('resetTranscript'); });
+  $('purge').addEventListener('click', async () => {
+    try { log('cache vosk-model-v1 supprimé : ' + await caches.delete('vosk-model-v1') + ' (recharge la page)'); }
+    catch (e) { log('caches indisponible : ' + e); }
+  });
+
+  if (q.has('auto')) {
+    (async () => {
+      try {
+        await load();
+        await listen();
+        await new Promise(r => setTimeout(r, 3000));
+        H.textsDuringCapture = H.texts.length;
+        stop();
+        H.listeningAfterStop = speech.isListening();
+      } catch (e) { H.errors.push({ code: 'exception', msg: String(e && e.stack || e) }); log('exception : ' + e); }
+      H.done = true;
+      log('scénario terminé');
+    })();
+  }
+</script>
+</body>
+</html>

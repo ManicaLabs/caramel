@@ -1,39 +1,221 @@
-const CACHE = 'caramel-shell-v1';
-const MSGS = [
-  'Caramel s\u2019ennuie sans toi \ud83d\udc34 Une petite course ?',
-  'Tes \u00e9toiles t\u2019attendent \u2b50 Viens d\u00e9bloquer la suite !',
-  'Zip le papillon croit que tu as abandonn\u00e9... \ud83e\udd8b Prouve-lui le contraire !',
-  'Cinq minutes de lecture = un poney tr\u00e8s heureux \ud83c\udf4e',
-  'Tu me manques ! Une histoire avant le d\u00eener ? \ud83d\udcd6'
+/* ============ CARAMEL 2 · SERVICE WORKER (contrat §8.4, CDC §13.4) ============
+   - Cache versionné caramel-<VERSION>, pré-rempli avec ASSETS (liste générée : node tools/precache.mjs).
+   - install : précache ; skipWaiting() immédiat SEULEMENT si le cache v11 'caramel-shell-v1' existe
+     (la v11 n'a pas de bandeau de mise à jour : on bascule tout de suite) ; sinon la nouvelle version attend
+     que l'enfant ou le parent touche le bandeau « Nouvelle version » (message SKIP_WAITING).
+   - activate : supprime les caches caramel-* obsolètes — JAMAIS 'vosk-model-v1' (modèle de 44 Mo) ni 'vosk-lib-v1'.
+   - fetch : GET de même origine hors /models/ (le modèle a son propre cache) ; navigation vers l'appli →
+     index.html du cache, puis réseau ; autres ressources : cache d'abord, puis réseau ;
+     vosk.js (jsDelivr) gardé dans 'vosk-lib-v1' pour la lecture hors ligne.
+   - Rappels quotidiens (periodicsync 'caramel-daily', enregistré par js/core/notifs.js) et notificationclick. */
+
+/* ASSETS:START */
+const VERSION = '2.0.0';
+const ASSETS = [
+  'index.html',
+  'manifest.webmanifest',
+  'favicon-32.png',
+  'icon-192.png',
+  'icon-512.png',
+  'icon.svg',
+  'fonts/andika-400.woff2',
+  'fonts/andika-700.woff2',
+  'fonts/fredoka-500.woff2',
+  'fonts/fredoka-600.woff2',
+  'fonts/fredoka-700.woff2',
+  'css/base.css',
+  'css/games/cloture.css',
+  'css/games/course.css',
+  'css/games/operations.css',
+  'css/games/orchestre.css',
+  'css/games/pommes.css',
+  'css/games/tables.css',
+  'css/motion.css',
+  'css/ui/backup.css',
+  'css/ui/balade.css',
+  'css/ui/companion.css',
+  'css/ui/game.css',
+  'css/ui/home.css',
+  'css/ui/import.css',
+  'css/ui/kit.css',
+  'css/ui/mount.css',
+  'css/ui/onboarding.css',
+  'css/ui/parents.css',
+  'css/ui/profiles.css',
+  'css/ui/progres.css',
+  'css/ui/radar.css',
+  'css/ui/shell.css',
+  'js/content/companion-data.js',
+  'js/content/fr/conjug.js',
+  'js/content/fr/verbs.js',
+  'js/content/index.js',
+  'js/content/maths/faits.js',
+  'js/content/maths/ligne.js',
+  'js/content/maths/operations.js',
+  'js/content/maths/procedures.js',
+  'js/content/stories/cm2.js',
+  'js/content/stories/index.js',
+  'js/content/stories/legacy.js',
+  'js/content/stories/questions.js',
+  'js/core/adaptive.js',
+  'js/core/audio.js',
+  'js/core/axes.js',
+  'js/core/economy.js',
+  'js/core/leitner.js',
+  'js/core/levels.js',
+  'js/core/manche.js',
+  'js/core/migrate.js',
+  'js/core/motion.js',
+  'js/core/notifs.js',
+  'js/core/numbers-fr.js',
+  'js/core/profiles.js',
+  'js/core/radar-model.js',
+  'js/core/rng.js',
+  'js/core/session.js',
+  'js/core/speech.js',
+  'js/core/store.js',
+  'js/core/tts.js',
+  'js/core/util.js',
+  'js/games/cloture-logic.js',
+  'js/games/cloture.js',
+  'js/games/course-engine.js',
+  'js/games/course.js',
+  'js/games/index.js',
+  'js/games/operations-logic.js',
+  'js/games/operations.js',
+  'js/games/orchestre-logic.js',
+  'js/games/orchestre.js',
+  'js/games/pommes-logic.js',
+  'js/games/pommes.js',
+  'js/games/tables-logic.js',
+  'js/games/tables.js',
+  'js/main.js',
+  'js/router.js',
+  'js/ui/backup.js',
+  'js/ui/balade.js',
+  'js/ui/companion.js',
+  'js/ui/game-ctx.js',
+  'js/ui/game-header.js',
+  'js/ui/game-shell.js',
+  'js/ui/home.js',
+  'js/ui/import-eval.js',
+  'js/ui/kit.js',
+  'js/ui/mount-svg.js',
+  'js/ui/onboarding.js',
+  'js/ui/parents.js',
+  'js/ui/profiles.js',
+  'js/ui/progres.js',
+  'js/ui/radar.js'
 ];
-self.addEventListener('install', e => { self.skipWaiting(); });
-self.addEventListener('activate', e => { e.waitUntil(clients.claim()); });
+/* ASSETS:END */
+
+const CACHE = 'caramel-' + VERSION;
+const LEGACY_CACHE = 'caramel-shell-v1';     /* cache de la v11 */
+const MODEL_CACHE = 'vosk-model-v1';         /* modèle Vosk, rempli par la page (js/core/speech.js) */
+const LIB_CACHE = 'vosk-lib-v1';             /* bibliothèque vosk-browser */
+const KEEP = [MODEL_CACHE, LIB_CACHE];       /* jamais supprimés, quelle que soit la version */
+const VOSK_LIB = 'https://cdn.jsdelivr.net/npm/vosk-browser@0.0.8/dist/vosk.js';
+const SHELL_URL = new URL('index.html', self.location).href;
+
+const MSGS = [
+  'Ton compagnon s’ennuie sans toi 🐴 Une petite balade\u202f?',
+  'Ta balade du jour t’attend 🌟 Quelques minutes suffisent\u202f!',
+  'Zip le papillon s’entraîne déjà… 🦋 Tu viens lire avec lui\u202f?',
+  'Cinq minutes ensemble, et ton compagnon est tout content 🍎',
+  'Une histoire, quelques tables, et hop\u202f! On y va\u202f? 🎻',
+  'Tes pommes 🍎 et tes étoiles ⭐ t’attendent au ranch\u202f!',
+  'Un petit jeu au ranch aujourd’hui\u202f? Ton compagnon t’attend 🎁'
+];
+
+const isObsolete = key => key.startsWith('caramel-') && key !== CACHE && !KEEP.includes(key);
+
+self.addEventListener('install', e => {
+  e.waitUntil((async () => {
+    const cache = await caches.open(CACHE);
+    /* cache: 'reload' : jamais une copie périmée du cache HTTP (GitHub Pages : max-age 10 min) */
+    await cache.addAll(ASSETS.map(u => new Request(new URL(u, self.location).href, { cache: 'reload' })));
+    if (await caches.has(LEGACY_CACHE)) await self.skipWaiting();
+  })());
+});
+
+self.addEventListener('activate', e => {
+  e.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(isObsolete).map(k => caches.delete(k)));
+    await self.clients.claim();
+  })());
+});
+
+self.addEventListener('message', e => {
+  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
+/* la coquille de l'appli : la racine de la portée ou index.html (pas les autres pages, ex. bancs d'essai) */
+function isShell(url) {
+  const base = new URL(self.registration.scope).pathname;
+  return url.pathname === base || url.pathname === base + 'index.html';
+}
+
+async function shell(req) {
+  try {
+    const hit = await (await caches.open(CACHE)).match(SHELL_URL);
+    if (hit) return hit;
+  } catch (_) {}
+  try { return await fetch(req); } catch (_) {}
+  return new Response('<!DOCTYPE html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +
+    '<title>Caramel</title><p style="font-family:system-ui,sans-serif;text-align:center;margin:30vh 20px 0;color:#5b3a29;font-size:1.2rem">' +
+    '🐴 Caramel n’arrive pas à se charger hors ligne. Reconnecte-toi, puis réessaie.</p></html>',
+  { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+}
+
+async function fromCache(e) {
+  const req = e.request;
+  let cache = null;
+  try {
+    cache = await caches.open(CACHE);
+    const hit = await cache.match(req);
+    if (hit) return hit;
+  } catch (_) {}
+  const res = await fetch(req);
+  if (cache && res && res.ok && res.type === 'basic') e.waitUntil(cache.put(req, res.clone()).catch(() => {}));
+  return res;
+}
+
+async function voskLib(e) {
+  let cache = null;
+  try {
+    cache = await caches.open(LIB_CACHE);
+    const hit = await cache.match(VOSK_LIB);
+    if (hit) return hit;
+  } catch (_) {}
+  try {
+    /* requête CORS (jsDelivr l'autorise) : on connaît le vrai statut avant de mettre en cache */
+    const res = await fetch(VOSK_LIB, { mode: 'cors', credentials: 'omit' });
+    if (cache && res.ok) e.waitUntil(cache.put(VOSK_LIB, res.clone()).catch(() => {}));
+    return res;
+  } catch (_) {
+    return fetch(e.request);
+  }
+}
+
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
-  const url = new URL(req.url);
+  let url;
+  try { url = new URL(req.url); } catch (_) { return; }
+  if (url.href === VOSK_LIB) { e.respondWith(voskLib(e)); return; }
   if (url.origin !== location.origin) return;
   if (url.pathname.includes('/models/')) return; /* le gros modele a deja son propre cache */
   if (req.mode === 'navigate') {
-    e.respondWith(
-      fetch(req).then(r => {
-        const copy = r.clone();
-        caches.open(CACHE).then(c => c.put('shell-index', copy));
-        return r;
-      }).catch(() => caches.match('shell-index'))
-    );
+    if (isShell(url)) e.respondWith(shell(req));
     return;
   }
-  e.respondWith(
-    caches.match(req).then(hit => hit || fetch(req).then(r => {
-      if (r.ok) { const copy = r.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
-      return r;
-    }))
-  );
+  e.respondWith(fromCache(e));
 });
+
 self.addEventListener('periodicsync', e => {
   if (e.tag === 'caramel-daily') {
-    e.waitUntil(self.registration.showNotification('La course de Caramel \ud83d\udc34', {
+    e.waitUntil(self.registration.showNotification('Caramel 🐴', {
       body: MSGS[new Date().getDate() % MSGS.length],
       icon: 'icon-192.png',
       badge: 'icon-192.png',
@@ -41,6 +223,7 @@ self.addEventListener('periodicsync', e => {
     }));
   }
 });
+
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   e.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {

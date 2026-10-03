@@ -1,0 +1,134 @@
+/* ============ ACCUEIL ============
+   Mobile d'abord (390 × 844) : en-tête, compagnon puis balade du jour (visible sans défiler), jeux en 2 colonnes.
+   Grand écran (≥ 900 px) : compagnon et balade côte à côte, jeux en 3 colonnes. */
+.hm { display: flex; flex-direction: column; gap: 14px; }
+.hm .btn.small { min-height: 48px; }
+
+/* ---------- en-tête ---------- */
+.hm-head { display: flex; flex-direction: column; gap: 10px; padding-top: 2px; }
+.hm-head-row { display: flex; align-items: center; gap: 12px; }
+.hm-ava {
+  flex: none; width: 60px; height: 60px; border-radius: 50%; overflow: hidden; display: grid; place-items: end center;
+  background: linear-gradient(180deg, #e0f2fe 0 56%, #86efac 56% 100%);
+  border: 3px solid #fff; box-shadow: 0 0 0 2px var(--pink-200), var(--shadow-1);
+}
+.hm-ava svg { width: 52px; height: auto; margin-bottom: 2px; }
+.hm-head-txt { flex: 1; min-width: 0; }
+.hm-hello { font-size: 1.55rem; font-weight: 700; color: var(--title); line-height: 1.1; overflow-wrap: anywhere; }
+.hm-sub { font-size: .95rem; color: var(--ink-2); margin-top: 3px; line-height: 1.25; text-wrap: balance; }
+.hm-switch { flex: none; align-self: flex-start; min-height: 48px; padding: 6px 12px; font-size: .84rem; gap: 5px; color: var(--pink-800); }
+.hm-switch[hidden] { display: none; }
+.hm-switch-ico { font-size: 1.15rem; line-height: 1; }
+@media (max-width: 479px) {             /* téléphone : pastille ronde, le prénom garde toute la place */
+  .hm-switch { width: 48px; height: 48px; padding: 0; justify-content: center; border-radius: 50%; }
+  .hm-switch-txt { display: none; }
+}
+.hm-purse { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
+.hm-coin {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 5px 14px; border-radius: var(--r-pill);
+  background: #fff; border: 2px solid var(--pink-200); box-shadow: var(--shadow-1); font-size: 1.08rem; color: var(--title);
+}
+.hm-coin-ico { font-size: 1.05rem; line-height: 1; }
+.hm-coin-n { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* ---------- bandeau « Je passe en … ! » ---------- */
+.hm-next-slot:empty, .hm-notif-slot:empty { display: none; }
+.hm-next { background: linear-gradient(135deg, var(--amber-100) 0%, #fff 70%); gap: 10px; flex-wrap: nowrap; }
+.hm-next-ico { font-size: 1.7rem; line-height: 1; flex: none; }
+.hm-next-txt { flex: 1; min-width: 0; font-weight: 600; color: var(--ink); }
+.hm-next-btn { flex: none; }
+
+/* ---------- compagnon + balade ---------- */
+.hm-main { display: flex; flex-direction: column; gap: 14px; }
+
+.hm-balade { display: flex; flex-direction: column; gap: 10px; }
+.hm-b-top { display: flex; align-items: center; gap: 8px; }
+.hm-b-badge { font-size: 1.45rem; line-height: 1; }
+.hm-b-title { flex: 1; min-width: 0; font-size: 1.3rem; font-weight: 700; color: var(--title); line-height: 1.15; }
+.hm-b-dur {
+  flex: none; font-size: .84rem; font-weight: 600; color: var(--ink-2); background: #fff;
+  border: 2px solid var(--amber-200); border-radius: var(--r-pill); padding: 3px 10px; white-space: nowrap;
+}
+.hm-b-sub { color: var(--ink-2); font-size: 1rem; line-height: 1.3; }
+.hm-steps { list-style: none; position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin: 2px 0 4px; }
+.hm-steps::before {                      /* le petit sentier entre les étapes */
+  content: ''; position: absolute; left: 12.5%; right: 12.5%; top: 27px; border-top: 3px dotted var(--amber-400); z-index: 0;
+}
+.hm-step { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; }
+.hm-step-ico {
+  position: relative; width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; font-size: 1.7rem; line-height: 1;
+  background: #fff; border: 3px solid var(--pink-200); box-shadow: var(--shadow-1);
+}
+.hm-step.is-done .hm-step-ico { background: var(--ok-bg); border-color: var(--ok); }
+.hm-step.is-now .hm-step-ico { background: var(--amber-100); border-color: var(--amber-500); animation: halo 2.2s ease-out infinite; }
+.hm-step-ok {
+  position: absolute; right: -5px; bottom: -5px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--ok); color: #fff; font-size: .8rem; font-weight: 700; border: 2px solid #fff;
+}
+.hm-step-k { font-size: .74rem; font-weight: 600; color: var(--ink-3); text-align: center; line-height: 1.1; white-space: nowrap; }   /* peut déborder un peu de sa colonne (voisins courts) : jamais coupé en plein mot */
+.hm-step.is-now .hm-step-k { color: var(--title); }
+.hm-b-go { margin-top: 2px; }
+.hm-b-go.is-long { font-size: 1.08rem; min-height: 58px; padding-left: 16px; padding-right: 16px; }
+.hm-balade.is-done { border-color: #86efac; background: linear-gradient(160deg, #f0fdf4 0%, #fff 60%, var(--pink-50) 100%); }
+
+/* ---------- mes jeux ---------- */
+.hm-games-title { margin: 8px 4px -2px; }
+.hm-games { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.hm-game {
+  position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  min-height: 156px; padding: 14px 14px 16px; text-align: left; border-radius: var(--r-l);
+  background: var(--tint, #fff); border: 3px solid #fff; box-shadow: var(--shadow-1);
+  transition: transform var(--dur-1) var(--ease-out), box-shadow var(--dur-2);
+}
+.hm-game::after {                        /* rond décoratif, comme une bulle de lumière */
+  content: ''; position: absolute; right: -26px; bottom: -30px; width: 92px; height: 92px; border-radius: 50%;
+  background: rgba(255, 255, 255, .45); pointer-events: none;
+}
+.hm-game:active { transform: scale(.97); }
+.hm-game-ico {
+  width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center; font-size: 1.85rem; line-height: 1;
+  background: #fff; box-shadow: var(--shadow-1);
+}
+.hm-game-title { position: relative; z-index: 1; font-weight: 700; font-size: 1.05rem; color: var(--ink); line-height: 1.2; }
+.hm-game-blurb { position: relative; z-index: 1; font-size: .84rem; color: var(--ink-2); line-height: 1.3; }
+
+/* ---------- progrès, rappels, pied ---------- */
+.hm-progress { gap: 10px; margin-top: 4px; }
+.hm-notif { justify-content: space-between; gap: 8px 10px; }
+.hm-notif-txt { flex: 1 1 180px; font-weight: 600; color: var(--ink); }
+.hm-notif-btns { display: flex; align-items: center; gap: 4px; }
+.hm-notif .btn.ghost { min-height: 48px; }
+.hm-foot { margin-top: 14px; display: flex; flex-direction: column; align-items: center; text-align: center; font-size: .9rem; color: var(--ink-2); line-height: 1.45; }
+.hm-foot a { display: inline-flex; align-items: center; min-height: 48px; padding: 0 4px; vertical-align: middle; }
+.hm-parents { margin-bottom: 12px; gap: 8px; }
+.hm-meta { margin-top: 4px; font-size: .8rem; color: var(--ink-3); line-height: 1.5; }
+
+/* ---------- survol (souris uniquement) ---------- */
+@media (hover: hover) and (pointer: fine) {
+  .hm-game:hover { box-shadow: var(--shadow-2); transform: translateY(-2px); }
+  .hm-switch:hover { border-color: var(--pink-400); }
+}
+
+/* ---------- grand écran ---------- */
+@media (min-width: 900px) {
+  .hm { gap: 16px; }
+  .hm-head { flex-direction: row; align-items: center; gap: 16px; }
+  .hm-head-row { flex: 1; min-width: 0; }
+  .hm-purse { justify-content: flex-end; }
+  .hm-hello { font-size: 1.9rem; }
+  /* pas d'étirement : la carte du compagnon grandit quand un panneau s'ouvre, la balade garde sa taille
+     (hauteur mini ≈ carte du compagnon au repos) */
+  .hm-main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+  .hm-balade { min-height: 390px; padding: 24px; justify-content: space-between; gap: 14px; }
+  .hm-b-title { font-size: 1.55rem; }
+  .hm-b-sub { font-size: 1.08rem; }
+  .hm-steps { margin: 10px 0; }
+  .hm-steps::before { top: 35px; }
+  .hm-step-ico { width: 72px; height: 72px; font-size: 2.2rem; }
+  .hm-step-k { font-size: .85rem; }
+  .hm-games { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .hm-progress { align-self: center; min-width: 360px; }
+}
+@media (max-width: 359px) {
+  .hm-step-ico { width: 50px; height: 50px; font-size: 1.5rem; }
+}

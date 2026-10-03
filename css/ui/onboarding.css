@@ -1,0 +1,77 @@
+/* ============ ARRIVÉE : nouvel enfant / bienvenue après migration ============ */
+.ob { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
+.ob-top { display: grid; grid-template-columns: 48px 1fr 48px; align-items: center; min-height: 48px; }
+.ob-back.is-off { visibility: hidden; }
+.ob-dots { display: flex; justify-content: center; gap: 8px; }
+.ob-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--pink-100); border: 2px solid var(--pink-200); transition: all var(--dur-2) var(--ease-out); }
+.ob-dot.done { background: var(--amber-400); border-color: var(--amber-400); }
+.ob-dot.now { width: 26px; border-radius: 6px; background: var(--amber-300); border-color: var(--amber-500); }
+
+.ob-step { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 8px 0 12px; }
+.ob-card { width: 100%; max-width: 460px; margin: 0 auto; display: flex; flex-direction: column; align-items: stretch; gap: 14px; text-align: center; }
+.ob-title { font-size: 1.85rem; outline: none; text-wrap: balance; }
+.ob-sub { color: var(--ink-2); line-height: 1.4; text-wrap: balance; }
+
+/* petite scène du compagnon */
+.ob-stage {
+  position: relative; align-self: center; width: 210px; height: 140px; border-radius: 28px; overflow: hidden;
+  display: grid; place-items: end center;
+  background: linear-gradient(180deg, #bae6fd 0%, #e0f2fe 58%, #86efac 58%, #4ade80 100%);
+  border: 3px solid #fff; box-shadow: var(--shadow-2);
+}
+.ob-stage.is-big { width: 250px; height: 168px; }
+.ob-pic { position: relative; z-index: 1; line-height: 0; margin-bottom: 6px; }
+.ob-pic svg { overflow: visible; }
+.ob-shadow { position: absolute; left: 50%; bottom: 6px; width: 104px; height: 12px; margin-left: -52px; border-radius: 50%; background: rgba(22, 101, 52, .22); }
+.ob-stage[role="img"] { cursor: pointer; }
+
+/* champs */
+.ob-field { display: flex; flex-direction: column; gap: 6px; text-align: left; }
+.ob-label { font-weight: 600; color: var(--ink-2); font-size: 1rem; }
+.ob-input { min-height: 56px; font-size: 1.25rem; font-weight: 600; text-align: center; border-radius: var(--r-m); border-width: 3px; }
+.ob-gs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ob-g {
+  min-height: 56px; border-radius: var(--r-m); background: #fff; border: 3px solid var(--pink-200); box-shadow: var(--shadow-1);
+  font-weight: 600; font-size: 1.08rem; color: var(--ink-2);
+  transition: transform var(--dur-1) var(--ease-out), background var(--dur-2), border-color var(--dur-2);
+}
+.ob-g:active { transform: scale(.96); }
+.ob-g.on { background: var(--pink-100); border-color: var(--pink-400); color: var(--pink-800); }
+.ob-next { margin-top: 6px; }
+.ob-next:disabled { filter: grayscale(.5); opacity: .5; box-shadow: none; }
+
+/* classe : 5 gros boutons */
+.ob-school { font-size: 3.4rem; line-height: 1; }
+.ob-classes { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-top: 6px; }
+.ob-class {
+  min-height: 76px; border-radius: var(--r-m); background: #fff; border: 3px solid var(--amber-200); box-shadow: 0 4px 0 var(--amber-200);
+  font-weight: 700; font-size: 1.3rem; color: var(--title);
+  transition: transform 90ms var(--ease-out), box-shadow 90ms, background var(--dur-2), border-color var(--dur-2);
+}
+.ob-class:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--amber-200); }
+.ob-class.on { background: var(--amber-300); border-color: var(--amber-500); box-shadow: 0 4px 0 var(--amber-500); color: var(--amber-900); }
+
+/* fiche Repères */
+.ob-fiche { position: relative; align-self: center; font-size: 3.6rem; line-height: 1; }
+.ob-fiche-star { position: absolute; top: -8px; right: -18px; font-size: 1.5rem; }
+.ob-adult { font-size: .9rem; color: var(--ink-2); background: #fff; border: 2px dashed var(--pink-200); border-radius: var(--r-m); padding: 10px 12px; line-height: 1.4; }
+.ob-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.ob-actions .btn { gap: 10px; }
+
+/* bienvenue */
+.ob-treasure {
+  align-self: center; padding: 10px 16px; border-radius: var(--r-m); background: #fff; border: 2px solid var(--amber-200);
+  font-size: 1.15rem; font-weight: 600; color: var(--ink); box-shadow: var(--shadow-1); line-height: 1.35;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ob-g:hover, .ob-class:hover { border-color: var(--pink-400); }
+}
+@media (max-width: 359px) {
+  .ob-classes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ob-title { font-size: 1.6rem; }
+}
+@media (min-width: 900px) {
+  .ob-card { max-width: 520px; }
+  .ob-title { font-size: 2.2rem; }
+}

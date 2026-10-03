@@ -1,0 +1,144 @@
+/* ============ CARTE DU COMPAGNON (port de la .pet-card v11) ============
+   Scène ciel / pré de la v11 (mêmes teintes), jauges faim / forme / joie, cinq actions,
+   panneaux garde-manger / boutique / réglages. Jetons de css/base.css ; teintes du pré = v11. */
+.cc {
+  --cc-sky-1: #bae6fd; --cc-sky-2: #e0f2fe; --cc-grass-1: #86efac; --cc-grass-2: #4ade80;
+  --cc-wood: #e9c391; --cc-outline: #4a2c1a;
+  padding: 12px 12px 14px; overflow: hidden;
+}
+
+/* ---------- scène ---------- */
+.cc-stage-wrap { position: relative; }
+.cc-stage {
+  position: relative; height: 150px; border-radius: var(--r-m); overflow: hidden; cursor: pointer;
+  background: linear-gradient(180deg, var(--cc-sky-1) 0%, var(--cc-sky-2) 100%);
+  box-shadow: inset 0 -2px 0 rgba(22, 163, 74, .12);
+  touch-action: manipulation; -webkit-user-select: none; user-select: none;
+}
+.cc-stage::after {                      /* le pré (la moitié basse de la scène v11) */
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 45%; z-index: 1;
+  background: linear-gradient(180deg, var(--cc-grass-1) 0%, var(--cc-grass-2) 100%);
+}
+.cc-stage:focus-visible { outline: 3px solid var(--amber-500); outline-offset: 3px; }
+.cc-sky { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.cc-sun { position: absolute; top: 6px; right: 10px; font-size: 1.3rem; line-height: 1; }
+.cc-cloud { position: absolute; top: 8px; font-size: 1.1rem; line-height: 1; animation: cc-drift 46s linear infinite; }
+.cc-cloud-2 { top: 26px; font-size: .85rem; opacity: .85; animation-duration: 64s; animation-delay: -30s; }
+@keyframes cc-drift { from { left: -12%; } to { left: 104%; } }
+.cc-hill {
+  position: absolute; z-index: 0; left: -12%; width: 70%; bottom: 36%; height: 34%;
+  border-radius: 50% 50% 0 0; background: var(--ok-bg); opacity: .9; pointer-events: none;
+}
+.cc-fence {                              /* clôture du ranch, sur l'horizon */
+  position: absolute; z-index: 2; right: 5%; width: 34%; bottom: 40%; height: 20px; pointer-events: none; opacity: .9;
+  background:
+    linear-gradient(var(--cc-wood), var(--cc-wood)) 0 5px / 100% 3px no-repeat,
+    linear-gradient(var(--cc-wood), var(--cc-wood)) 0 12px / 100% 3px no-repeat,
+    repeating-linear-gradient(90deg, var(--cc-wood) 0 5px, transparent 5px 17px);
+  filter: drop-shadow(0 1px 0 rgba(74, 44, 26, .25));
+}
+.cc-flower { position: absolute; z-index: 2; bottom: 8px; font-size: .95rem; line-height: 1; pointer-events: none; }
+.cc-flower-1 { left: 9%; } .cc-flower-2 { right: 10%; bottom: 14px; font-size: .85rem; }
+.cc-shadow {
+  position: absolute; z-index: 2; left: 50%; bottom: 3px; width: 92px; height: 12px; margin-left: -46px;
+  border-radius: 50%; background: rgba(22, 101, 52, .22); pointer-events: none;
+}
+.cc-holder {
+  position: absolute; z-index: 3; left: 0; right: 0; bottom: 4px;
+  display: flex; justify-content: center; line-height: 0; pointer-events: none;
+}
+.cc-holder svg { overflow: visible; }
+.cc-fx { position: absolute; inset: 0; z-index: 5; pointer-events: none; overflow: hidden; }
+.cc-heart { position: absolute; font-size: 1.2rem; line-height: 1; animation: cc-heartup 1.2s ease-out forwards; pointer-events: none; }
+@keyframes cc-heartup { from { opacity: 1; transform: translateY(0) scale(.9); } to { opacity: 0; transform: translateY(-56px) scale(1.1); } }
+@keyframes cc-heartfade { 0% { opacity: 0; } 25% { opacity: 1; } 100% { opacity: 0; } }
+
+.cc-name {                               /* petite plaque : qui est mon compagnon */
+  position: absolute; z-index: 6; top: 8px; left: 8px; max-width: 60%;
+  padding: 3px 10px; border-radius: var(--r-pill); background: rgba(255, 255, 255, .88);
+  font-size: .82rem; font-weight: 600; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  box-shadow: 0 1px 4px rgba(91, 58, 41, .12); pointer-events: none;
+}
+
+/* ---------- humeur + jauges ---------- */
+.cc-mood { text-align: center; font-size: .98rem; font-weight: 600; color: var(--ink-2); margin: 9px 2px 8px; min-height: 1.4em; line-height: 1.35; text-wrap: balance; }
+.cc-gauges { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+.cc-glbl { font-size: .78rem; color: var(--ink-3); margin-bottom: 3px; text-align: center; white-space: nowrap; }
+.cc-gbar { height: 12px; border-radius: 8px; background: var(--pink-50); border: 2px solid var(--pink-200); overflow: hidden; }
+.cc-gfill { height: 100%; border-radius: 6px; width: 0; transition: width .5s var(--ease-out); }
+.g-faim .cc-gfill { background: var(--orange-300); }
+.g-forme .cc-gfill { background: var(--grass); }
+.g-joie .cc-gfill { background: var(--pink-400); }
+.cc-gauge.is-low .cc-glbl { color: var(--soft); font-weight: 600; }
+
+/* ---------- actions ---------- */
+.cc-actions { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
+.cc-act {
+  min-width: 0; min-height: 60px; padding: 6px 0; border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; overflow: hidden;
+  background: var(--pink-50); border: 2px solid var(--pink-200); color: var(--pink-800); font-weight: 600;
+  transition: transform var(--dur-1) var(--ease-out), background var(--dur-1), border-color var(--dur-1);
+}
+.cc-act:active { transform: scale(.95); }
+.cc-act.on { background: var(--pink-100); border-color: var(--pink-400); }
+.cc-act-ico { font-size: 1.35rem; line-height: 1.1; }
+.cc-act-txt { font-size: .75rem; line-height: 1.1; white-space: nowrap; letter-spacing: -.01em; }
+@media (max-width: 400px) { .cc { padding-left: 10px; padding-right: 10px; } }
+@media (max-width: 370px) { .cc-act-txt { font-size: .68rem; letter-spacing: -.02em; } }
+
+/* ---------- panneaux ---------- */
+.cc-panel { background: var(--orange-50); border: 2px dashed var(--orange-300); border-radius: 16px; padding: 12px; margin-top: 12px; }
+.cc-panel[hidden] { display: none; }
+.cc-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.cc-panel-title { font-size: .98rem; font-weight: 700; color: var(--title); line-height: 1.25; }
+.cc-sub { margin: 14px 0 10px; }
+.cc-purse {
+  flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: var(--r-pill);
+  background: #fff; border: 2px solid var(--pink-200); font-weight: 700; font-size: .9rem; color: var(--ink); font-variant-numeric: tabular-nums;
+}
+.cc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
+.cc-item {
+  min-height: 84px; padding: 8px 4px; border-radius: 14px; background: #fff; border: 2px solid var(--pink-200);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; text-align: center;
+  font-size: .82rem; color: var(--ink-2); line-height: 1.2;
+  transition: transform var(--dur-1) var(--ease-out), border-color var(--dur-2), background var(--dur-2);
+}
+.cc-item:active { transform: scale(.95); }
+.cc-item-ico { font-size: 1.6rem; line-height: 1.15; }
+.cc-item-name { font-weight: 600; color: var(--ink); }
+.cc-item-price { font-weight: 700; color: var(--title); }
+.cc-item.can, .cc-item.owned { border-color: #86efac; }
+.cc-item.cant { opacity: .62; }
+.cc-item.worn { border-color: var(--amber-500); background: var(--amber-100); }
+.cc-item.worn .cc-item-price { color: var(--amber-900); }
+.cc-mount-pic { display: grid; place-items: center; height: 50px; line-height: 0; }
+.cc-mount-pic svg { overflow: visible; }
+
+/* réglages */
+.cc-set { display: grid; gap: 12px; }
+.cc-set .seg button { min-height: 48px; }
+.cc-save { justify-self: start; min-height: 48px; }
+
+/* ---------- survol (souris uniquement) ---------- */
+@media (hover: hover) and (pointer: fine) {
+  .cc-act:hover { background: var(--pink-100); }
+  .cc-item:hover { border-color: var(--pink-400); }
+  .cc-item.worn:hover { border-color: var(--amber-500); }
+}
+
+/* ---------- grand écran (v11 : scène de 210 px, compagnon de 190 px) ---------- */
+@media (min-width: 900px) {
+  .cc-stage { height: 210px; }
+  .cc-shadow { width: 128px; margin-left: -64px; }
+  .cc-act-txt { font-size: .85rem; }
+  .cc-act { min-height: 66px; }
+}
+
+/* ---------- mouvement réduit / animations douces ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .cc .cc-cloud { animation: none !important; left: 18%; }
+  .cc .cc-cloud-2 { left: 58%; }
+  .cc .cc-heart { animation: cc-heartfade .9s ease-out forwards !important; }
+}
+html.motion-soft .cc .cc-cloud { animation: none; left: 18%; }
+html.motion-soft .cc .cc-cloud-2 { left: 58%; }
+html.motion-soft .cc .cc-heart { animation: cc-heartfade .9s ease-out forwards; }

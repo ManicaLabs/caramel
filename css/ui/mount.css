@@ -1,0 +1,44 @@
+/* ============ COMPAGNON : ANIMATIONS DU RIG SVG (js/ui/mount-svg.js) ============
+   Règles et keyframes de la v11.3 (index.html @ c5bd8d1) recopiées à l'identique : respiration (.m-body),
+   queue (.m-tail), clignement (.m-lid), oreille basse (.sad), petit bond de joie (.joy), marche (.walk).
+   transform-box: fill-box partout sur les groupes SVG (leçon v11.2 : pivot = la forme elle-même).
+   Ajout v2 : .dance (fin de la balade du jour) = élan, saut, puis petite vrille sur lui-même.
+   Mouvement réduit (préférence système) et « animations douces » (html.motion-soft) : compagnon immobile,
+   yeux ouverts (la paupière reste repliée : scaleY(0)). */
+
+/* ---------- rig v11 (verbatim) ---------- */
+.m-root .m-body { animation:breathe 3.2s ease-in-out infinite; transform-origin:center; transform-box:fill-box; }
+@keyframes breathe { 0%,100%{transform:scaleY(1);} 50%{transform:scaleY(1.035) translateY(-1px);} }
+.m-root .m-tail { animation:swish 2.6s ease-in-out infinite; transform-origin:90% 20%; transform-box:fill-box; }
+@keyframes swish { 0%,100%{transform:rotate(0);} 50%{transform:rotate(12deg);} }
+.m-root .m-lid { animation:blink 4.5s infinite; transform-origin:center; transform-box:fill-box; transform:scaleY(0); }
+@keyframes blink { 0%,94%,100%{transform:scaleY(0);} 96%,98%{transform:scaleY(1);} }
+.m-root.sad .m-ear { transform:rotate(30deg); transform-origin:30% 100%; transform-box:fill-box; }
+.m-root.sad .m-tail { animation-duration:5.5s; }
+.m-root.joy { animation:joyb .5s ease 2; }
+@keyframes joyb { 40%{ transform:translateY(-12px);} }
+.m-root.walk .m-legF { animation:step .5s ease-in-out infinite; transform-origin:top center; transform-box:fill-box; }
+.m-root.walk .m-legB { animation:step .5s ease-in-out infinite reverse; transform-origin:top center; transform-box:fill-box; }
+@keyframes step { 0%,100%{transform:rotate(-13deg);} 50%{transform:rotate(13deg);} }
+
+/* ---------- v2 : danse de fin de balade (saut + petite vrille), une fois ----------
+   Pivot en bas au centre ; même liste de fonctions à chaque étape (interpolation fonction par fonction). */
+.m-root.dance { animation:m-dance 1.5s var(--ease-out, cubic-bezier(.22,1,.36,1)) both; transform-origin:50% 100%; transform-box:fill-box; }
+.m-root.dance .m-legF, .m-root.dance .m-legB { animation:step .3s ease-in-out 4; transform-origin:top center; transform-box:fill-box; }
+@keyframes m-dance {
+  0%   { transform:translateY(0)     rotate(0deg)  rotateY(0deg)   scale(1, 1); }
+  10%  { transform:translateY(0)     rotate(0deg)  rotateY(0deg)   scale(1.1, .88); }
+  28%  { transform:translateY(-30%)  rotate(-8deg) rotateY(0deg)   scale(.94, 1.07); }
+  44%  { transform:translateY(0)     rotate(0deg)  rotateY(0deg)   scale(1.08, .92); }
+  54%  { transform:translateY(0)     rotate(0deg)  rotateY(0deg)   scale(1, 1); }
+  74%  { transform:translateY(-20%)  rotate(5deg)  rotateY(180deg) scale(1, 1); }
+  90%  { transform:translateY(0)     rotate(0deg)  rotateY(360deg) scale(1.06, .94); }
+  100% { transform:translateY(0)     rotate(0deg)  rotateY(360deg) scale(1, 1); }
+}
+
+/* ---------- mouvement réduit / animations douces : compagnon immobile, yeux ouverts ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .m-root, .m-root .m-body, .m-root .m-tail, .m-root .m-lid, .m-root .m-legF, .m-root .m-legB { animation:none !important; }
+}
+html.motion-soft .m-root, html.motion-soft .m-root .m-body, html.motion-soft .m-root .m-tail,
+html.motion-soft .m-root .m-lid, html.motion-soft .m-root .m-legF, html.motion-soft .m-root .m-legB { animation:none !important; }

@@ -1,0 +1,31 @@
+/* ============ COQUILLE DE JEU : en-tête commun + zone de jeu ============ */
+.game-screen { gap: 0; }
+.game-header { flex: none; padding-bottom: 6px; }
+.gh-row { display: flex; align-items: center; gap: 6px; min-height: 52px; }
+.gh-title { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 6px;
+  font-weight: 700; font-size: 1.05rem; color: var(--title); }
+.gh-icon { font-size: 1.35rem; flex: none; }
+.gh-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gh-short { display: none; }
+@media (max-width: 420px) {                 /* titre court du registre sur téléphone */
+  .gh-long { display: none; }
+  .gh-short { display: block; }
+  .gh-joker, .gh-apples { padding: 4px 8px; }
+}
+.gh-joker, .gh-apples {
+  flex: none; display: inline-flex; align-items: center; gap: 4px; min-height: 48px; padding: 4px 10px;
+  border-radius: var(--r-pill); background: #fff; border: 2px solid var(--amber-200);
+  font-weight: 700; font-size: 1rem; color: var(--amber-900); box-shadow: var(--shadow-1);
+}
+.gh-joker { font-size: 1.2rem; transition: transform var(--dur-1) var(--ease-out), opacity var(--dur-2); }
+.gh-joker:active { transform: scale(.92); }
+.gh-joker.empty { opacity: .45; }
+.gh-badge { min-width: 20px; height: 20px; padding: 0 5px; border-radius: var(--r-pill); background: var(--amber-400);
+  color: var(--amber-900); font-size: .8rem; display: inline-grid; place-items: center; }
+.gh-apples { border-color: var(--pink-200); color: var(--ink); font-variant-numeric: tabular-nums; }
+.gh-dots { margin-top: 4px; }
+.gh-counter { text-align: center; font-weight: 700; color: var(--ink-3); margin-top: 2px; }
+.game-body { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+@media (min-width: 900px) {
+  .gh-title { font-size: 1.25rem; }
+}

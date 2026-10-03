@@ -1,0 +1,12 @@
+{
+  "name": "caramel",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Caramel 2 — accompagnement scolaire CP→CM2 (site statique, vérifications locales uniquement)",
+  "type": "module",
+  "scripts": {
+    "test": "node tests/run.mjs",
+    "check": "node tools/check.mjs",
+    "precache": "node tools/precache.mjs"
+  }
+}

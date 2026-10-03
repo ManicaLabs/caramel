@@ -1,0 +1,225 @@
+/* ============ LE CHEMIN DE LA CLÔTURE (js/games/cloture.js) ============
+   Pré du ranch : ciel et herbe aux teintes v11 (comme la carte du compagnon, css/ui/companion.css),
+   clôture en bois clair cerné de brun chaud #4a2c1a (JEUX.md §0), plaquettes crème, drapeau rose,
+   carotte orange. Tout le reste vient des jetons de css/base.css. Mobile d'abord (390 × 844) :
+   la scène va d'un bord à l'autre de l'écran ; elle s'arrondit en carte sur les grands écrans. */
+
+.cl {
+  --cl-sky-1: #bae6fd; --cl-sky-2: #e0f2fe;
+  --cl-grass-1: #86efac; --cl-grass-2: #4ade80;
+  --cl-wood: #e9c391; --cl-outline: #4a2c1a;
+  --cl-board: #fffbeb;
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+}
+
+/* ---------- consigne ---------- */
+.cl-head { flex: none; text-align: center; padding: 2px 6px 0; }
+.cl-prompt {
+  font-weight: 700; font-size: 1.45rem; line-height: 1.2; color: var(--title);
+  text-wrap: balance; overflow-wrap: break-word;
+}
+.cl-target {
+  display: inline-flex; align-items: center; justify-content: center; vertical-align: middle;
+  min-width: 1.7em; min-height: 1.5em; padding: 0 .32em; margin: -.1em .08em 0; border-radius: 14px;
+  background: var(--amber-100); border: 2px solid var(--amber-300); color: var(--ink);
+  font-size: 1.12em; line-height: 1.25; white-space: nowrap;
+}
+.cl-sub { margin-top: 3px; min-height: 1.35em; font-size: .95rem; color: var(--ink-3); line-height: 1.35; }
+
+/* espace des milliers un peu plus visible (750 800 000) */
+.cl-nn { margin-left: .12em; }
+
+/* ---------- fractions empilées (HTML) ---------- */
+.cl-frac {
+  display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle;
+  font-weight: 700; line-height: 1.02; font-size: .84em; margin: 0 .12em; font-variant-numeric: tabular-nums;
+}
+.cl-frac-n { padding: 0 .2em .06em; border-bottom: .12em solid currentColor; }
+.cl-frac-d { padding: .06em .2em 0; }
+.cl-frac-big { font-size: 1em; }
+.cl-target .cl-frac { font-size: .82em; margin: .12em 0; }
+
+/* ---------- scène ---------- */
+.cl-scene {
+  position: relative; flex: 1 1 auto; min-height: var(--cl-min, 190px);
+  margin: 8px calc(-14px - var(--safe-r)) 0 calc(-14px - var(--safe-l));
+  overflow: hidden; contain: layout paint;
+  background: linear-gradient(180deg, var(--cl-sky-1) 0%, var(--cl-sky-2) 72%);
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
+.cl-scene.is-placing { touch-action: none; cursor: pointer; }
+.cl-scene:focus-visible { outline: 3px solid var(--amber-500); outline-offset: -3px; border-radius: 0; }
+.cl-bg, .cl-fence { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.cl-fence { pointer-events: none; }
+
+/* décor */
+.cl-g1 { stop-color: var(--cl-grass-1); }
+.cl-g2 { stop-color: var(--cl-grass-2); }
+.cl-sun { fill: var(--amber-300); }
+.cl-sun-halo { fill: var(--amber-200); opacity: .55; }
+.cl-cloud { fill: var(--card); opacity: .92; animation: cl-sway 26s ease-in-out infinite alternate; }
+.cl-cloud-2 { opacity: .78; animation-duration: 34s; animation-delay: -12s; }
+.cl-hill { fill: var(--ok-bg); }
+.cl-hill-2 { fill: var(--cl-grass-1); opacity: .5; }
+.cl-fl-p { fill: var(--pink-200); }
+.cl-fl-p.w { fill: var(--card); }
+.cl-fl-c { fill: var(--amber-400); }
+.cl-bale { fill: var(--amber-300); stroke: var(--cl-outline); stroke-width: 1.5; }
+.cl-straw { fill: none; stroke: var(--amber-500); stroke-width: 1.4; stroke-linecap: round; opacity: .75; }
+.cl-twine { fill: var(--ink-4); }
+.cl-bale-shadow { fill: var(--cl-outline); opacity: .14; }
+.cl-path { fill: var(--cl-wood); stroke: var(--ink-5); stroke-width: 1.5; opacity: .5; }
+.cl-pebble { fill: var(--ink-5); opacity: .55; }
+.cl-tuft { fill: none; stroke: var(--ok); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; opacity: .38; }
+.cl-trunk { fill: var(--ink-4); stroke: var(--cl-outline); stroke-width: 1.5; }
+.cl-crown { fill: var(--cl-grass-2); stroke: var(--cl-outline); stroke-width: 1.5; }
+.cl-crown-hi { fill: var(--cl-grass-1); opacity: .8; }
+.cl-apple { fill: var(--pink-400); stroke: var(--cl-outline); stroke-width: 1.1; }
+
+/* clôture */
+.cl-shadow { fill: var(--cl-outline); opacity: .13; }
+.cl-post { fill: var(--cl-wood); stroke: var(--cl-outline); stroke-width: 1.3; transition: fill var(--dur-2); }
+.cl-post.is-major { stroke-width: 1.6; }
+.cl-post.is-sel { fill: var(--amber-200); }
+.cl-post.is-hint { fill: var(--amber-200); stroke: var(--amber-900); }
+.cl-post.is-glow { fill: var(--amber-300); }
+.cl-glow-flood { flood-color: var(--amber-400); flood-opacity: .95; }
+.cl-rail { fill: var(--cl-wood); stroke: var(--cl-outline); stroke-width: 1.6; }
+.cl-rail-hi { fill: var(--card); opacity: .45; }
+.cl-rail2 { fill: var(--ink-5); stroke: var(--cl-outline); stroke-width: 1.2; opacity: .85; }
+.cl-board { fill: var(--cl-board); stroke: var(--cl-outline); stroke-width: 1.3; transition: fill var(--dur-2), stroke var(--dur-2); }
+.cl-board-t { fill: var(--ink); font-family: var(--font-ui); font-weight: 600; font-variant-numeric: tabular-nums; }
+.cl-label.is-hint .cl-board { fill: var(--amber-100); stroke: var(--amber-500); stroke-width: 2.4; }
+
+/* zoom : intervalle agrandi, mini-carte et faisceau de la loupe */
+.cl-zband { fill: var(--amber-300); fill-opacity: .32; stroke: var(--amber-500); stroke-width: 2; stroke-dasharray: 5 4; }
+.cl-zband.is-pulse { animation: cl-pulse 700ms var(--ease-out) 1; }
+.cl-mini-rail { fill: var(--cl-wood); stroke: var(--cl-outline); stroke-width: 1.1; }
+.cl-mini-tick { stroke: var(--cl-outline); stroke-width: 1.5; stroke-linecap: round; }
+.cl-mini-band { fill: var(--amber-300); fill-opacity: .8; stroke: var(--amber-500); stroke-width: 1.6; }
+.cl-mini-t { fill: var(--ink-2); font-family: var(--font-ui); font-weight: 600; }
+.cl-beam { fill: var(--amber-200); opacity: .3; }
+.cl-beam-e { fill: none; stroke: var(--amber-500); stroke-width: 1.6; stroke-dasharray: 4 4; opacity: .85; }
+
+/* drapeau (lire) */
+.cl-pole { stroke: var(--cl-outline); stroke-width: 2.6; stroke-linecap: round; }
+.cl-knob { fill: var(--amber-400); stroke: var(--cl-outline); stroke-width: 1.2; }
+.cl-cloth { fill: var(--pink-400); stroke: var(--cl-outline); stroke-width: 1.4; stroke-linejoin: round; }
+.cl-cloth-q { fill: var(--card); font-family: var(--font-ui); font-weight: 700; }
+.cl-cloth-g { transform-box: fill-box; transform-origin: 0% 50%; animation: cl-wave 2.6s ease-in-out infinite; }
+.cl-flag.is-done { opacity: 0; transition: opacity var(--dur-1); }
+
+/* carotte (placer) */
+.cl-carrot.hidden { display: none; }
+.cl-carrot-in { transform-box: fill-box; transform-origin: 50% 100%; }
+.cl-carrot-body { fill: var(--soft); stroke: var(--cl-outline); stroke-width: 1.4; stroke-linejoin: round; }
+.cl-carrot-line { fill: none; stroke: var(--orange-300); stroke-width: 1.4; stroke-linecap: round; }
+.cl-leaf { fill: var(--grass); stroke: var(--cl-outline); stroke-width: 1.1; stroke-linejoin: round; }
+.cl-leaf.is-mid { fill: var(--ok); }
+.cl-needle { stroke: var(--soft); stroke-width: 2; stroke-dasharray: 3 3; stroke-linecap: round; }
+.cl-needle-dot { fill: var(--soft); stroke: var(--card); stroke-width: 1.2; }
+.cl-ghost { opacity: .32; }
+
+/* panneau de la valeur */
+.cl-sign-board { transform-box: fill-box; transform-origin: 50% 100%; }
+.cl-sign-b { fill: var(--cl-board); stroke: var(--cl-outline); stroke-width: 2; }
+/* texte du panneau (nombre, ou fraction empilée : groupe de deux textes et d'une barre) */
+.cl-sign-t { fill: var(--ink); color: var(--ink); font-family: var(--font-ui); font-weight: 700; font-variant-numeric: tabular-nums; }
+.cl-fbar { stroke: currentColor; }
+
+/* indice : petits sauts et intervalle à l'estime */
+.cl-hop { fill: none; stroke: var(--amber-500); stroke-width: 2.2; stroke-linecap: round; }
+.cl-hop.is-new { stroke-dasharray: 1; stroke-dashoffset: 1; animation: cl-draw 380ms var(--ease-out) forwards; }
+.cl-hop-t { fill: var(--amber-900); color: var(--amber-900); font-family: var(--font-ui); font-weight: 700;
+  paint-order: stroke; stroke: var(--card); stroke-width: 3px; stroke-linejoin: round; }
+.cl-hop-t text { fill: var(--amber-900); paint-order: stroke; stroke: var(--card); stroke-width: 3px; stroke-linejoin: round; }
+.cl-hop-t .cl-fbar { stroke: var(--amber-900); stroke-width: 1.6; }
+.cl-hop-t.is-new { opacity: 0; animation: cl-fade 240ms ease-out forwards; }
+.cl-span { fill: var(--amber-300); opacity: .7; }
+.cl-mid-l { stroke: var(--amber-500); stroke-width: 1.8; stroke-dasharray: 3 3; }
+.cl-mid-b { fill: var(--amber-100); stroke: var(--amber-500); stroke-width: 1.4; }
+.cl-mid-t { fill: var(--amber-900); font-family: var(--font-ui); font-weight: 700; }
+
+/* loupe pendant le glisser */
+.cl-loupe { opacity: 0; transition: opacity var(--dur-1) var(--ease-out); pointer-events: none; }
+.cl-loupe.is-on { opacity: 1; }
+.cl-loupe-bg { fill: var(--cl-sky-2); }
+.cl-loupe-shadow { fill: var(--cl-outline); opacity: .18; }
+.cl-loupe-ring { fill: none; stroke: var(--card); stroke-width: 3.5; }
+.cl-loupe-tip { fill: var(--card); }
+
+/* compagnon */
+.cl-mount { position: absolute; left: 0; top: 0; z-index: 2; pointer-events: none; will-change: transform; }
+.cl-mount-flip { position: relative; transition: transform var(--dur-1) var(--ease-out); }
+.cl-mount-flip.is-left { transform: scaleX(-1); }
+.cl-mount-in { transform-origin: 50% 100%; }
+.cl-mount-in svg { display: block; overflow: visible; }
+.cl-mouth { position: absolute; line-height: 0; transform: rotate(8deg); transform-origin: 0 50%; }
+.cl-mouth.hidden { display: none; }
+.cl-mouth-svg { display: block; overflow: visible; }
+
+/* ---------- bulle d'aide : sur l'herbe (dans la scène) ou, faute de place, sous la scène ---------- */
+.cl-float { position: absolute; z-index: 3; left: calc(12px + var(--safe-l)); right: calc(12px + var(--safe-r)); pointer-events: none; }
+.cl-float:empty { display: none; }
+.cl-float .kit-bubble-body { box-shadow: var(--shadow-2); }
+.cl-help { flex: none; display: flex; flex-direction: column; justify-content: flex-start; }
+.cl-help:not(:empty) { padding-top: 10px; }
+.cl-help .kit-bubble-body { font-size: 1.02rem; }
+.cl-read .kit-bubble-body { font-family: var(--font-read); font-size: 1.04rem; line-height: 1.42; }
+
+/* ---------- réponse ---------- */
+.cl-answer { flex: none; margin-top: auto; padding-top: 10px; width: 100%; max-width: 560px; align-self: center; }
+.cl-answer.is-keypad { max-width: 420px; }
+.cl-choices { gap: 10px; }
+.cl-choices .choice { min-height: clamp(64px, 8.6dvh, 80px); font-size: 1.55rem; font-weight: 700; padding: 8px 6px; font-variant-numeric: tabular-nums; }
+.cl-choices .choice .cl-frac { font-size: 1.32rem; }
+.cl-place { display: flex; align-items: center; gap: 12px; }
+.cl-ok { flex: 1; min-width: 0; }
+.cl-ok[aria-disabled="true"] { filter: grayscale(.45); opacity: .6; box-shadow: none; }
+.cl-nudge { width: 60px; height: 60px; color: var(--title); }
+.cl-nudge:disabled { opacity: .45; }
+.cl-next { margin-top: 12px; }
+.cl-answer > .cl-next:first-child { margin-top: 0; }
+
+/* ---------- grands écrans : la scène devient une carte ---------- */
+@media (min-width: 700px) {
+  .cl-scene { margin: 10px 0 0; border-radius: var(--r-l); box-shadow: var(--shadow-1); }
+  .cl-float { left: 18px; right: 18px; }
+  .cl-prompt { font-size: 1.7rem; }
+}
+@media (max-width: 360px) {
+  .cl-prompt { font-size: 1.32rem; }
+  .cl-choices .choice { font-size: 1.4rem; }
+}
+@media (hover: hover) and (pointer: fine) {
+  .cl-scene.is-placing { cursor: crosshair; }
+}
+
+/* ---------- keyframes ---------- */
+@keyframes cl-sway { from { transform: translateX(0); } to { transform: translateX(46px); } }
+@keyframes cl-wave { 0%, 100% { transform: skewY(0deg) scaleX(1); } 50% { transform: skewY(-5deg) scaleX(.93); } }
+@keyframes cl-draw { to { stroke-dashoffset: 0; } }
+@keyframes cl-fade { to { opacity: 1; } }
+@keyframes cl-pulse { 0% { fill-opacity: .1; } 45% { fill-opacity: .6; } 100% { fill-opacity: .32; } }
+
+/* ---------- mouvement réduit / animations douces : rien ne flotte, fondus seulement ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .cl-cloud, .cl-cloth-g, .cl-zband.is-pulse { animation: none !important; }
+  .cl-hop.is-new { animation: none !important; stroke-dasharray: none; stroke-dashoffset: 0; }
+  .cl-hop-t.is-new { animation: none !important; opacity: 1; }
+}
+html.motion-soft .cl-cloud, html.motion-soft .cl-cloth-g, html.motion-soft .cl-zband.is-pulse { animation: none; }
+html.motion-soft .cl-hop.is-new { animation: none; stroke-dasharray: none; stroke-dashoffset: 0; }
+html.motion-soft .cl-hop-t.is-new { animation: none; opacity: 1; }
+
+/* ---------- petit écran avec pavé numérique (hauteur utile < 660 px) ---------- */
+.cl.is-compact .cl-prompt { font-size: 1.25rem; }
+.cl.is-compact .cl-sub:empty, .cl.is-compact .cl-sub.hidden { display: none; }
+.cl.is-compact .kit-keypad { gap: 8px; }
+.cl.is-compact .kit-answer { min-height: 52px; font-size: 1.8rem; }
+/* la bulle d'indice prend la place de la consigne quand rien d'autre ne tient (pavé + petit écran) */
+.cl-head.has-bubble > .cl-prompt, .cl-head.has-bubble > .cl-sub { display: none; }
+.cl-head > .kit-bubble { text-align: left; margin: 2px 0 2px; }
+.cl-head > .kit-bubble.is-tight .kit-bubble-body { font-size: .93rem; line-height: 1.32; padding: 8px 12px; }
+.cl-head > .kit-bubble.is-tighter .kit-bubble-body { font-size: .86rem; line-height: 1.26; padding: 6px 10px; }
+.cl-head > .kit-bubble.is-tight .kit-bubble-ava { width: 36px; height: 36px; font-size: 1.2rem; }
