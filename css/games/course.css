@@ -70,9 +70,8 @@
 
 .cr-world-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 14px 4px 10px; }
 .cr-world:first-of-type .cr-world-head { margin-top: 4px; }
-.cr-world-title {
-  font-size: .95rem; font-weight: 700; color: var(--title); text-transform: uppercase; letter-spacing: .6px; line-height: 1.25;
-}
+/* intertitre en minuscules (D3-12) : plus lisible pour un lecteur débutant */
+.cr-world-title { font-size: 1.06rem; font-weight: 700; color: var(--title); line-height: 1.25; }
 .cr-world-stars { flex: none; font-weight: 700; font-size: .9rem; color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .cr-cards { display: grid; gap: 12px; }
 
@@ -85,7 +84,11 @@
 }
 .cr-card:active { transform: scale(.98); }
 .cr-card.is-done { border-color: var(--amber-300); background: linear-gradient(160deg, var(--amber-100) 0%, var(--card) 55%); }
-.cr-card.is-locked { filter: grayscale(1); opacity: .55; box-shadow: none; cursor: default; }
+/* carte verrouillée : seuls l'emoji et le cadenas pâlissent, la consigne « Encore N ⭐ » reste lisible (M1) */
+.cr-card.is-locked { box-shadow: none; cursor: default; background: var(--pink-50); }
+.cr-card.is-locked .cr-card-emoji, .cr-card.is-locked .cr-card-lock { filter: grayscale(1); opacity: .55; }
+.cr-card.is-locked .cr-card-title { color: var(--ink-3); }
+.cr-card.is-locked .cr-card-sub { color: var(--ink-2); }
 .cr-card.is-locked:active { transform: none; }
 .cr-card:focus-visible { border-radius: 22px; }
 .cr-card-emoji { flex: none; width: 2.7rem; font-size: 2.2rem; line-height: 1; text-align: center; }
@@ -93,7 +96,7 @@
 .cr-card-title { font-size: 1.12rem; font-weight: 700; line-height: 1.2; overflow-wrap: break-word; }
 .cr-card-sub { font-size: .85rem; font-weight: 500; color: var(--ink-3); }
 .cr-card-stars { flex: none; font-size: 1rem; letter-spacing: 2px; white-space: nowrap; line-height: 1; }
-.cr-card-stars .off, .cr-res-stars .off { color: var(--ink-5); }
+.cr-card-stars .off, .cr-res-stars .off { filter: grayscale(1) brightness(.68); }   /* même ⭐, éteinte (D3-18, D2-14) */
 .cr-card-lock { flex: none; font-size: 1.5rem; line-height: 1; }
 .cr-engine { text-align: center; font-size: .8rem; color: var(--ink-3); margin-top: 22px; min-height: 1.1em; }
 
@@ -125,6 +128,15 @@
 .cr-bar-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .cr-mic-label { font-size: 1rem; font-weight: 700; line-height: 1.3; color: var(--ink-3); }
 .cr-mic-label.is-long { font-size: .93rem; }
+/* jauge du 1er téléchargement du moteur vocal (D1-10) */
+.cr-dl {
+  display: block; width: min(100%, 220px); height: 10px; border-radius: var(--r-pill); overflow: hidden;
+  background: var(--pink-50); border: 2px solid var(--pink-200);
+}
+.cr-dl-fill {
+  display: block; height: 100%; background: var(--amber-400); border-radius: var(--r-pill);
+  transform: scaleX(0); transform-origin: left center; transition: transform .3s var(--ease-out);
+}
 .cr-heard {
   max-width: 100%; min-height: 1.2em; font-size: .88rem; font-style: italic; color: var(--ink-3);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -191,13 +203,13 @@
 .cr-text:focus-visible { border-radius: 22px; outline-offset: -3px; }
 .cr-race.is-on .cr-text, .cr-race.is-done .cr-text { padding-bottom: 84px; }
 .cr-word {                      /* pastille de surligneur (interligne propre au mot : l'espacement des lignes reste celui du texte) */
-  display: inline-block; padding: 2px 6px; border-radius: 10px; opacity: .5; line-height: 1.45;
-  transition: opacity .2s, transform .2s, background .2s;
-}
+  display: inline-block; padding: 2px 6px; border-radius: 10px; color: var(--ink-3); line-height: 1.45;
+  transition: color .2s, transform .2s, background .2s;
+}   /* mots à lire : encre pâle du thème (≥ 5,2:1) au lieu d'une opacité de 50 % (2,6:1) : D2-02 */
 .cr-word.read { opacity: 1; background: var(--ok-bg); color: var(--ok-ink); }
 .cr-word.missed { opacity: 1; background: var(--soft-bg); color: var(--soft-ink); }
 .cr-word.current {
-  opacity: 1; background: var(--amber-200); transform: scale(1.18); font-weight: 700;
+  opacity: 1; color: var(--ink); background: var(--amber-200); transform: scale(1.18); font-weight: 700;
   box-shadow: 0 0 0 3px var(--amber-500); animation: cr-pulse 1.2s infinite;
 }
 @keyframes cr-pulse { 0%, 100% { box-shadow: 0 0 0 3px var(--amber-500); } 50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--amber-500) 33%, transparent); } }
@@ -205,6 +217,22 @@
 .cr-word.pause-fast::after { content: '⏸'; margin-left: 3px; font-size: .5em; vertical-align: super; color: var(--soft); opacity: .85; }
 .cr-done {
   position: absolute; right: 12px; bottom: 12px; z-index: 2; min-height: 52px; padding: 10px 22px; font-size: 1.05rem;
+}
+
+/* téléphone en paysage : micro, piste et infos à gauche, texte à droite sur toute la hauteur (D1V-M1) */
+@media (orientation: landscape) and (max-height: 520px) {
+  .cr-race {
+    display: grid; gap: 8px 14px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas: 'bar text' 'track text' 'info text';
+  }
+  .cr-race > .cr-bar { grid-area: bar; margin-bottom: 0; padding: 8px 12px; gap: 10px; }
+  .cr-race > .cr-track { grid-area: track; height: 104px; margin-bottom: 0; }
+  .cr-race > .cr-info { grid-area: info; align-self: start; margin-bottom: 0; }
+  .cr-race > .cr-textwrap { grid-area: text; min-height: 0; }
+  .cr-mic { width: 60px; height: 60px; font-size: 1.7rem; }
+  .cr-text { font-size: 1.5rem; line-height: 2.2; padding: 16px 18px; }
 }
 
 /* ======================= LA PETITE QUESTION ======================= */
@@ -253,6 +281,21 @@
 /* texte entier dans la feuille */
 .kit-sheet .cr-passage { font-size: 1.2rem; line-height: 1.8; }
 
+/* ======================= MICRO IMPOSSIBLE (D1-01) ======================= */
+/* vue « micro impossible » (setView('nomic') ; .cr-mic est le bouton du micro) */
+.cr-nomic { overflow-y: auto; overscroll-behavior: contain; }
+.cr-mic-card {
+  margin: auto 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 18px 18px 20px;
+  text-align: center; background: var(--card); border-radius: var(--r-l); box-shadow: var(--shadow-2);
+}
+.cr-mic-pet { line-height: 0; margin-bottom: 2px; }
+.cr-mic-title { font-size: 1.45rem; font-weight: 700; line-height: 1.25; color: var(--title); text-wrap: balance; }
+.cr-mic-sub { font-size: 1.12rem; line-height: 1.35; color: var(--ink-2); }
+.cr-mic-btns { display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 10px; }
+.cr-mic-btns .btn { min-height: 56px; }
+.cr-mic-btns .btn.play { min-height: 72px; font-size: clamp(1.3rem, 6.4vw, 1.7rem); white-space: nowrap; }
+.cr-mic-btns .btn-play-ico { padding-left: 0; }
+
 /* ======================= RÉSULTATS ======================= */
 .cr-res {
   overflow-y: auto; overscroll-behavior: contain; align-items: center;
@@ -290,6 +333,7 @@
 }
 .cr-actions > .btn { flex: 1 1 140px; }
 .cr-actions > .btn.wide { flex-basis: 100%; }
+.cr-actions > .btn.play { min-height: 60px; }
 
 /* ---------- survol (souris uniquement) ---------- */
 @media (hover: hover) and (pointer: fine) {
@@ -340,6 +384,7 @@
   .cr-res-stars { font-size: 5.6rem; }
   .cr-res-msg { font-size: 1.75rem; }
   .cr-stat-v { font-size: 2.9rem; }
+  .cr-mic-card { width: 100%; max-width: 520px; margin: auto; padding: 26px 28px 28px; }
 }
 
 /* ---------- mouvement réduit / animations douces : décor immobile, retours en fondu ---------- */
@@ -349,6 +394,7 @@
   .cr-race .cr-mic::after, .cr-mic[aria-busy="true"] > span, .cr-q-think { animation: none !important; }
   .cr-word.current { animation: none; transform: none; }
   .cr-mic.listening { animation: none; box-shadow: 0 0 0 8px color-mix(in srgb, var(--pink-400) 22%, transparent); }
+  .cr-dl-fill { transition: none; }
 }
 html.motion-soft .cr-deco.drifting { animation: none !important; left: 24%; }
 html.motion-soft .cr-race.is-on .cr-fly, html.motion-soft .cr-spark, html.motion-soft .cr-hurdle.jumped,

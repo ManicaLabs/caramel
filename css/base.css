@@ -6,8 +6,12 @@
    surcharge les jetons sous [data-theme="…"]. Les noms historiques sont gardés :
      --pink-*  = famille SECONDAIRE du thème (bordures, pastilles, états choisis, cartes)
      --amber-* = famille PRINCIPALE du thème (boutons, badges, surlignages) ; texte --amber-900 sur --amber-400
-     --ok* / --soft* gardent leur sens dans tous les thèmes (réussite verte, erreur douce orange) ;
-     --n-*     = palette FIXE des décors naturels des jeux (jamais surchargée par un thème). */
+     --ok* / --soft* gardent leur sens dans tous les thèmes (réussite verte, erreur douce orange) : l'habillage d'un
+                 thème n'utilise jamais l'orange de l'erreur ni le rouge (verrou : tests/themes.test.mjs) ;
+     --n-*     = palette FIXE des décors naturels des jeux (jamais surchargée par un thème) ;
+     --pri-* / --sec-* / --on-* = alias sémantiques des familles, pour le NOUVEAU code (pas de renommage de masse).
+   Échelles (2.2, à utiliser dans le nouveau code et au fil des retouches) : tailles --fs-xs … --fs-3xl,
+   espacements --sp-1 … --sp-6, rayons --r-xs … --r-xl. */
 
 @font-face { font-family: 'Fredoka'; font-weight: 500; font-style: normal; font-display: swap; src: url('../fonts/fredoka-500.woff2') format('woff2'); }
 @font-face { font-family: 'Fredoka'; font-weight: 600; font-style: normal; font-display: swap; src: url('../fonts/fredoka-600.woff2') format('woff2'); }
@@ -31,7 +35,8 @@
   --amber-100: #fef3c7; --amber-200: #fde68a; --amber-300: #fcd34d; --amber-400: #fbbf24; --amber-500: #f59e0b; --amber-900: #78350f;
   /* habillage complémentaire : teinte des ombres et du voile, accent, anneau de focus, panneaux en pointillés,
      anneau de l'avatar de l'accueil, teintes des cartes de jeux (une par jeu) */
-  --shade: #b45309; --accent: #c084fc; --focus: #f59e0b;
+  /* --focus : brun caramel, 8,3:1 sur les fonds et 5,4:1 contre les boutons, loin de l'orange de l'erreur (--soft) */
+  --shade: #b45309; --accent: #c084fc; --focus: #78350f;
   --panel-bg: #fff7ed; --panel-line: #fdba74;
   --ava-ring: none;
   --tile-course: #fce7f3; --tile-cloture: #fef3c7; --tile-tables: #dcfce7;
@@ -54,10 +59,16 @@
   --n-pink-50: #fdf2f8; --n-pink-100: #fce7f3; --n-pink-200: #fbcfe8; --n-pink-400: #f472b6; --n-pink-800: #9d174d;
   --n-amber-50: #fffbeb; --n-amber-100: #fef3c7; --n-amber-200: #fde68a; --n-amber-300: #fcd34d;
   --n-amber-400: #fbbf24; --n-amber-500: #f59e0b; --n-amber-900: #78350f;
+  /* pré des décors (ciel + herbe), bois et brun de contour de la DA : à utiliser au lieu de recopier les valeurs */
+  --n-sky-1: #bae6fd; --n-sky-2: #e0f2fe; --n-grass-1: #86efac; --n-grass-2: #4ade80;
+  --n-wood: #e9c391; --n-outline: #4a2c1a;
+  --n-meadow: linear-gradient(180deg, var(--n-sky-1) 0%, var(--n-sky-2) 58%, var(--n-grass-1) 58%, var(--n-grass-2) 100%);
+  /* texte ou ✓ blanc posé sur le vert de réussite */
+  --on-ok: #ffffff;
   /* radar (fiches officielles) */
   --fr: #7f9c97; --fr-fill: #e3ebe9; --ma: #e8945a; --ma-fill: #fbe1cc;
   /* formes ; jetons dérivés du thème (recalculés sur chaque [data-theme] par css/themes.css) */
-  --r-s: 12px; --r-m: 18px; --r-l: 24px; --r-pill: 999px;
+  --r-xs: 6px; --r-s: 12px; --r-m: 18px; --r-l: 24px; --r-xl: 28px; --r-pill: 999px;
   --line: 3px solid var(--pink-200);
   --shadow-1: 0 4px 14px rgba(180, 83, 9, .08);
   --shadow-2: 0 6px 18px rgba(180, 83, 9, .14);
@@ -66,6 +77,10 @@
   /* typo */
   --font-ui: 'Fredoka', 'Segoe UI Rounded', 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
   --font-read: 'Andika', 'Segoe UI', Verdana, system-ui, sans-serif;
+  /* échelle typographique (13 px au moins pour l'enfant) */
+  --fs-xs: .8125rem; --fs-s: .9375rem; --fs-m: 1.0625rem; --fs-l: 1.25rem; --fs-xl: 1.5rem; --fs-2xl: 1.75rem; --fs-3xl: 2.125rem;
+  /* espacements */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px;
   /* mouvement (CDC §11) */
   --ease-out: cubic-bezier(.22, 1, .36, 1);
   --ease-pop: cubic-bezier(.34, 1.56, .64, 1);
@@ -73,6 +88,16 @@
   /* zones sûres */
   --safe-t: env(safe-area-inset-top, 0px); --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-l: env(safe-area-inset-left, 0px); --safe-r: env(safe-area-inset-right, 0px);
+}
+
+/* ----- jetons qui DÉRIVENT des jetons thémables : déclarés sur chaque porteur de thème (page ou carte d'aperçu), sinon
+   une carte d'aperçu hériterait des valeurs résolues pour la page. Alias sémantiques pour le nouveau code :
+   --pri-* = famille principale (--amber-*), --sec-* = famille secondaire (--pink-*), --on-pri = texte sur --pri-* ----- */
+:root, [data-theme] {
+  --pri-50: var(--amber-50); --pri-100: var(--amber-100); --pri-200: var(--amber-200); --pri-300: var(--amber-300);
+  --pri-400: var(--amber-400); --pri-500: var(--amber-500); --pri-900: var(--amber-900); --on-pri: var(--amber-900);
+  --sec-50: var(--pink-50); --sec-100: var(--pink-100); --sec-200: var(--pink-200); --sec-400: var(--pink-400); --sec-800: var(--pink-800);
+  --shadow-press: 0 3px 0 var(--pink-200);   /* relief plein des touches */
 }
 
 /* ---------- socle ---------- */
@@ -99,6 +124,8 @@ button { cursor: pointer; background: none; border: none; }
 input, textarea, select { font-size: 16px; }
 a { color: var(--title); font-weight: 600; }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 10px; }
+/* titre d'écran focalisé par le routeur (le lecteur d'écran l'annonce) : pas d'anneau, ce n'est pas une commande */
+h1[tabindex="-1"]:focus { outline: none; }
 .sr-only { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .hidden { display: none !important; }
 
@@ -108,8 +135,10 @@ a { color: var(--title); font-weight: 600; }
   max-width: 680px; margin: 0 auto;
   padding: calc(10px + var(--safe-t)) calc(14px + var(--safe-r)) calc(28px + var(--safe-b)) calc(14px + var(--safe-l));
 }
-.screen.is-full {               /* écrans de jeu : plein cadre, pas de défilement de page */
-  display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden;
+.screen.is-full {               /* écrans de jeu : plein cadre, sans défilement de page… */
+  display: flex; flex-direction: column; height: 100vh; height: 100dvh;
+  /* …sauf si l'écran est trop court (paysage, grande police, zoom) : il défile alors, et la touche ✓ reste atteignable */
+  overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
   padding-bottom: calc(10px + var(--safe-b));
 }
 .stack { display: flex; flex-direction: column; gap: 12px; }
@@ -126,10 +155,10 @@ a { color: var(--title); font-weight: 600; }
 .title { font-size: 1.6rem; font-weight: 700; color: var(--title); line-height: 1.15; }
 .title-xl { font-size: 2.1rem; font-weight: 700; color: var(--title); line-height: 1.1; }
 .subtitle { font-size: 1.05rem; color: var(--ink-2); }
-.section-title { font-size: .95rem; font-weight: 700; color: var(--title); text-transform: uppercase; letter-spacing: .6px; margin: 18px 4px 10px; }
+.section-title { font-size: var(--fs-m); font-weight: 700; color: var(--title); margin: 18px 4px 10px; }   /* pas de MAJUSCULES espacées : plus dur à lire */
 .muted { color: var(--ink-3); } .faint { color: var(--ink-4); }
-.small { font-size: .88rem; } .tiny { font-size: .78rem; }
-.big { font-size: 1.25rem; }
+.small { font-size: var(--fs-s); } .tiny { font-size: var(--fs-xs); }
+.big { font-size: var(--fs-l); }
 .read { font-family: var(--font-read); font-weight: 400; }   /* textes à lire (histoires, phrases, consignes) */
 .num { font-family: var(--font-ui); font-weight: 700; font-variant-numeric: tabular-nums; }
 b, strong { font-weight: 700; }
@@ -156,6 +185,16 @@ b, strong { font-weight: 700; }
 .btn.white { background: var(--card); color: var(--title); border: 2px solid var(--pink-200); box-shadow: var(--shadow-1); }
 .btn.ghost { background: none; box-shadow: none; color: var(--ink-3); text-decoration: underline; min-height: 48px; padding: 8px 12px; font-weight: 500; }
 .btn.big { min-height: 64px; font-size: 1.3rem; padding: 16px 30px; }
+/* « Jouer ▶ » : L'action principale d'un écran d'enfant (une seule par écran), bombée comme un jouet */
+.btn.play {
+  min-height: 84px; gap: 16px; margin-bottom: 6px; padding: 12px 16px 12px 30px; font-size: 1.9rem; font-weight: 700;
+  box-shadow: 0 6px 0 var(--amber-500), 0 12px 22px color-mix(in srgb, var(--shade) 26%, transparent);
+}
+.btn.play:active { transform: translateY(4px); box-shadow: 0 2px 0 var(--amber-500), 0 5px 10px color-mix(in srgb, var(--shade) 22%, transparent); }
+.btn-play-ico {
+  flex: none; width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; padding-left: 5px;
+  background: var(--card); color: var(--amber-900); font-size: 1.3rem; line-height: 1;
+}
 .btn.small { min-height: 48px; font-size: .95rem; padding: 8px 18px; }
 .btn.block { display: flex; width: 100%; }
 .btn-icon { width: 52px; height: 52px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 1.5rem;
@@ -179,9 +218,9 @@ b, strong { font-weight: 700; }
 }
 
 /* ---------- pastilles, porte-monnaie, badges ---------- */
-.chip { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 6px 14px; border-radius: var(--r-pill);
+.chip { display: inline-flex; align-items: center; gap: 6px; min-height: 48px; padding: 6px 14px; border-radius: var(--r-pill);
   background: var(--card); border: 2px solid var(--pink-200); color: var(--ink-3); font-weight: 600; font-size: .9rem; }
-.chip.on { background: var(--pink-100); border-color: var(--pink-400); color: var(--pink-800); }
+.chip.on { background: var(--pink-100); border-color: var(--pink-800); color: var(--pink-800); }
 button.chip:active { transform: scale(.95); }
 .wallet { display: flex; justify-content: center; gap: 14px; font-weight: 700; color: var(--title); font-size: 1.1rem; }
 .wallet-item { display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
@@ -190,11 +229,12 @@ button.chip:active { transform: scale(.95); }
 
 /* ---------- progression d'une manche ---------- */
 .dots { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
-.dot { width: 12px; height: 12px; border-radius: 50%; background: var(--pink-100); border: 2px solid var(--pink-200);
+/* « à faire » : rond blanc cerclé (3:1 au moins), « en cours » : grossi et cerclé de --title, « avec aide » : ambre cerclé */
+.dot { width: 12px; height: 12px; border-radius: 50%; background: var(--card); border: 2px solid color-mix(in srgb, var(--ink-3) 80%, var(--card));
   transition: background var(--dur-2), transform var(--dur-2) var(--ease-pop); }
 .dot.done { background: var(--ok); border-color: var(--ok); }
-.dot.helped { background: var(--amber-400); border-color: var(--amber-400); }
-.dot.now { transform: scale(1.35); border-color: var(--amber-500); background: var(--amber-200); }
+.dot.helped { background: var(--amber-400); border-color: var(--amber-900); }
+.dot.now { transform: scale(1.35); border-color: var(--title); background: var(--amber-200); }
 .gauge { height: 12px; border-radius: 8px; background: var(--pink-50); border: 2px solid var(--pink-200); overflow: hidden; }
 .gauge-fill { height: 100%; border-radius: 6px; background: var(--amber-400); width: 0; transition: width var(--dur-3) var(--ease-out); }
 
@@ -227,7 +267,7 @@ button.chip:active { transform: scale(.95); }
 .keypad { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; width: 100%; max-width: 420px; margin: 0 auto; }
 .key {
   min-height: 58px; border-radius: var(--r-m); background: var(--card); border: 2px solid var(--pink-200);
-  box-shadow: 0 3px 0 var(--pink-200); font-weight: 700; font-size: 1.6rem; color: var(--ink);
+  box-shadow: var(--shadow-press); font-weight: 700; font-size: 1.6rem; color: var(--ink);
   transition: transform 90ms var(--ease-out), box-shadow 90ms, background 90ms;
 }
 .key:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--pink-200); background: var(--pink-50); }
@@ -246,7 +286,7 @@ button.chip:active { transform: scale(.95); }
 .toast {
   position: fixed; left: 50%; bottom: calc(18px + var(--safe-b)); transform: translateX(-50%); z-index: 80;
   width: max-content; max-width: calc(100vw - 32px); padding: 12px 18px; border-radius: var(--r-pill);
-  background: var(--ink); color: #fff; font-weight: 600; box-shadow: var(--shadow-2); text-align: center;
+  background: var(--ink); color: var(--card); font-weight: 600; box-shadow: var(--shadow-2); text-align: center;
 }
 
 /* ---------- fenêtres (feuille du bas) ---------- */
@@ -255,28 +295,33 @@ button.chip:active { transform: scale(.95); }
 .overlay.middle { align-items: center; padding: 16px; }
 .sheet {
   width: 100%; max-width: 680px; max-height: 92dvh; overflow-y: auto; overscroll-behavior: contain;
-  background: var(--card); border-radius: 28px 28px 0 0; padding: 22px 18px calc(22px + var(--safe-b));
+  background: var(--card); border-radius: var(--r-xl) var(--r-xl) 0 0; padding: 22px 18px calc(22px + var(--safe-b));
   box-shadow: 0 -8px 30px color-mix(in srgb, var(--ink) 18%, transparent);
 }
-.overlay.middle .sheet { border-radius: 28px; padding-bottom: 22px; }
+.overlay.middle .sheet { border-radius: var(--r-xl); padding-bottom: 22px; }
 
 /* ---------- formulaires ---------- */
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field > label, .label { font-weight: 600; color: var(--ink-2); font-size: .95rem; }
-.input { width: 100%; min-height: 50px; padding: 10px 14px; border-radius: var(--r-s); border: 2px solid var(--pink-200);
+/* bord des champs et des interrupteurs éteints : 3:1 au moins sur blanc dans les 8 thèmes */
+.input { width: 100%; min-height: 50px; padding: 10px 14px; border-radius: var(--r-s);
+  border: 2px solid color-mix(in srgb, var(--ink-3) 80%, var(--card));
   background: var(--card); font-size: 1.05rem; color: var(--ink); }
-.input:focus { outline: none; border-color: var(--pink-400); box-shadow: 0 0 0 3px var(--pink-100); }
+.input:focus { outline: 3px solid var(--focus); outline-offset: 2px; border-color: var(--pink-800); box-shadow: none; }
+/* choix exclusifs : l'option choisie est cerclée foncé ET cochée ✓ (jamais la seule teinte) ; le ✓ reste hors du nom accessible */
 .seg { display: inline-flex; gap: 6px; flex-wrap: wrap; }
-.seg button { min-height: 44px; padding: 8px 16px; border-radius: var(--r-pill); border: 2px solid var(--pink-200);
+.seg button { min-height: 48px; padding: 8px 16px; border-radius: var(--r-pill); border: 2px solid var(--pink-200);
   background: var(--card); font-weight: 600; color: var(--ink-3); font-size: .95rem; }
-.seg button.on { background: var(--pink-100); border-color: var(--pink-400); color: var(--pink-800); }
+.seg button.on { background: var(--pink-100); border-color: var(--pink-800); color: var(--pink-800); }
+.seg button.on::before { content: '✓\00a0'; content: '✓\00a0' / ''; }
 .seg button:active { transform: scale(.95); }
-.switch { position: relative; width: 56px; height: 32px; border-radius: 16px; background: var(--pink-100);
-  border: 2px solid var(--pink-200); flex: none; transition: background var(--dur-2); }
+/* interrupteur : éteint = rond foncé à gauche sur fond blanc cerclé ; allumé = rond blanc à droite sur vert */
+.switch { position: relative; width: 56px; height: 32px; border-radius: 16px; background: var(--card);
+  border: 2px solid color-mix(in srgb, var(--ink-3) 80%, var(--card)); flex: none; transition: background var(--dur-2); }
 .switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 24px; height: 24px; border-radius: 50%;
-  background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .2); transition: transform var(--dur-2) var(--ease-pop); }
+  background: var(--ink-3); transition: transform var(--dur-2) var(--ease-pop); }
 .switch[aria-checked="true"] { background: var(--ok); border-color: var(--ok); }
-.switch[aria-checked="true"]::after { transform: translateX(24px); }
+.switch[aria-checked="true"]::after { transform: translateX(24px); background: var(--card); }
 
 /* ---------- survol (souris uniquement) ---------- */
 @media (hover: hover) and (pointer: fine) {
@@ -293,8 +338,14 @@ button.chip:active { transform: scale(.95); }
   .title { font-size: 1.9rem; }
 }
 
-/* ---------- mouvement réduit : transitions quasi nulles (motion.js n'anime plus que des fondus) ---------- */
+/* ---------- mouvement réduit : plus de transitions, animations CSS ramenées à leur état final (motion.js n'anime
+   plus que des fondus). Durée de transition NULLE et non 1 ms : avec 1 ms, la propriété par défaut « all » faisait
+   transitionner TOUTES les propriétés de tous les éléments, et un style écrit puis mesuré aussitôt (feuilles, radar,
+   placements) donnait l'ancienne valeur. Aucun code n'attend transitionend. ---------- */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; scroll-behavior: auto !important; }
+  *, *::before, *::after {
+    animation-duration: 1ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 0s !important; transition-delay: 0s !important; scroll-behavior: auto !important;
+  }
 }
 html.motion-soft *, html.motion-soft *::before, html.motion-soft *::after { animation-iteration-count: 1 !important; }

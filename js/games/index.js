@@ -1,6 +1,7 @@
 /* ============ REGISTRE DES JEUX (v2.0 : 6 jeux) ============
    Module pur (aucun import de jeu au chargement : chaque jeu est chargé à la demande).
-   title peut contenir des jetons de template ({N} = nom du compagnon) → fillTemplate. */
+   title peut contenir des jetons de template ({N} = nom du compagnon) → fillTemplate.
+   Icônes : emoji d'Emoji 12 ou avant (Android anciens : pas de carré vide), d'où 📏 pour la clôture (D3-17). */
 
 import { gradeIndex } from '../core/levels.js';
 
@@ -8,11 +9,11 @@ export const GAMES = [
   { id: 'course', title: 'La course de {N}', short: 'La course', icon: '🏁',
     blurb: 'Lis une histoire à voix haute et bats Zip !', axes: ['fr.fluence', 'fr.comp_ecrit'],
     primary: 'fr.fluence', minGrade: 0, tint: '#fce7f3', manche: { 10: 1, 15: 1, 20: 1 } },
-  { id: 'cloture', title: 'Le Chemin de la clôture', short: 'La clôture', icon: '🪵',
+  { id: 'cloture', title: 'Le Chemin de la clôture', short: 'La clôture', icon: '📏',
     blurb: 'Saute de piquet en piquet sur la ligne des nombres.', axes: ['ma.ligne'],
     primary: 'ma.ligne', minGrade: 0, tint: '#fef3c7', manche: { 10: 6, 15: 8, 20: 10 } },
   { id: 'tables', title: 'Le Galop des tables', short: 'Les tables', icon: '🏇',
-    blurb: 'Réponds vite et saute les obstacles !', axes: ['ma.faits'],
+    blurb: 'Trouve le résultat et saute les obstacles !', axes: ['ma.faits'],
     primary: 'ma.faits', minGrade: 0, tint: '#dcfce7', manche: { 10: 8, 15: 10, 20: 12 } },
   { id: 'pommes', title: 'Pommes express', short: 'Pommes express', icon: '🍎',
     blurb: 'Calcule de tête et remplis le panier.', axes: ['ma.procedures'],

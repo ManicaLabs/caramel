@@ -15,6 +15,8 @@ ni niveau affiché, avec indice puis nouvelle chance à chaque erreur.
 - **Mes progrès** : radars calqués sur les fiches des évaluations nationales Repères ; un adulte peut saisir la fiche
   de l'enfant (photo lue automatiquement, saisie ou fichier) pour adapter le parcours.
 - **Espace parents** : détail par compétence, courbe de lecture, réglages, sauvegardes à télécharger.
+- **Simple, une étape à la fois** : l'accueil tient sur un écran avec un seul gros bouton « Jouer ▶ » ; pour les
+  petits lecteurs (CP-CE1), le compagnon lit à voix haute les questions, les indices et les bilans.
 - **Un compagnon vivant** : huit animaux qui respirent, regardent l'enfant, jouent tout seuls, dorment la nuit,
   réagissent quand on les nourrit, les brosse ou les promène, et grandissent avec le temps d'apprentissage.
 - **En famille** : plusieurs enfants sur le même téléphone, chacun sa progression ; classements de la semaine

@@ -22,7 +22,7 @@ export const THEMES = Object.freeze([
   { id: 'superheros', name: 'Super-héros', emoji: '🦸', blurb: 'Bleu roi, rouge et éclairs', bar: '#eff5ff',
     party: ['⚡', '💥', '⭐', '🌟', '💫'], sticker: '⚡' },
   { id: 'dinosaures', name: 'Dinosaures', emoji: '🦖', blurb: 'Feuillages, terre et volcans', bar: '#f3f9ea',
-    party: ['🦖', '🦕', '🌿', '🌋', '⭐'], sticker: '🦖' },
+    party: ['🦖', '🦕', '🌿', '🥚', '⭐'], sticker: '🦖' },
   { id: 'bolides', name: 'Bolides', emoji: '🏎️', blurb: 'Bleu course, rouge et damier', bar: '#f1f4f8',
     party: ['🏎️', '🏁', '🏆', '⭐', '💨'], sticker: '🏁' },
   { id: 'espace', name: 'Espace', emoji: '🚀', blurb: 'Nuit douce, étoiles et planètes', bar: '#f2f0ff',

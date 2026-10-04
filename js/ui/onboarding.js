@@ -5,15 +5,19 @@
      autre), aperçu instantané de tout l'écran (previewTheme, jusqu'à la création du profil)
      → 3. classe (5 gros boutons : c'est SA classe, elle peut s'afficher ici)
      → 4. nom du compagnon (poney « Caramel » par défaut, aperçu) → profil créé (defaultProfile +
-     settings.theme + store.addProfile, mémorisé pour la session) → 5. « Tu as ta fiche d'évaluation
-     nationale ? » (un adulte la photographie → #/import?from=onboarding ; plus tard → #/home).
+     settings.theme + store.addProfile, mémorisé pour la session ; le compagnon fête son nom sur place, puis l'étape
+     suivante arrive) → 5. « Une question pour tes parents » : l'enfant montre l'écran à un adulte, qui peut prendre en
+     photo la fiche des évaluations nationales (→ #/import?from=onboarding ; plus tard → #/home) ; petit lecteur
+     (js/ui/voice.js) : « Une question pour tes parents. Montre cet écran à un adulte. » est dit à voix haute.
+   « Suivant » n'est jamais désactivé : s'il manque le prénom ou fille / garçon, le toucher (ou la touche Entrée du
+   clavier) secoue ce qui manque et une ligne d'aide dit quoi faire (lue par les lecteurs d'écran).
    Mode 'welcome' (params.mode === 'welcome' : profil migré de la v11, sans classe) :
-     confettis + fanfare, « Bienvenue dans Caramel 2 ! », « Tes X 🍎 et Y ⭐ sont bien là. »
-     (message doux, sans chiffres, si la sauvegarde était illisible), prénom modifiable → univers (thème
-     actuel présélectionné, enregistré au toucher) → classe (setClasse via mutateProfile)
-     → proposition d'import de la fiche ou plus tard → #/home. */
+     gerbe autour du compagnon + fanfare, « Bienvenue dans Caramel 2 ! », « Tes X 🍎 et Y ⭐ sont bien là. »
+     (seulement ce qui existe ; message doux, sans chiffres, si la sauvegarde était illisible), prénom modifiable
+     → univers (thème actuel présélectionné, enregistré au toucher) → classe (setClasse via mutateProfile)
+     → question pour les parents (import de la fiche ou plus tard → #/home). */
 
-import { h, clear, dayStr, frTypo, loadCSS, fmtNum } from '../core/util.js';
+import { h, clear, dayStr, frTypo, loadCSS, fmtNum, frList } from '../core/util.js';
 import * as store from '../core/store.js';
 import * as router from '../router.js';
 import * as motion from '../core/motion.js';
@@ -24,6 +28,7 @@ import { defaultThemeFor, normalizeTheme } from '../core/themes.js';
 import { totalStarsOf } from '../content/stories/index.js';
 import { mountReady, avatarSVG, avatarOf, setAvatar, stageOf } from './companion.js';
 import { themeGrid, previewTheme, endPreview, swapTheme, cheerTheme } from './theme-picker.js';
+import { readAloud, speak as voiceSpeak, hush as voiceHush } from './voice.js';
 
 const PICKED_KEY = 'caramel-picked';
 const ssSet = (k, v) => { try { sessionStorage.setItem(k, v); } catch (_) {} };
@@ -114,6 +119,8 @@ export default {
       class: 'input ob-input', type: 'text', id, maxlength: '14', value, autocomplete: 'off', autocapitalize: 'words',
       spellcheck: 'false', enterkeyhint: 'next', 'aria-label': label, 'data-autofocus': ''
     });
+    /* ligne d'aide sous « Suivant » : vide tant que tout va bien, dit ce qui manque quand on touche trop tôt */
+    const helpLine = () => h('p', { class: 'ob-help', 'aria-live': 'polite' });
     const nextBtn = (label, onClick, extra = '') => {
       const b = h('button', { type: 'button', class: 'btn big block ob-next ob-anim ' + extra }, frTypo(label));
       b.addEventListener('click', onClick);
@@ -146,18 +153,25 @@ export default {
       }
       return grid;
     };
+    /* dernière étape : une question pour les PARENTS (la fiche des évaluations nationales est un document d'adulte) ;
+       l'enfant est invité à montrer l'écran, le texte des parents les vouvoie */
     const ficheStep = () => {
       const yes = h('button', { type: 'button', class: 'btn big block ob-anim' },
-        h('span', { 'aria-hidden': 'true' }, '📷'), frTypo('Oui, je l’ai !'));
+        h('span', { 'aria-hidden': 'true' }, '📷'), frTypo('Prendre la fiche en photo'));
       const no = h('button', { type: 'button', class: 'btn white big block ob-anim' }, 'Plus tard');
       yes.addEventListener('click', () => { audio.tap(); router.go('import', { query: { from: 'onboarding' }, replace: true }); });
       no.addEventListener('click', () => { audio.tap(); audio.whoosh(); router.go('home', { replace: true }); });
       const q = store.getProfile();
+      const buddy = (q && q.companion && q.companion.name) || DEFAULT_MOUNT_NAME;
+      /* petit lecteur (CP, CE1, ou réglage des parents) : la consigne de l'enfant est dite à voix haute */
+      later(() => { try { if (readAloud(store.getProfile())) voiceSpeak('Une question pour tes parents. Montre cet écran à un adulte.'); } catch (_) {} }, 450);
       return h('div', { class: 'ob-card' },
         h('div', { class: 'ob-fiche ob-anim', 'aria-hidden': 'true' }, h('span', null, '📄'), h('span', { class: 'ob-fiche-star' }, '✨')),
-        title('Tu as ta fiche d’évaluation nationale ?'),
-        sub('Avec la fiche « Repères » de la rentrée, ' + ((q && q.companion && q.companion.name) || DEFAULT_MOUNT_NAME) + ' choisit les jeux qui t’aideront le plus.'),
-        h('p', { class: 'ob-adult ob-anim' }, frTypo('Pour les parents : prenez la fiche en photo, elle reste sur l’appareil et n’est jamais envoyée.')),
+        title('Une question pour tes parents'),
+        sub('Montre cet écran à un adulte.'),
+        h('p', { class: 'ob-adult ob-anim' }, h('b', null, 'Pour les parents : '),
+          frTypo('avez-vous la fiche des évaluations nationales « Repères » reçue à la rentrée ? Prise en photo, elle aide '
+            + buddy + ' à proposer les bons jeux dès le départ. La photo reste sur l’appareil, elle n’est jamais envoyée.')),
         h('div', { class: 'ob-actions' }, yes, no));
     };
 
@@ -167,17 +181,30 @@ export default {
       name() {
         const input = nameInput(data.name, 'Ton prénom', 'ob-name');
         const next = nextBtn('Suivant ➜', submit);
-        const check = () => { const ok = !!input.value.trim() && !!data.g; next.disabled = !ok; next.setAttribute('aria-disabled', String(!ok)); };
+        const help = helpLine();
+        const check = () => {
+          const ok = !!input.value.trim() && !!data.g;
+          next.setAttribute('aria-disabled', String(!ok));
+          if (ok || (help.dataset.miss === 'name' && input.value.trim()) || (help.dataset.miss === 'g' && data.g)) say('');
+        };
+        const say = (text, miss = '') => { help.textContent = text ? frTypo(text) : ''; help.dataset.miss = miss; };
         function submit() {
           const v = sanitizeName(input.value, '');
-          if (!v) { motion.shake(input); input.focus(); return; }
-          if (!data.g) { motion.shake(segBox); return; }
+          if (!v) { say('Écris ton prénom 😊', 'name'); motion.shake(input); input.focus(); return; }
+          if (!data.g) { say('Choisis « une fille » ou « un garçon » 😊', 'g'); motion.shake(segBox); return; }
           data.name = v;
           audio.tap();
           go(cur + 1);
         }
         input.addEventListener('input', check);
-        input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); if (!next.disabled) submit(); } });
+        /* « Suivant » du clavier : toujours une réponse ; s'il manque fille / garçon, le clavier se ferme pour qu'on voie
+           les deux boutons secoués */
+        input.addEventListener('keydown', e => {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          if (!data.g && input.value.trim()) input.blur();
+          submit();
+        });
         const segBox = genderSeg(check);
         check();
         return h('div', { class: 'ob-card' },
@@ -185,7 +212,7 @@ export default {
           title('Bonjour ! Comment tu t’appelles ?'),
           h('div', { class: 'ob-field ob-anim' }, h('label', { class: 'ob-label', for: 'ob-name' }, 'Ton prénom'), input),
           h('div', { class: 'ob-field ob-anim' }, h('span', { class: 'ob-label' }, 'Tu es…'), segBox),
-          next);
+          next, help);
       },
       /* univers (les deux modes) : présélection, aperçu instantané au toucher */
       theme() {
@@ -232,12 +259,21 @@ export default {
         input.setAttribute('enterkeyhint', 'done');
         const next = nextBtn('C’est mon compagnon ! ➜', submit);
         const pic = stage(newPony(150), 'is-big');
+        let leaving = false;
         function submit() {
+          if (leaving) return;                       /* deux touchers rapides : une seule fête, une seule étape */
+          leaving = true;
           data.buddy = sanitizeName(input.value, DEFAULT_MOUNT_NAME);
           createOrUpdate();
           audio.neigh();
-          motion.confetti({ count: 16 });
-          go(cur + 1);
+          /* la fête a lieu ici, autour du poney qu'on vient de nommer ; l'étape suivante arrive ensuite, sans rien
+             par-dessus sa question */
+          try { input.blur(); } catch (_) {}
+          const at = cur;
+          const pony = pic.querySelector('.ob-pic') || pic;
+          motion.pop(pony, { scale: 1.12 });
+          motion.burst(pony, { count: 16, spread: 110 });
+          later(() => { if (cur === at) go(at + 1); }, motion.reduced() ? 250 : 900);
         }
         input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
         pic.addEventListener('click', () => { audio.neigh(); const s = pic.querySelector('.ob-pic'); setAvatar(s, newPony(150)); });
@@ -260,31 +296,39 @@ export default {
         let msg;
         if (corrupt) msg = '{N} t’attendait avec impatience pour de nouvelles aventures !';
         else if (apples || stars) {
-          msg = 'Tes ' + fmtNum(apples) + ' 🍎 et ' + fmtNum(stars) + ' ⭐ sont bien là.';
+          /* seulement ce qui existe (jamais « 0 ⭐ ») ; une seule pomme ou une seule étoile : au singulier */
+          if (apples + stars === 1) msg = apples ? 'Ta pomme 🍎 est bien là.' : 'Ton étoile ⭐ est bien là.';
+          else msg = 'Tes ' + frList([apples ? fmtNum(apples) + ' 🍎' : '', stars ? fmtNum(stars) + ' ⭐' : '']) + ' sont bien là.';
         } else msg = '{N} t’attendait avec impatience !';
         msg = msg.replace('{N}', (p.companion && p.companion.name) || DEFAULT_MOUNT_NAME);
         const input = nameInput(data.name, 'Ton prénom', 'ob-hello-name');
         const next = nextBtn('C’est bien moi ! ➜', submit);
-        const check = () => { const ok = !!input.value.trim(); next.disabled = !ok; next.setAttribute('aria-disabled', String(!ok)); };
+        const help = helpLine();
+        const check = () => {
+          const ok = !!input.value.trim();
+          next.setAttribute('aria-disabled', String(!ok));
+          if (ok) help.textContent = '';
+        };
         function submit() {
           const v = sanitizeName(input.value, '');
-          if (!v) { motion.shake(input); input.focus(); return; }
+          if (!v) { help.textContent = frTypo('Écris ton prénom 😊'); motion.shake(input); input.focus(); return; }
           data.name = v;
           store.mutateProfile(pp => { pp.name = v; });
           audio.tap();
           go(cur + 1);
         }
         input.addEventListener('input', check);
-        input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); if (!next.disabled) submit(); } });
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
         check();
         const pic = stage(avatarOf(p, 150, 'joy'), 'is-big');
-        later(() => { motion.confetti(); audio.fanfare(); }, 350);
+        /* la fête jaillit autour du compagnon retrouvé, sans pluie de confettis sur le champ du prénom */
+        later(() => { motion.burst(pic.querySelector('.ob-pic') || pic, { count: 22, spread: 120 }); audio.fanfare(); }, 350);
         return h('div', { class: 'ob-card' },
           pic,
           title('Bienvenue dans Caramel 2 !'),
           h('p', { class: 'ob-treasure ob-anim' }, frTypo(msg)),
           h('div', { class: 'ob-field ob-anim' }, h('label', { class: 'ob-label', for: 'ob-hello-name' }, 'Ton prénom'), input),
-          next);
+          next, help);
       }
     };
 
@@ -315,6 +359,7 @@ export default {
 
   unmount() {
     endPreview();                     /* aperçu d'un thème non enregistré : retour au thème du profil actif */
+    try { voiceHush(); } catch (_) {}
     const my = st;
     st = null;
     if (!my) return;

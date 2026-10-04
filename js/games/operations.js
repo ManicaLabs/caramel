@@ -16,7 +16,9 @@
      l'en-tête, explication, puis « Opération suivante ➜ ».
    Rapport (contrat §7.3) : correct = aucune étape posée d'office après deux erreurs ; hinted = une erreur, le joker ou
    le coup de pouce (item.assist) ; joker 💡 = indice de l'étape en cours. Méthode de soustraction de l'école :
-   ctx.settings.subMethod → ctx.nextItem(undefined, { subMethod }). */
+   ctx.settings.subMethod → ctx.nextItem(undefined, { subMethod }).
+   Voix (petits lecteurs, ctx.voice, comme les autres jeux) : la question de chaque étape, l'indice, l'explication ;
+   le texte reste affiché ; silence au démontage. */
 
 import { h, svg, clear } from '../core/util.js';
 import * as L from './operations-logic.js';
@@ -83,6 +85,9 @@ function pencilSVG() {
 
 function createAtelier(root, ctx) {
   const M = ctx.motion, A = ctx.audio, K = ctx.kit;
+  /* voix du compagnon (petits lecteurs, js/ui/voice.js) : ce que dit la bulle, le texte restant affiché */
+  const say = t => { try { return ctx.voice ? Promise.resolve(ctx.voice.say(String(t || ''))) : Promise.resolve(false); } catch (_) { return Promise.resolve(false); } };
+  const hush = () => { try { if (ctx.voice) ctx.voice.hush(); } catch (_) {} };
   let alive = true;
   const timers = new Set(), anims = new Set(), clones = new Set();
   let raf = 0, ro = null;
@@ -478,6 +483,7 @@ function createAtelier(root, ctx) {
     t0 = performance.now();
     const first = run.current;
     ctx.announce('Opération : ' + item.prompt + '. ' + (intro.text ? intro.text + ' ' : '') + (first ? first.prompt : ''));
+    say((item.assist && first && first.hint ? 'Petit coup de pouce : ' + first.hint + ' ' : (intro.text ? intro.text + ' ' : '')) + (first ? first.prompt : ''));
     if (run.done) complete();
   }
 
@@ -506,6 +512,7 @@ function createAtelier(root, ctx) {
       if (res.done) { setNote(said.text, 'say'); setAsk(''); fitTalk(said.short); complete(); return; }
       showStepTalk(said);
       ctx.announce(said.text + ' ' + (run.current ? run.current.prompt : ''));
+      say(run.current ? run.current.prompt : '');
     } else if (res.result === 'retry') {
       streak = 0;
       guardUntil = now + GUARD_WRONG;
@@ -515,6 +522,7 @@ function createAtelier(root, ctx) {
       fitTalk(step.hint || '');
       if (!reduced()) M.squash(ava, { amount: 0.6 });
       ctx.announce(note.textContent);
+      say(note.textContent + ' ' + step.prompt);
     } else if (res.result === 'given') {
       streak = 0;
       guardUntil = now + GUARD_WRONG;
@@ -531,6 +539,7 @@ function createAtelier(root, ctx) {
       setAsk(run.current.prompt);
       fitTalk(step.say || '');
       ctx.announce(note.textContent + ' ' + run.current.prompt);
+      say(note.textContent + ' ' + run.current.prompt);
     }
   }
 
@@ -586,6 +595,7 @@ function createAtelier(root, ctx) {
       fitTalk('');
       scroller.scrollTop = 0;
       ctx.announce(praise + ' ' + (item.explain || ''));
+      say(praise + ' ' + (item.explain || ''));
     }, reduced() ? 120 : 420);
     if (!out.correct) doReport();
   }
@@ -685,7 +695,11 @@ function createAtelier(root, ctx) {
     if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName || ''))) return;
     if (document.querySelector('.overlay')) return;
     if (finished) {
-      if ((e.key === 'Enter' || e.key === ' ') && document.activeElement !== nextBtn && dock.classList.contains('is-done')) { e.preventDefault(); goNext(); }
+      if ((e.key === 'Enter' || e.key === ' ') && document.activeElement !== nextBtn && dock.classList.contains('is-done')) {
+        /* Entrée ou Espace sur une autre commande focalisée (Retour, Joker…) : elle s'active normalement (M3) */
+        if (t && t !== document.body && t.closest && t.closest('button, a[href], summary, [role="button"], [role="switch"], [role="slider"], [tabindex]:not([tabindex="-1"])')) return;
+        e.preventDefault(); goNext();
+      }
       return;
     }
     const d = L.digitOfKey(e.key);
@@ -713,6 +727,7 @@ function createAtelier(root, ctx) {
     fitTalk('');
     if (!reduced()) M.pop(bubble, { scale: 1.03 });
     ctx.announce('Indice : ' + j.step.hint);
+    say(j.step.hint + ' ' + j.step.prompt);
     return true;
   });
 
@@ -730,6 +745,7 @@ function createAtelier(root, ctx) {
     destroy() {
       if (pendingReport && alive) safe(pendingReport);
       alive = false;
+      hush();
       for (const t of timers) clearTimeout(t);
       timers.clear();
       if (raf) { try { cancelAnimationFrame(raf); } catch (_) {} raf = 0; }

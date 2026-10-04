@@ -29,13 +29,13 @@ export const AXES = {
   'fr.accord_gn':    { subject: 'fr', label: 'Accords dans le groupe nominal', child: 'Accorder les mots', emoji: '🦎', grades: FROM_CE1 },
   'fr.conjug':       { subject: 'fr', label: 'Conjugaison et accord du verbe', child: 'Conjuguer les verbes', emoji: '🎻', grades: FROM_CE1 },
   /* ---------- Mathématiques ---------- */
-  'ma.denombrer':    { subject: 'ma', label: 'Dénombrer', child: 'Compter des objets', emoji: '🧮', grades: ['CP'] },
+  'ma.denombrer':    { subject: 'ma', label: 'Dénombrer', child: 'Compter des objets', emoji: '🖐️', grades: ['CP'] },
   'ma.nombres':      { subject: 'ma', label: 'Lire et écrire des nombres', child: 'Écrire les nombres', emoji: '🔢', grades: ALL },
   'ma.repres':       { subject: 'ma', label: 'Représentations des nombres', child: 'Les formes des nombres', emoji: '🥧', grades: ALL },
   'ma.ligne':        { subject: 'ma', label: 'Placer un nombre sur une ligne graduée', child: 'La ligne des nombres', emoji: '📏', grades: ALL },
-  'ma.faits':        { subject: 'ma', label: 'Faits numériques (tables)', child: 'Les tables', emoji: '✖️', grades: ALL },
+  'ma.faits':        { subject: 'ma', label: 'Faits numériques (tables)', child: 'Les tables', emoji: '🏇', grades: ALL },
   'ma.procedures':   { subject: 'ma', label: 'Calculer rapidement', child: 'Calcul rapide', emoji: '⚡', grades: FROM_CE1 },
-  'ma.operations':   { subject: 'ma', label: 'Poser et calculer', child: 'Les opérations', emoji: '🧾', grades: FROM_CE1 },
+  'ma.operations':   { subject: 'ma', label: 'Poser et calculer', child: 'Les opérations', emoji: '🧮', grades: FROM_CE1 },
   'ma.problemes':    { subject: 'ma', label: 'Résoudre des problèmes', child: 'Les problèmes', emoji: '🧠', grades: ALL }
 };
 

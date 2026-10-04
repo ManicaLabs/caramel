@@ -1,6 +1,6 @@
 import { test, assert } from './_t.mjs';
 import {
-  IMPORTANCE, eligibleAxes, axisWeight, planDay, ensureToday, completeBlock, finishDay
+  IMPORTANCE, eligibleAxes, axisWeight, planDay, ensureToday, completeBlock, finishDay, isPreReader, swapBlock
 } from '../js/core/session.js';
 import { mancheSize, gamesFor, GAME_BY_ID } from '../js/games/index.js';
 import { makeRng } from '../js/core/rng.js';
@@ -189,7 +189,11 @@ test('propriétés sur 1 000 profils variés : 4 blocs, jamais deux jeux identiq
     /* un axe faible (θ < 2) pris en échauffement peut revenir en révision, à son vrai niveau (blocs non consécutifs) */
     assert.notEqual(b3.axis, b2.axis);
     if ((p.skills[b1.axis] ? p.skills[b1.axis].t : 1.5) >= 2) assert.notEqual(b3.axis, b1.axis);
-    const thetas = eligibleAxes(p).map(ax => (p.skills[ax] ? p.skills[ax].t : 1.5));
+    /* petit lecteur de CP (D1-03) : pas de lecture à voix haute imposée */
+    const pre = isPreReader(p);
+    const axes = eligibleAxes(p).filter(ax => !(pre && ax === 'fr.fluence'));
+    if (pre) assert.ok(plan.blocks.every(b => b.game !== 'course'));
+    const thetas = axes.map(ax => (p.skills[ax] ? p.skills[ax].t : 1.5));
     assert.equal(p.skills[b1.axis] ? p.skills[b1.axis].t : 1.5, Math.max(...thetas));
     assert.equal(b1.offset, -0.6);
     /* course : 1 histoire en échauffement, 2 en priorité/révision (3 pour 20 min) ; autres jeux : manche normale */
@@ -198,10 +202,10 @@ test('propriétés sur 1 000 profils variés : 4 blocs, jamais deux jeux identiq
     assert.equal(b2.count, b2.game === 'course' ? courseN('priorite') : mancheSize(b2.game, sessionMin));
     assert.equal(b3.count, b3.game === 'course' ? courseN('revision') : mancheSize(b3.game, sessionMin));
     /* priorité = poids maximal hors axe d'échauffement */
-    const wMax = Math.max(...eligibleAxes(p).filter(ax => ax !== b1.axis).map(ax => axisWeight(p, ax, D)));
+    const wMax = Math.max(...axes.filter(ax => ax !== b1.axis).map(ax => axisWeight(p, ax, D)));
     near(axisWeight(p, b2.axis, D), wMax);
     const courseUsed = [b1, b2, b3].some(b => b.game === 'course');
-    assert.equal(b4.game, courseUsed ? null : 'course');
+    assert.equal(b4.game, courseUsed || pre ? null : 'course');
   }
 });
 
@@ -282,5 +286,108 @@ test('rotation sur 14 jours (profil de CM2 sous les attendus) : échauffement va
   for (const ax of eligibleAxes(p)) {
     const days = levelDays[ax] || [];
     for (let start = 0; start + 7 <= 14; start++) assert.ok(days.some(x => x >= start && x < start + 7), ax + ' jours ' + days.join(','));
+  }
+});
+
+test('CP qui ne lit pas encore : aucune lecture à voix haute dans la balade, récompense au choix (D1-03)', () => {
+  const rng = makeRng('cp-lecteur');
+  for (let k = 0; k < 200; k++) {
+    const skills = {};
+    for (const ax of ['fr.fluence', 'ma.ligne', 'ma.faits', 'ma.procedures']) if (rng.chance(0.8)) skills[ax] = Math.round(rng.float(0, 3) * 10) / 10;
+    const p = prof({ classe: 'CP', skills });
+    assert.ok(isPreReader(p));
+    const plan = planDay(p, D);
+    assert.equal(plan.blocks.length, 4);
+    assert.ok(plan.blocks.every(b => b.game !== 'course'), games(plan).join(' → '));
+    assert.equal(plan.blocks[3].game, null);
+    assertNoRepeat(plan);
+  }
+  /* une lecture mesurée à 15 mots/min ou plus (course, ou v11 importée) : la course revient */
+  const reader = prof({ classe: 'CP' });
+  reader.mclm = [{ d: D, t: 0, s: 'carotte', v: 18 }];
+  assert.ok(!isPreReader(reader));
+  assert.ok(planDay(reader, D).blocks.some(b => b.game === 'course'));
+  const legacy = prof({ classe: 'CP' });
+  legacy.legacy = { from: 'v11', mclm: 22, stars: 6 };
+  assert.ok(!isPreReader(legacy));
+  const slow = prof({ classe: 'CP' });
+  slow.mclm = [{ d: D, t: 0, s: 'carotte', v: 9 }];
+  assert.ok(isPreReader(slow));
+  /* hors CP : rien ne change */
+  assert.ok(!isPreReader(prof({ classe: 'CE1' })));
+  assert.ok(planDay(prof({ classe: 'CE1' }), D).blocks.some(b => b.game === 'course'));
+});
+
+test('swapBlock : sans micro, l’étape course prend un autre jeu, jamais deux fois le même de suite (D1-01)', () => {
+  /* lecture = priorité (bloc 2) */
+  const skills = { 'fr.fluence': 0.8, 'ma.ligne': 2.6, 'ma.faits': 1.9, 'ma.procedures': 1.7, 'fr.conjug': 1.6, 'ma.operations': 1.8 };
+  const p = prof({ skills, sessionMin: 20 });
+  p.today = planDay(p, D);
+  const i = p.today.blocks.findIndex(b => b.game === 'course');
+  assert.ok(i >= 0 && i < 3, games(p.today).join(' → '));
+  const before = JSON.parse(JSON.stringify(p.today.blocks[i]));
+  const id = swapBlock(p, i, D);
+  const b = p.today.blocks[i];
+  assert.equal(b.game, id);
+  assert.ok(id && id !== 'course');
+  assert.equal(b.swapped, 'course');
+  assert.equal(b.kind, before.kind);
+  assert.equal(b.offset, before.offset);
+  assert.equal(b.axis, GAME_BY_ID[id].primary);
+  assert.equal(b.count, b.kind === 'echauffement' ? Math.ceil(0.7 * mancheSize(id, 20)) : mancheSize(id, 20));
+  assert.ok(!p.today.blocks.some((x, k) => k !== i && x.axis === b.axis), 'axe déjà au programme');
+  assertNoRepeat(p.today);
+  /* récompense déjà au choix (la course était au programme) : la course choisie là ne démarre pas → elle devient le jeu
+     remplacé, que la feuille ne propose plus (V22A-1) ; sans jeu en échec, ou le même encore, rien ne change */
+  const r = p.today.blocks[3];
+  assert.deepEqual([r.kind, r.game, r.swapped], ['recompense', null, undefined]);
+  assert.equal(swapBlock(p, 3, D), undefined);
+  assert.equal(r.swapped, undefined);
+  assert.equal(swapBlock(p, 3, D, 'course'), null);
+  assert.deepEqual([r.game, r.axis, r.count, r.swapped], [null, null, null, 'course']);
+  assert.equal(swapBlock(p, 3, D, 'course'), undefined);
+  /* récompense course → jeu au choix ; étape faite, déjà au choix, autre jour : rien ne change */
+  const q = prof({ skills: { ...skills, 'fr.fluence': 2.5 }, played: { 'fr.fluence': 0 } });
+  q.today = planDay(q, D);
+  assert.equal(q.today.blocks[3].game, 'course');
+  assert.equal(swapBlock(q, 3, D), null);
+  assert.deepEqual([q.today.blocks[3].game, q.today.blocks[3].axis, q.today.blocks[3].count, q.today.blocks[3].swapped], [null, null, null, 'course']);
+  assert.equal(swapBlock(q, 3, D), undefined);
+  completeBlock(q, 0);
+  const done = JSON.stringify(q.today.blocks[0]);
+  assert.equal(swapBlock(q, 0, D), undefined);
+  assert.equal(swapBlock(q, 0, D, 'course'), undefined);
+  assert.equal(JSON.stringify(q.today.blocks[0]), done);
+  assert.equal(swapBlock(q, 1, addDays(D, 1)), undefined);
+  assert.equal(swapBlock(q, 9, D), undefined);
+  assert.equal(swapBlock(prof(), 0, D), undefined);
+  /* le plan reste valide : ensureToday le garde */
+  const kept = q.today;
+  ensureToday(q, D);
+  assert.equal(q.today, kept);
+});
+
+test('swapBlock sur 500 plans variés : autre jeu de la classe, jamais deux fois le même de suite', () => {
+  const rng = makeRng('swap');
+  const AX = ['fr.fluence', 'ma.ligne', 'ma.faits', 'ma.procedures', 'fr.conjug', 'ma.operations'];
+  for (let k = 0; k < 500; k++) {
+    const classe = rng.pick(CLASSES);
+    const skills = {}, played = {};
+    for (const ax of AX) {
+      if (rng.chance(0.8)) skills[ax] = Math.round(rng.float(0, 3) * 10) / 10;
+      if (rng.chance(0.5)) played[ax] = rng.int(0, 10);
+    }
+    const p = prof({ classe, skills, played, sessionMin: rng.pick([10, 15, 20]) });
+    p.today = planDay(p, D);
+    const ok = new Set(gamesFor(classe).map(g => g.id));
+    for (let i = 0; i < p.today.blocks.length; i++) {
+      const was = p.today.blocks[i].game;
+      const id = swapBlock(p, i, D);
+      if (was === null) { assert.equal(id, undefined); continue; }
+      if (p.today.blocks[i].kind === 'recompense') { assert.equal(id, null); continue; }
+      if (id === undefined) continue;                       /* aucun autre jeu possible (jamais en pratique) */
+      assert.ok(ok.has(id) && id !== was, classe + ' : ' + was + ' → ' + id);
+      assertNoRepeat(p.today);
+    }
   }
 });

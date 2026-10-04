@@ -16,7 +16,7 @@
 .ob-stage {
   position: relative; align-self: center; width: 210px; height: 140px; border-radius: 28px; overflow: hidden;
   display: grid; place-items: end center;
-  background: linear-gradient(180deg, #bae6fd 0%, #e0f2fe 58%, #86efac 58%, #4ade80 100%);
+  background: var(--n-meadow);                     /* pré : décor naturel fixe (jetons --n-*) */
   border: 3px solid var(--card); box-shadow: var(--shadow-2);
 }
 .ob-stage.is-big { width: 250px; height: 168px; }
@@ -35,9 +35,13 @@
   transition: transform var(--dur-1) var(--ease-out), background var(--dur-2), border-color var(--dur-2);
 }
 .ob-g:active { transform: scale(.96); }
-.ob-g.on { background: var(--pink-100); border-color: var(--pink-400); color: var(--pink-800); }
+.ob-g.on { background: var(--pink-100); border-color: var(--pink-800); color: var(--pink-800); }
+/* choix fait : ✓ en plus de la teinte (hors du nom accessible : aria-pressed le dit déjà) */
+.ob-g.on::before { content: '✓\00a0'; content: '✓\00a0' / ''; font-weight: 700; }
 .ob-next { margin-top: 6px; }
-.ob-next:disabled { filter: grayscale(.5); opacity: .5; box-shadow: none; }
+/* « Suivant » pas encore prêt : grisé, mais il répond toujours (secousse + ligne d'aide) */
+.ob-next[aria-disabled="true"] { filter: grayscale(.5); opacity: .5; box-shadow: none; }
+.ob-help { min-height: 1.4em; margin-top: -4px; color: var(--ink-2); font-weight: 600; text-align: center; line-height: 1.35; text-wrap: balance; }
 
 /* classe : 5 gros boutons */
 .ob-school { font-size: 3.4rem; line-height: 1; }
@@ -53,7 +57,7 @@
 /* fiche Repères */
 .ob-fiche { position: relative; align-self: center; font-size: 3.6rem; line-height: 1; }
 .ob-fiche-star { position: absolute; top: -8px; right: -18px; font-size: 1.5rem; }
-.ob-adult { font-size: .9rem; color: var(--ink-2); background: var(--card); border: 2px dashed var(--pink-200); border-radius: var(--r-m); padding: 10px 12px; line-height: 1.4; }
+.ob-adult { font-size: .95rem; color: var(--ink-2); text-align: left; background: var(--card); border: 2px dashed var(--pink-200); border-radius: var(--r-m); padding: 10px 12px; line-height: 1.4; }
 .ob-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
 .ob-actions .btn { gap: 10px; }
 

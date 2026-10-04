@@ -83,12 +83,10 @@ export function levelText(t) {
 }
 /* même valeur pour un lecteur d'écran : « 2,4 sur 3 » (les symboles ⊕ se lisent mal) */
 export function levelSpeech(t) { return isNum(t) ? fmtTheta(t) + ' sur 3' : ''; }
-/* icône d'un axe côté enfant : celle du référentiel, sauf « Les tables », dont le ✖️ se lit « faux » ou « fermer »
-   (cheval du Galop des tables, en attendant la correction du référentiel js/core/axes.js) */
-const CHILD_EMOJI = { 'ma.faits': '🏇' };
+/* icône d'un axe : celle du référentiel js/core/axes.js (« Les tables » : 🏇, l'icône du Galop des tables) */
 export function axisEmoji(id) {
   const def = AXES[id];
-  return CHILD_EMOJI[id] || (def && def.emoji) || '';
+  return (def && def.emoji) || '';
 }
 
 /* intersection du rayon [C → U] (U : bout du rayon d'un axe) et du segment [A, B] (sommets voisins) → [x, y] ou null

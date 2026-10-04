@@ -111,10 +111,10 @@
 .op-c.is-small.at-top { align-items: flex-start; padding-top: calc(var(--cw) * .05); }
 .op-c--pre { font-size: var(--fss); font-weight: 700; color: var(--pink-800); z-index: 4; }
 .op-c--comma { font-weight: 700; z-index: 4; padding-top: calc(var(--cw) * .22); }
-.op-c.is-pale { color: var(--ink-5); }
+.op-c.is-pale { color: color-mix(in srgb, var(--ink-3) 80%, var(--card)); }   /* zéro « ajouté » : pâle mais lisible (≥ 3,5:1, D2-15) */
 .op-c.is-zero { color: var(--ink-3); }
 .op-c.is-stale { opacity: .38; }
-.op-c.is-struck .op-ch { color: var(--ink-4); }
+.op-c.is-struck .op-ch { color: var(--ink-3); }                /* le trait suffit à dire « barré » (D2-15) */
 .op-strike {
   position: absolute; left: 16%; right: 16%; top: 50%; z-index: 1;
   height: max(2px, calc(var(--cw) * .065)); margin-top: calc(max(2px, var(--cw) * .065) / -2);

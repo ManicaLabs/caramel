@@ -166,6 +166,11 @@ export function frList(items) {
   if (a.length <= 1) return a.join('');
   return a.slice(0, -1).join(', ') + ' et ' + a[a.length - 1];
 }
+/* accord d'un participe ou d'un adjectif régulier (ajout v2.2) : accorde('porté', { f: true }) → 'portée',
+   accorde('porté', { f: true, pl: true }) → 'portées', accorde('choisi', { f: true }) → 'choisie' */
+export function accorde(mot, { f = false, pl = false } = {}) {
+  return String(mot ?? '') + (f ? 'e' : '') + (pl ? 's' : '');
+}
 
 /* ---------- SHA-256 (ajout v2.1 : code parent haché, jamais en clair) ---------- */
 const K256 = [

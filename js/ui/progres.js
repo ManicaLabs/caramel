@@ -9,7 +9,12 @@
    du poids d'initialisation de la fiche) : jamais la note de la fiche déguisée en médaille, et une nouvelle fiche n'efface pas les médailles
    gagnées en jouant. Une médaille déjà montrée n'est JAMAIS retirée (profile.medals, js/core/profiles.js : un profil
    d'avant la 2.1 garde celles que la v2.0 lui montrait). Compagnon dessiné (portrait SVG) dans la bulle d'encouragement.
-   Bienveillance (CDC §1, §7.6) : aucun chiffre de θ, aucun niveau scolaire, aucune note ; phrases courtes. */
+   Bienveillance (CDC §1, §7.6) : aucun chiffre de θ, aucun niveau scolaire, aucune note ; phrases courtes.
+   Un pas à la fois (CDC §1 principe 7) : le compagnon et sa phrase ; UN radar à la fois sur téléphone (onglets
+   Français / Maths, celui qui brille le plus d'abord ; les deux côte à côte sur grand écran) ; légende seulement
+   s'il y a une fiche à comparer ; médailles repliées (« 🏅 Mes médailles (N) »), rien tant qu'il n'y en a pas ;
+   pas de mention « bientôt » ; radar vide → un seul bouton « Jouer ▶ » qui lance l'étape du jour.
+   L'effort d'abord : pastilles « 🔥 N jours de suite » et « ⭐ N » (étoiles des histoires) sous la phrase, dès qu'il y en a. */
 
 import { h, clear, loadCSS, dayStr, frTypo, deNom } from '../core/util.js';
 import * as store from '../core/store.js';
@@ -22,8 +27,15 @@ import { GAMES } from '../games/index.js';
 import { MOUNTS } from '../content/companion-data.js';
 import { renderRadar, radarReady, axisEmoji } from './radar.js';
 import { mountReady, avatarOf, setAvatar } from './companion.js';
+import { currentStep, launchStep } from './balade.js';
+import { totalStarsOf } from '../content/stories/index.js';
 import * as motion from '../core/motion.js';
 import * as audio from '../core/audio.js';
+
+const TAB_KEY = 'caramel-progres-tab';
+const ssGet = k => { try { return sessionStorage.getItem(k); } catch (_) { return null; } };
+const ssSet = (k, v) => { try { sessionStorage.setItem(k, v); } catch (_) {} };
+const isWide = () => { try { return matchMedia('(min-width: 900px)').matches; } catch (_) { return false; } };
 
 const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 const TIERS = { or: { label: 'Or', rank: 0 }, argent: { label: 'Argent', rank: 1 }, bronze: { label: 'Bronze', rank: 2 } };
@@ -157,74 +169,125 @@ function render(root) {
     if (!ava.isConnected) return;
     try { setAvatar(ava, avatarOf(profile, 64, '', { view: 'portrait', expr: 'happy' })); } catch (_) {}
   }).catch(() => {});
+  /* l'effort, pas le niveau : la série et les étoiles des histoires (rien tant qu'il n'y en a pas) */
+  const streakN = Math.max(0, (profile.streak && profile.streak.count) | 0);
+  let starsN = 0;
+  try { starsN = Math.max(0, totalStarsOf(profile) | 0); } catch (_) {}
+  const pill = (cls, icon, text, label) => h('span', { class: 'pg-pill ' + cls, role: 'img', 'aria-label': label },
+    h('span', { 'aria-hidden': 'true' }, icon), h('b', { 'aria-hidden': 'true' }, text));
+  const pills = streakN || starsN ? h('div', { class: 'pg-pills' },
+    streakN ? pill('is-fire', '🔥', streakN + (streakN > 1 ? ' jours' : ' jour'), streakN + (streakN > 1 ? ' jours de suite' : ' jour de série')) : null,
+    starsN ? pill('is-star', '⭐', String(starsN), starsN + (starsN > 1 ? ' étoiles' : ' étoile')) : null) : null;
   const hero = h('section', { class: 'card pg-hero', 'aria-live': 'polite' },
     ava,
     h('div', { class: 'pg-hero-txt' },
       h('h2', { class: 'pg-hero-title' }, frTypo(headline)),
-      h('p', { class: 'pg-hero-msg' }, frTypo(msg))));
+      h('p', { class: 'pg-hero-msg' }, frTypo(msg)),
+      pills));
   screen.appendChild(hero);
 
-  /* ---------- légende ---------- */
-  const legend = h('div', { class: 'pg-legend' },
-    hasRef ? legendItem('ref', month ? 'Ta fiche ' + deNom(month) : 'Ta fiche') : null,
-    legendItem('cur', 'Maintenant'),
-    progressing.length ? legendItem('star', 'En progrès') : null);
-  screen.appendChild(legend);
+  /* radar encore vide : la seule chose à faire, c'est jouer (l'étape du jour, sans repasser par la carte) */
+  if (!known) {
+    const cur = currentStep(profile, today);
+    const go = h('button', { type: 'button', class: 'btn play block pg-play' },
+      h('span', null, 'Jouer'), h('span', { class: 'btn-play-ico', 'aria-hidden': 'true' }, '▶'));
+    go.addEventListener('click', () => { audio.tap(); if (cur >= 0) launchStep(cur, { from: '#/progres' }); else router.go('home'); });
+    screen.appendChild(go);
+  }
 
-  /* ---------- radars ---------- */
-  const grid = h('div', { class: 'pg-radars' });
-  screen.appendChild(grid);
-  const cards = [];
+  /* ---------- radars : UN à la fois (onglets) sur téléphone, les deux côte à côte sur grand écran ---------- */
+  const wide = isWide();
+  const score = s => s.twinkle.length * 10 + Object.values(s.values).filter(v => typeof v === 'number').length;
+  const saved = ssGet(TAB_KEY);
+  let active = saved === 'fr' || saved === 'ma' ? saved : (score(subjects[1]) > score(subjects[0]) ? 'ma' : 'fr');
+  const grid = h('div', { class: 'pg-radars' + (wide ? ' is-both' : '') });
+  const tabs = h('div', { class: 'pg-tabs', role: 'tablist', 'aria-label': 'Matière' });
+  const panes = {}, tabBtns = {}, drawn = {};
   for (const s of subjects) {
     const subj = SUBJECTS[s.subject];
     const label = s.subject === 'fr' ? 'Français' : 'Maths';
     const holder = h('div', { class: 'pg-radar' });
-    const card = h('section', { class: 'card pg-card pg-card--' + s.subject, 'aria-label': label },
-      h('h2', { class: 'pg-card-title' }, h('span', { class: 'pg-card-emo', 'aria-hidden': 'true' }, subj.emoji), label),
+    const card = h('section', { class: 'card pg-card pg-card--' + s.subject, id: 'pg-pane-' + s.subject, role: wide ? null : 'tabpanel', 'aria-label': label },
+      wide ? h('h2', { class: 'pg-card-title' }, h('span', { class: 'pg-card-emo', 'aria-hidden': 'true' }, subj.emoji), label) : null,
       holder);
+    panes[s.subject] = { card, holder, s };
     grid.appendChild(card);
-    cards.push(card);
+    const b = h('button', { type: 'button', class: 'pg-tab', role: 'tab', id: 'pg-tab-' + s.subject, 'aria-controls': 'pg-pane-' + s.subject },
+      h('span', { class: 'pg-tab-emo', 'aria-hidden': 'true' }, subj.emoji), label,
+      s.twinkle.length ? h('span', { class: 'pg-tab-star', 'aria-hidden': 'true' }, '✨') : null);
+    b.addEventListener('click', () => { if (active !== s.subject) { audio.tap(); show(s.subject, true); } });
+    tabBtns[s.subject] = b;
+    tabs.appendChild(b);
+  }
+  if (!wide) screen.appendChild(tabs);
+  screen.appendChild(grid);
+  function draw(subject) {
+    if (drawn[subject]) return;
+    drawn[subject] = true;
+    const { holder, s } = panes[subject];
     radars.push(renderRadar(holder, {
       template: s.tpl, values: s.values, reference: s.ref, subject: s.subject, labels: 'child',
       twinkle: s.twinkle, dim: s.dim, nullLabel: 'à découvrir', size: 440, bridgeNull: true,
       title: 'Ton radar de ' + (s.subject === 'fr' ? 'français' : 'maths')
     }));
   }
+  function show(subject, user) {
+    active = subject;
+    if (user) ssSet(TAB_KEY, subject);
+    for (const k of Object.keys(panes)) {
+      const on = wide || k === subject;
+      panes[k].card.hidden = !on;
+      tabBtns[k].setAttribute('aria-selected', String(k === subject));
+      tabBtns[k].classList.toggle('on', k === subject);
+      tabBtns[k].tabIndex = k === subject ? 0 : -1;
+      if (on) draw(k);
+    }
+    if (user && !wide) motion.enter(panes[subject].card, { from: 'fade', dur: 260 });
+  }
+  /* flèches gauche / droite entre les deux onglets */
+  tabs.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    const next = active === 'fr' ? 'ma' : 'fr';
+    show(next, true);
+    try { tabBtns[next].focus(); } catch (_) {}
+  });
+  show(active, false);
+
+  /* ---------- légende : seulement s'il y a une fiche à comparer (les ✨ sont déjà dans la phrase du compagnon) ---------- */
+  if (hasRef) {
+    screen.appendChild(h('div', { class: 'pg-legend' },
+      legendItem('ref', month ? 'Ta fiche ' + deNom(month) : 'Ta fiche'),
+      legendItem('cur', 'Maintenant')));
+  }
 
   /* ---------- médailles : compétences entraînées par un jeu ET réellement jouées ---------- */
   const medals = earnedMedals(profile);
+  /* repliées : un geste pour les voir ; aucune carte d'attente tant qu'il n'y en a pas (la première est une surprise) */
   /* une médaille montrée est gardée (même si la compétence baisse un jour, ou si une nouvelle fiche arrive) */
   const keep = Object.fromEntries(medals.map(m => [m.id, m.tier]));
   const prev = profile.medals && typeof profile.medals === 'object' ? profile.medals : {};
   if (Object.keys(keep).some(id => prev[id] !== keep[id])) {
     try { store.mutateProfile(pp => { pp.medals = { ...(pp.medals || {}), ...keep }; }, profile.id); } catch (e) { console.error(e); }
   }
-  const medalSec = h('section', { class: 'pg-medals-sec', 'aria-labelledby': 'pg-medals-t' },
-    h('h2', { class: 'section-title', id: 'pg-medals-t' }, withEmo('Mes médailles', '🏅')));
   if (medals.length) {
-    medalSec.appendChild(h('ul', { class: 'pg-medals' }, medals.map((m, i) => medal(m.id, m.tier, i))));
-  } else {
-    medalSec.appendChild(h('div', { class: 'card dashed pg-medals-empty' },
-      h('span', { class: 'pg-medals-empty-emo', 'aria-hidden': 'true' }, '🏅'),
-      h('div', { class: 'pg-medals-empty-txt' },
-        h('p', null, frTypo('Tes premières médailles arrivent bientôt : continue à jouer !')),
-        h('button', { type: 'button', class: 'btn pg-go', on: { click: () => { audio.tap(); router.go('balade'); } } }, frTypo('C’est parti !')))));
+    const list = h('ul', { class: 'pg-medals' }, medals.map((m, i) => medal(m.id, m.tier, i)));
+    const medalSec = h('details', { class: 'pg-medals-sec' },
+      h('summary', { class: 'pg-medals-sum' }, h('span', { 'aria-hidden': 'true' }, '🏅'), ' Mes médailles ', h('span', { class: 'pg-medals-n' }, '(' + medals.length + ')')),
+      list);
+    const els = [...list.querySelectorAll('.pg-medal')];
+    els.forEach(el => el.classList.add('is-waiting'));
+    medalSec.addEventListener('toggle', () => {
+      if (!medalSec.open || !els.length || !els[0].classList.contains('is-waiting')) return;
+      els.forEach(el => { el.classList.remove('is-waiting'); el.classList.add('anim-spin-in'); });
+      try { audio.success(2); } catch (_) {}
+    });
+    screen.appendChild(medalSec);
   }
-  screen.appendChild(medalSec);
-
-  screen.appendChild(h('button', { type: 'button', class: 'btn white block pg-home', on: { click: () => { audio.tap(); router.go('home'); } } }, withEmo('Retour à l’accueil', '🏠')));
 
   /* ---------- chorégraphie d'ouverture ---------- */
   motion.enter(hero, { from: 'top', dur: 420 });
-  motion.stagger(cards, el => motion.enter(el, { from: 'bottom' }), 110);
-  const medalEls = [...medalSec.querySelectorAll('.pg-medal')];
-  if (medalEls.length) {
-    medalEls.forEach(el => el.classList.add('is-waiting'));
-    timers.push(setTimeout(() => {
-      medalEls.forEach(el => { el.classList.remove('is-waiting'); el.classList.add('anim-spin-in'); });
-      try { audio.success(2); } catch (_) {}
-    }, motion.reduced() ? 0 : 900));
-  }
+  motion.stagger(Object.values(panes).map(p => p.card).filter(c => !c.hidden), el => motion.enter(el, { from: 'bottom' }), 110);
 }
 
 export default {

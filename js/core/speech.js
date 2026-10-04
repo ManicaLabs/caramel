@@ -28,7 +28,10 @@
 
    AJOUTS (appli à écrans, absents de la v11) : un double appui pendant le chargement partage le même
    démarrage ; stopListening() pendant le démarrage annule proprement (le micro ne s'ouvre pas en
-   arrière-plan) ; resetTranscript() oublie aussi la phrase en cours (pour enchaîner des réponses courtes).
+   arrière-plan) ; resetTranscript() oublie aussi la phrase en cours (pour enchaîner des réponses courtes) ;
+   statut « reconnaissance Google en secours » aussi quand Vosk est prêt mais ne démarre pas et que Web Speech prend
+   le relais (l'espace parents le signale : la voix passe alors par les serveurs de Google) ; « chargement… » en
+   points de suspension typographiques. Le choix du moteur ne change pas.
 
    RESTENT DANS LE JEU : wake lock, minuteur « je ne t’entends pas » (7 s), ligne 👂, libellés du micro,
    alignement mot à mot (tokenize, computeProper, FORGIVE, isMatch, levenshtein, pauses, joker [unk]). */
@@ -105,7 +108,7 @@ export function ensureVosk(onPct){
   voskPromise = voskPromise || (async ()=>{
     try{
       if(typeof WebAssembly !== 'object') throw new Error('pas de WASM');
-      setVoiceStatus('🎙 Moteur vocal : chargement...');
+      setVoiceStatus('🎙 Moteur vocal : chargement\u2026');
       await loadScript(VOSK_LIB);
       const blob = await getModelBlob(p=>{
         setVoiceStatus('🎙 Moteur vocal : téléchargement ' + p + ' % (1re fois seulement)');
@@ -262,6 +265,8 @@ async function begin(grammar, my){
   if(!engine){
     if(startWebSpeech()) engine = 'webspeech';
     else { running = false; return { engine: null }; }
+    /* AJOUT 2.2 : Vosk était prêt mais n'a pas démarré, Web Speech prend le relais → le statut le dit */
+    if(voskOk) setVoiceStatus('🎙 Moteur intégré indisponible → reconnaissance Google en secours');
   }
   return { engine };
 }

@@ -15,8 +15,11 @@ import { normalizeTheme, DEFAULT_THEME } from './themes.js';
 export const DEFAULT_HERO = 'Léa';            /* héros par défaut de la v11 (defaultSave) */
 export const DEFAULT_MOUNT_NAME = 'Caramel';
 export const SESSION_MINUTES = Object.freeze([10, 15, 20]);
-/* theme : thème visuel du profil (js/core/themes.js) ; id inconnu → 'caramel' */
-export const DEFAULT_SETTINGS = Object.freeze({ sessionMin: 15, timers: false, sound: true, motion: 'full', theme: DEFAULT_THEME });
+/* theme : thème visuel du profil (js/core/themes.js) ; id inconnu → 'caramel'.
+   readAloud : voix des petits lecteurs (js/ui/voice.js) : 'auto' = CP et CE1, 'on' = toujours, 'off' = jamais ;
+   anciens booléens acceptés (true → 'on', false → 'off'), toute autre valeur → 'auto' */
+export const READ_ALOUD_MODES = Object.freeze(['auto', 'on', 'off']);
+export const DEFAULT_SETTINGS = Object.freeze({ sessionMin: 15, timers: false, sound: true, motion: 'full', theme: DEFAULT_THEME, readAloud: 'auto' });
 /* plafonds des tableaux (contrat §2) ; freezes = gels de série cumulables au plus */
 export const CAPS = Object.freeze({ history: 500, mclm: 300, snapshots: 104, freezes: 3 });
 const NAME_MAX = 14;
@@ -337,6 +340,11 @@ function normLegacy(l) {
   }, l);
 }
 
+function normReadAloud(v) {
+  if (v === true) return 'on';
+  if (v === false) return 'off';
+  return READ_ALOUD_MODES.includes(v) ? v : DEFAULT_SETTINGS.readAloud;
+}
 function normSettings(s) {
   s = isObj(s) ? s : {};
   const m = num(s.sessionMin, NaN);
@@ -345,7 +353,8 @@ function normSettings(s) {
     timers: typeof s.timers === 'boolean' ? s.timers : DEFAULT_SETTINGS.timers,
     sound: typeof s.sound === 'boolean' ? s.sound : DEFAULT_SETTINGS.sound,
     motion: s.motion === 'soft' ? 'soft' : 'full',
-    theme: normalizeTheme(s.theme)
+    theme: normalizeTheme(s.theme),
+    readAloud: normReadAloud(s.readAloud)
   }, s);
 }
 

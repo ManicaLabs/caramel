@@ -2,7 +2,7 @@
    Verger du ranch : pommier en haut (feuillage en aplats, pommes qui se balancent), le calcul est écrit sur une
    grosse POMME-CARTE suspendue à l'arbre, compagnon à gauche (ctx.petSVG), PANIER à droite qui se remplit (compteur).
    La case « … » de l'énoncé EST la zone de réponse du pavé du kit (kp.answer déplacé dans la pomme).
-   - Série tranquille (défaut) : les calculs de la manche, à son rythme.
+   - Cueillette tranquille (défaut) : les calculs de la manche, à son rythme (« série » = jours de suite, D4-12).
    - Sprint 60 s : proposé à l'écran d'accueil du jeu SEULEMENT si settings.timers ; jauge douce en haut de la
      scène, en pause pendant une explication ou quand l'appli passe en arrière-plan ; à 60 s, l'item en cours se
      termine tranquillement (jamais d'échec), puis la manche s'arrête (ou plus tôt, à la fin de la manche).
@@ -13,6 +13,8 @@
      la pomme remonte dans l'arbre.
    - Estimation (item.choices) : kit.choiceGrid à la place du pavé (même hauteur : rien ne saute).
    - Joker 💡 : l'astuce avant de répondre (l'item compte comme aidé) ; item.assist : coup de pouce d'emblée.
+   - Voix (petits lecteurs, ctx.voice, comme les tables et la clôture) : le calcul (et, au premier, comment répondre),
+     l'astuce, l'explication ; silence dès la bonne réponse et au démontage ; le temps d'écoute ne compte pas.
    Logique pure (énoncé, réponse, horloge du sprint, silhouette de pomme, panier, mise en page) :
    js/games/pommes-logic.js (tests/pommes.test.mjs). */
 
@@ -75,6 +77,9 @@ function createPommes(root, ctx) {
   const animate = (el, frames, opts) => { try { return el && el.animate ? track(el.animate(frames, opts)) : null; } catch (_) { return null; } };
   const announce = t => safe(() => ctx.announce(String(t || '')));
   const cheer = kind => { try { return ctx.kit.cheer(kind); } catch (_) { return ''; } };
+  /* voix du compagnon (petits lecteurs, js/ui/voice.js) : le texte reste affiché */
+  const say = t => { try { return ctx.voice ? Promise.resolve(ctx.voice.say(String(t || ''))) : Promise.resolve(false); } catch (_) { return Promise.resolve(false); } };
+  const hush = () => { try { if (ctx.voice) ctx.voice.hush(); } catch (_) {} };
   const sound = name => { try { const f = ctx.audio && ctx.audio[name]; if (typeof f === 'function') return f(); } catch (_) {} return null; };
   const M = ctx.motion;
   const r1 = v => Math.round(v * 10) / 10;
@@ -454,6 +459,7 @@ function createPommes(root, ctx) {
     const b = showBubble(node, 'hint', long ? '' : '💡');
     if (b && long) b.classList.add('is-long');
     announce((head ? head + ' ' : '') + frTypo('Astuce : ') + c.item.hint);
+    if (why !== 'assist') say((head ? head + ' ' : '') + frTypo('Astuce : ') + c.item.hint);   /* coup de pouce : dit avec le calcul */
   }
 
   /* ================= SAISIE ================= */
@@ -533,6 +539,7 @@ function createPommes(root, ctx) {
   function onRight(c, value) {
     if (c.resolved) return;
     c.resolved = true;
+    hush();
     idleTimer = cancel(idleTimer);
     const ms = Math.max(0, Math.round(nowMs() - c.t0));
     const hinted = !!(c.hinted || c.tries > 0);
@@ -615,13 +622,15 @@ function createPommes(root, ctx) {
       lines.map(l => ['\n', l.conclusion ? h('b', { class: 'pm-learn-end' }, L.keepMath(l.t)) : L.keepMath(l.t)]));
     const text = head + ' ' + c.item.explain;
     const ok = h('button', { type: 'button', class: 'btn big block pm-learn-ok' }, 'J’ai compris ✓');
-    learnEl = h('div', { class: 'pm-learn' }, ctx.kit.bubble(node, 'soft', { icon: '🧐' }), ok);
+    /* même pastille 🤗 que les autres jeux pour l'explication (D4-24) */
+    learnEl = h('div', { class: 'pm-learn' }, ctx.kit.bubble(node, 'soft'), ok);
     listen(ok, 'click', () => learnDone(c));
     pad.classList.add('is-learning');
     pad.appendChild(learnEl);
     animate(learnEl, reduced() ? [{ opacity: 0 }, { opacity: 1 }]
       : [{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'none' }], { duration: reduced() ? 150 : 300, easing: 'cubic-bezier(.22, 1, .36, 1)' });
     announce(text);
+    say(text);
     try { ok.focus({ preventScroll: true }); } catch (_) {}
   }
   function removeLearn() {
@@ -687,6 +696,9 @@ function createPommes(root, ctx) {
     announce(L.promptAria(item.prompt));
     if (sp.on && sp.clock && !sp.clock.started) sprintBegin();
     c.t0 = nowMs();
+    /* petits lecteurs : le calcul dit à voix haute (au premier, comment répondre ; coup de pouce : l'astuce) */
+    const line = L.promptAria(item.prompt) + (item.assist ? ' ' + frTypo('Petit coup de pouce ! Astuce : ') + item.hint : index <= 1 ? ' ' + L.idleText(item) : '');
+    say(line).then(ok => { if (ok && cur === c && !c.resolved && c.tries === 0) c.t0 = nowMs(); });
   }
 
   /* ================= SPRINT ================= */
@@ -761,12 +773,13 @@ function createPommes(root, ctx) {
     const mode = (cls, ico, title, sub) => h('button', { type: 'button', class: 'pm-mode ' + cls },
       h('span', { class: 'pm-mode-ico', 'aria-hidden': 'true' }, ico),
       h('span', { class: 'pm-mode-txt' }, h('b', null, title), h('small', null, sub)));
-    const calm = mode('is-calm', '🧺', 'Série tranquille', 'À ton rythme, sans chrono');
+    const calm = mode('is-calm', '🧺', 'Cueillette tranquille', 'À ton rythme, sans chrono');
     const fast = mode('is-sprint', '⏱️', 'Sprint 60' + NNBSP + 's', 'Une minute pour remplir le panier');
     modesEl = h('div', { class: 'pm-modes', role: 'group', 'aria-label': 'Choisis ta façon de jouer' }, calm, fast);
     pad.appendChild(modesEl);
     showBubble(frTypo('Comment veux-tu cueillir les pommes ?'), 'hint', '🍎');
-    announce(frTypo('Comment veux-tu cueillir les pommes ? Série tranquille, ou sprint d’une minute.'));
+    announce(frTypo('Comment veux-tu cueillir les pommes ? Cueillette tranquille, ou sprint d’une minute.'));
+    say(frTypo('Comment veux-tu cueillir les pommes ? Cueillette tranquille, ou sprint d’une minute ?'));
     safe(() => M.stagger([calm, fast], b => M.enter(b, { from: 'bottom', dur: 360 }), 80));
     listen(calm, 'click', () => begin(false));
     listen(fast, 'click', () => begin(true));
@@ -795,7 +808,7 @@ function createPommes(root, ctx) {
     const n = picked, apples = n + NNBSP + L.plural(n, 'pomme', 'pommes');
     let msg;
     if (sp.on && sp.over) msg = n ? 'Le sprint est fini : ' + apples + ' dans ton panier !' : 'Le sprint est fini, bravo pour ta persévérance !';
-    else if (sp.on) msg = n ? 'Série finie avant la fin du chrono : ' + apples + ' dans ton panier !' : 'Série finie avant la fin du chrono, bravo pour ta persévérance !';
+    else if (sp.on) msg = n ? 'Cueillette finie avant la fin du chrono : ' + apples + ' dans ton panier !' : 'Cueillette finie avant la fin du chrono, bravo pour ta persévérance !';
     else msg = n ? 'Quelle belle récolte : ' + apples + ' dans ton panier !' : 'Bravo pour ta persévérance !';
     msg = frTypo(msg);
     showBubble(msg, 'good', '🧺');
@@ -832,6 +845,7 @@ function createPommes(root, ctx) {
   function destroy() {
     if (!alive) return;
     alive = false;
+    hush();
     for (const id of timers) clearTimeout(id);
     timers.clear();
     for (const a of anims) { try { a.cancel(); } catch (_) {} }

@@ -14,9 +14,9 @@
    de lecture restent les mêmes.
    Thèmes : la page suit le thème de l'enfant actif ; la vignette de chaque enfant porte data-theme = SON thème.
    Outils partagés avec js/ui/battle.js : petReady, petHTML, putPet (vie légère), petMood, lifeOf, podiumEl, petLabel,
-   deName, plural, themeIdOf. */
+   plural, themeIdOf. Élision (« d’Inès ») et listes (« A, B et C ») : deNom et frList de js/core/util.js. */
 
-import { h, clear, dayStr, frTypo, loadCSS, fmtNum } from '../core/util.js';
+import { h, clear, dayStr, frTypo, loadCSS, fmtNum, deNom, frList } from '../core/util.js';
 import * as store from '../core/store.js';
 import * as router from '../router.js';
 import * as motion from '../core/motion.js';
@@ -82,14 +82,11 @@ export function petMood(el, mood = '') {
   if (lf && life) { try { life.liven(el); } catch (_) {} }
 }
 export const themeIdOf = p => themeOf(p && p.settings && p.settings.theme).id;
-const VOWEL = /^[aeiouàâäéèêëîïôöùûü]/i;
-/* « de Léa », « d’Inès » (interface ; les textes lus à voix haute n'élident jamais) */
-export const deName = name => (VOWEL.test(String(name || '')) ? 'd’' : 'de ') + name;
 /* « Caramel, le poney de Léa » */
 export function petLabel(p) {
   const c = (p && p.companion) || {};
   const m = MOUNTS[c.type] || MOUNTS.pony;
-  return (c.name || 'Caramel') + ', ' + (m.g === 'f' ? 'la ' : 'le ') + m.noun + ' ' + deName(p.name);
+  return (c.name || 'Caramel') + ', ' + (m.g === 'f' ? 'la ' : 'le ') + m.noun + ' ' + deNom(p.name);
 }
 export const plural = (n, one, many) => fmtNum(n) + '\u00a0' + (Math.abs(n) >= 2 ? many : one);
 const MEDAL_NAME = { or: 'médaille d’or', argent: 'médaille d’argent', bronze: 'médaille de bronze' };
@@ -330,7 +327,7 @@ function mainScreen(root, my, list) {
   const champ = awarded.length
     ? h('p', { class: 'fm-champ' }, h('span', { class: 'fm-champ-ico', 'aria-hidden': 'true' }, '🏆'),
       h('span', null, frTypo((awarded.length > 1 ? 'Champions de la semaine : ' : 'Champion de la semaine : ')
-        + awarded.map(p => petLabel(p)).join(' et ') + ' !')))
+        + frList(awarded.map(p => petLabel(p))) + ' !')))
     : h('p', { class: 'fm-champ is-open' }, h('span', { class: 'fm-champ-ico', 'aria-hidden': 'true' }, '🎀'),
       h('span', null, frTypo('Le trophée de la semaine attend son champion !')));
   const show = h('button', { type: 'button', class: 'btn block fm-cc-go' }, h('span', { 'aria-hidden': 'true' }, '🎪'), frTypo('Lancer le concours !'));
@@ -513,11 +510,11 @@ function showConcours(root, my, list) {
     }
     let trophyText;
     if (fresh.length) {
-      trophyText = 'Trophée de la semaine pour ' + fresh.map(id => petLabel(byId.get(id))).join(' et ') + ' !';
+      trophyText = 'Trophée de la semaine pour ' + frList(fresh.map(id => petLabel(byId.get(id)))) + ' !';
     } else {
       const already = F.concoursAwarded(store.listProfiles(), w).map(id => store.getProfile(id)).filter(Boolean);
       trophyText = already.length
-        ? 'Le trophée de cette semaine est déjà dans la vitrine ' + already.map(p => deName(p.name)).join(' et ') + '. Un nouveau trophée sera à gagner lundi !'
+        ? 'Le trophée de cette semaine est déjà dans la vitrine ' + frList(already.map(p => deNom(p.name))) + '. Un nouveau trophée sera à gagner lundi !'
         : 'Bravo à tous pour ce beau spectacle !';
     }
     const trophy = h('p', { class: 'fm-trophy' + (fresh.length ? ' is-new' : '') },
@@ -529,7 +526,7 @@ function showConcours(root, my, list) {
     const final = h('div', { class: 'fm-final' }, title, pod, trophy, ribbons, h('div', { class: 'fm-final-btns' }, again, done));
     scene.appendChild(final);
     scene.classList.add('is-final');
-    live.textContent = frTypo('Résultats : ' + winners.map(p => petLabel(p)).join(' et ') + (winners.length > 1 ? ' gagnent ex aequo' : ' gagne')
+    live.textContent = frTypo('Résultats : ' + frList(winners.map(p => petLabel(p))) + (winners.length > 1 ? ' gagnent ex aequo' : ' gagne')
       + ' le concours. ' + trophyText);
     /* chorégraphie : bronze, argent, puis or ; le gagnant danse */
     const steps = [...pod.querySelectorAll('.fm-step')];

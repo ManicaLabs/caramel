@@ -182,13 +182,14 @@
 .tb-hintboard.is-hidden { display: none; }
 .tb-vis { display: block; max-width: 100%; height: auto; max-height: var(--tb-vis-max, 120px); }
 .tb-vis-cap { max-width: 15em; font-family: var(--font-read); font-weight: 700; font-size: clamp(.84rem, 2.6cqh, 1.05rem); line-height: 1.2; color: var(--ink-2); text-align: center; }
-.tb-dot.g1 { fill: var(--title); }
-.tb-dot.g2 { fill: var(--pink-400); }
+/* deux groupes nets dans les 8 thèmes, jamais de rouge : encre foncée du thème, puis sa couleur principale (D3V-M1) */
+.tb-dot.g1 { fill: var(--ink-2); }
+.tb-dot.g2 { fill: var(--amber-500); }
 .tb-dot.ghost { fill: none; stroke: var(--ink-5); stroke-width: 1.2; stroke-dasharray: 2 2; }
-.tb-frame { fill: var(--amber-100); stroke: var(--title); stroke-width: 1.6; }
+.tb-frame { fill: var(--amber-100); stroke: var(--ink-2); stroke-width: 1.6; }   /* cadre de l'indice : jamais rouge (D3V-M1) */
 .tb-frame-line { stroke: var(--amber-400); stroke-width: 1; }
-.tb-cell.a { fill: var(--title); }
-.tb-cell.b { fill: var(--pink-400); }
+.tb-cell.a { fill: var(--ink-2); }
+.tb-cell.b { fill: var(--amber-500); }
 .tb-cell.missing { fill: var(--card); stroke: var(--amber-500); stroke-width: 1.4; stroke-dasharray: 2.6 2; }
 
 /* ---------- bulles ---------- */
@@ -245,6 +246,22 @@
   .tb-pad { grid-area: pad; align-self: center; }
   .tb-learn { top: 0; }
   .tb-keypad .kit-keys .key, .tb-mic { min-height: 62px; }
+}
+
+/* ---------- téléphone en paysage (ou fenêtre basse) : scène à gauche, pavé à droite, touche ✓ toujours à l'écran
+   (D2-01 ; bloc dédié, le bloc 900 px ne change pas) ---------- */
+@media (min-width: 620px) and (max-height: 520px) {
+  .tb {
+    display: grid; gap: 8px 16px;
+    grid-template-columns: minmax(0, 1.55fr) minmax(260px, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-areas: 'stage pad' 'help pad';
+  }
+  .tb-stage { grid-area: stage; min-height: 0; }
+  .tb-help { grid-area: help; }
+  .tb-pad { grid-area: pad; align-self: center; }
+  .tb-learn { top: 0; }
+  .tb-keypad .kit-keys .key, .tb-mic { min-height: 48px; }
 }
 
 /* ---------- mouvement réduit / animations douces : décor immobile ---------- */

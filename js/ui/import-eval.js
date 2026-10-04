@@ -19,7 +19,7 @@
    Les deux matières à la suite (« Ajouter la fiche de maths »).
    Toute écriture passe par store.addProfile / store.mutateProfile. */
 
-import { h, clear, loadCSS, dayStr, frTypo, fmtNum } from '../core/util.js';
+import { h, clear, loadCSS, dayStr, frTypo, fmtNum, deNom } from '../core/util.js';
 import * as store from '../core/store.js';
 import * as router from '../router.js';
 import { CLASSES, SUBJECTS, ficheTemplate, ficheToAxes, radarTemplate } from '../core/axes.js';
@@ -174,7 +174,7 @@ function renderChoose() {
   screen('Fiche d’évaluation', null,
     h('div', { class: 'card im-intro' },
       h('div', { class: 'im-intro-ico', 'aria-hidden': 'true' }, '📄', h('span', { class: 'im-intro-star' }, '✨')),
-      h('p', { class: 'im-lead' }, p ? 'La fiche Repères de ' + p.name : 'La fiche Repères'),
+      h('p', { class: 'im-lead' }, p ? 'La fiche Repères ' + deNom(p.name) : 'La fiche Repères'),
       h('p', { class: 'im-note' }, frTypo('Avec la fiche de restitution des évaluations nationales, Caramel démarre directement au bon niveau. La photo et les résultats restent sur cet appareil.'))),
     h('div', { class: 'im-methods' },
       opt('📷', 'Photo de la fiche', 'Vous placez les points du radar sur la photo.', 'photo'),
@@ -362,7 +362,7 @@ function renderManualSetup(subject) {
   const subjSeg = seg([['fr', SUBJ.fr.emo + ' Français'], ['ma', SUBJ.ma.emo + ' Maths']], subj, v => { subj = v; }, 'Matière');
   screen('Saisie manuelle', backToStart,
     h('div', { class: 'card im-card' },
-      h('div', { class: 'im-who' }, h('span', { class: 'im-who-ava', 'aria-hidden': 'true' }, avatarOf(p)), h('span', null, 'Fiche de ' + p.name)),
+      h('div', { class: 'im-who' }, h('span', { class: 'im-who-ava', 'aria-hidden': 'true' }, avatarOf(p)), h('span', null, 'Fiche ' + deNom(p.name))),
       classeField(p, v => { classe = v; setGo(); }),
       field('Matière', subjSeg.el, 'La fiche de français est gris-vert (turquoise sur le PDF), celle de maths orange.')),
     go);
@@ -407,7 +407,7 @@ function renderManualRadar(subject) {
     if (!holder.isConnected) return;
     r = renderRadar(holder, {
       template: tpl, values, subject, labels: 'official', showValues: true, animate: false, size: 620,
-      title: 'Fiche ' + SUBJ[subject].the + ' de ' + p.name,
+      title: 'Fiche ' + SUBJ[subject].the + ' ' + deNom(p.name),
       interactive: { snap: 0.1, absent: true, editor: editorHost, onChange: (i, v, all) => { values = all; upd(); } }
     });
     cleanups.push(() => r.destroy());
@@ -963,7 +963,7 @@ function renderPhotoPoints() {
     if (!stage.isConnected) return;
     r = renderRadar(stage, {
       template: tpl, values, subject, labels: 'none', animate: false,
-      title: 'Gabarit de la fiche ' + SUBJ[subject].the + ' de ' + p.name,
+      title: 'Gabarit de la fiche ' + SUBJ[subject].the + ' ' + deNom(p.name),
       interactive: { snap: 0.1, absent: true, editor: editorHost,
         onChange: (i, v, all) => { values = all; checked(i); upd(); },
         onSelect: i => checked(i) }
@@ -1025,7 +1025,7 @@ function renderRecap(kind, subject, tpl, values) {
   screen('Vérifier', () => (kind === 'photo' ? renderPhotoPoints() : renderManualRadar(subject)),
     h('div', { class: 'card im-card im-recap im-recap--' + subject },
       h('div', { class: 'im-recap-t' }, h('span', { 'aria-hidden': 'true' }, SUBJ[subject].emo + ' '),
-        'Fiche ' + SUBJ[subject].the + ' de ' + p.name + ' · ' + flow.classe),
+        'Fiche ' + SUBJ[subject].the + ' ' + deNom(p.name) + ' · ' + flow.classe),
       h('ul', { class: 'im-recap-list' }, rows),
       absent ? h('p', { class: 'im-help' }, frTypo(plural(absent, 'compétence absente', 'compétences absentes') + ' : elles restent « non positionnées » et Caramel les découvrira en jouant.')) : null,
       field('Date de la fiche', sel)),
@@ -1074,7 +1074,7 @@ function renderDone({ kind, subjects, res, created = false }) {
       const rr = renderRadar(holder, {
         template: tpl, values: ref, subject: g, labels: 'official', showValues: true, size: 440,
         nullLabel: id => (Object.prototype.hasOwnProperty.call(ref, id) && ref[id] === null ? 'absent' : 'non positionné'),
-        title: 'Fiche ' + SUBJ[g].the + ' de ' + p.name
+        title: 'Fiche ' + SUBJ[g].the + ' ' + deNom(p.name)
       });
       cleanups.push(() => rr.destroy());
     }

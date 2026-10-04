@@ -24,15 +24,28 @@
      stageOf(profile) → 1 | 2 | 3 ;
      setAvatar(el, html, { live = true }?) → pose le SVG et lui donne une vie LÉGÈRE (regard, clignements, joie au
        toucher : companion-life.js liven) ; la vie d'un SVG remplacé est arrêtée ;
-     renderCompanionCard(container) → { destroy(), dance(), el } */
+     renderCompanionCard(container, { hero, hud }?) → { destroy(), dance(), openPanel(clé), el }
+       hero (accueil « un seul gros bouton ») : grande scène ; plaque « 🌱 Caramel » avec l'anneau du stade (un bouton :
+       « Mon compagnon » = son stade en clair, les prénoms) ; humeur en légende sur le ciel (elle s'efface seule) ;
+       jauges portées par les icônes de soin (anneau : 🥕 ventre, 🧽 joie, 🚶 forme ; ✓ quand le brossage ou la
+       promenade est déjà fait) ; barre de 4 icônes sous la scène : 🥕 🧽 🚶 🛍️ (🎨 est dans l'en-tête de l'accueil) ;
+       besoin visible sans lire : bulle de pensée 🍎 au-dessus de lui quand il a faim (la toucher = le garde-manger) ;
+       🛍️ cerclée d'or quand un objet nouveau est à portée de pommes ;
+       boutique en deux rayons (👒 Habits / 🐾 Animaux, un seul visible) ; cabine d'essayage : toucher un objet qu'on
+       n'a pas encore le fait ESSAYER (le compagnon le porte), « Acheter » (ou toucher encore l'objet) l'achète ;
+       « Il te manque N 🍎 » plutôt qu'un refus ;
+       voix (js/ui/voice.js) : pour les petits lecteurs, ce qu'il dit après un geste de l'enfant est lu à voix haute ;
+       hud = élément posé sur le ciel (pommes, série) ; un panneau ouvert garde la scène visible (collée en haut) ;
+     wornWord(id) / chosenWord(type) → « portée », « choisie »… (accords des étiquettes de la boutique). */
 
-import { h, clear, dayStr, frTypo, loadCSS } from '../core/util.js';
+import { h, clear, dayStr, frTypo, loadCSS, accorde } from '../core/util.js';
 import * as store from '../core/store.js';
 import * as audio from '../core/audio.js';
 import * as motion from '../core/motion.js';
 import { MOUNTS, FOODS, SHOP, PET } from '../content/companion-data.js';
 import { fillTemplate, sanitizeName, DEFAULT_HERO } from '../core/profiles.js';
 import { addApples } from '../core/economy.js';
+import { readAloud, speak as voiceSpeak, hush as voiceHush } from './voice.js';
 
 /* ---------- modules du compagnon (chargés à la demande, avec repli) ---------- */
 let svgFn = null;          /* mountSVG */
@@ -142,11 +155,15 @@ function moodOf(p, g) {
   return { cls: '', msg: say(p, '{N} est bien {contentM} de te voir 😊') };
 }
 
-/* articles des accessoires (messages de la boutique) */
+/* accessoires : [article + nom, pluriel, féminin] (messages et accords de la boutique : « Écharpe portée ✓ ») */
 const ITEM_WORDS = {
-  foulard: ['le foulard', false], noeud: ['le nœud', false], chapeau: ['le chapeau', false], lunettes: ['les lunettes', true],
-  echarpe: ['l’écharpe', false], selle: ['la selle dorée', false], couronne: ['la couronne', false], ailes: ['les ailes de fée', true]
+  foulard: ['le foulard', false, false], noeud: ['le nœud', false, false], chapeau: ['le chapeau', false, false],
+  lunettes: ['les lunettes', true, true], echarpe: ['l’écharpe', false, true], selle: ['la selle dorée', false, true],
+  couronne: ['la couronne', false, true], ailes: ['les ailes de fée', true, true]
 };
+/* « porté », « portée », « portées » selon l'accessoire ; « choisi », « choisie » selon l'animal (exportés : testés) */
+export const wornWord = id => { const w = ITEM_WORDS[id]; return accorde('porté', { pl: !!(w && w[1]), f: !!(w && w[2]) }); };
+export const chosenWord = t => accorde('choisi', { f: !!(MOUNTS[t] && MOUNTS[t].g === 'f') });
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 const SLOT_ITEM = id => SHOP.find(o => o.id === id) || null;
 const NBSP = '\u00a0';
@@ -212,16 +229,25 @@ const SEASON_COLORS = { autumn: ['#f2a03d', '#e2643a', '#f6c445', '#c9773a'], sp
 
 /* ============ CARTE ============ */
 let cardSeq = 0;
-export function renderCompanionCard(container) {
+export function renderCompanionCard(container, opts = {}) {
+  const hero = !!(opts && opts.hero);
   const uid = 'cc' + (++cardSeq);
   const timers = new Set();
   let destroyed = false, clip = null, walking = false, openPanel = null, evolving = false;
   let shownSig = '', lastMoodCls = null, minuteTimer = 0, ctl = null, svgEl = null;
   let pendingLook = false, seasonShown = '', evoScheduled = false, swapping = false;
+  /* cabine d'essayage : objet ou monture qu'on essaie sans l'avoir acheté ({ kind: 'item' | 'mount', id }) ;
+     rayon de la boutique affiché ('habits' | 'animaux') */
+  let trying = null, rayon = 'habits';
   const later = (fn, ms) => { const t = setTimeout(() => { timers.delete(t); if (!destroyed) fn(); }, ms); timers.add(t); return t; };
   const profile = () => store.getProfile();
   const isWide = () => { try { return matchMedia('(min-width: 900px)').matches; } catch (_) { return false; } };
-  const petSize = () => (isWide() ? 176 : 138);
+  /* scène héros : le compagnon occupe ≈ 58 % de la hauteur de la scène (bornes 150-250 px) */
+  const heroSize = () => {
+    const hgt = (stage && stage.clientHeight) || 330;
+    return Math.max(150, Math.min(250, Math.round(hgt * 0.58)));
+  };
+  const petSize = () => (hero ? heroSize() : isWide() ? 176 : 138);
   const reduced = () => { try { return motion.reduced(); } catch (_) { return false; } };
 
   /* ----- scène ----- */
@@ -244,6 +270,8 @@ export function renderCompanionCard(container) {
   const clouds = h('div', { class: 'cc-clouds', 'aria-hidden': 'true' },
     h('span', { class: 'cc-cloud c1', html: CLOUD_SVG }), h('span', { class: 'cc-cloud c2', html: CLOUD_SVG }), h('span', { class: 'cc-cloud c3', html: CLOUD_SVG }));
   const land = h('div', { class: 'cc-land', 'aria-hidden': 'true', html: landSVG(uid + '-grass') });
+  /* scène héros (plus haute que large) : le paysage garde ses proportions, posé en bas ; le ciel occupe le reste */
+  if (hero) { try { land.firstChild.setAttribute('preserveAspectRatio', 'xMidYMax meet'); } catch (_) {} }
   const glow = h('div', { class: 'cc-glow', 'aria-hidden': 'true' });
   const holder = h('div', { class: 'cc-holder' });
   const walker = h('div', { class: 'cc-walker' }, holder);
@@ -253,7 +281,17 @@ export function renderCompanionCard(container) {
   const sparkLayer = h('div', { class: 'cc-fx', 'aria-hidden': 'true' });
   const stage = h('div', { class: 'cc-stage', role: 'button', tabindex: '0' },
     sky, stars, sun, moon, clouds, land, glow, walker, front, season, sparkLayer);
-  const nameTag = h('span', { class: 'cc-name' });
+  /* plaque du nom ; scène héros : l'icône du stade (🌱 🌿 🏆) cerclée de sa progression ; c'est un bouton qui ouvre
+     « Mon compagnon » (son stade en clair, les prénoms) — le texte complet est dans son nom accessible */
+  const nameIco = h('span', { class: 'cc-name-ico', 'aria-hidden': 'true' });
+  const nameTxt = h('span', { class: 'cc-name-txt', 'aria-hidden': 'true' });
+  const nameSr = h('span', { class: 'sr-only' });
+  const nameTag = hero
+    ? h('button', { type: 'button', class: 'cc-name', 'aria-expanded': 'false', 'aria-controls': uid + '-settings' }, nameIco, nameTxt, nameSr)
+    : h('span', { class: 'cc-name' });
+  /* besoin visible sans lire : bulle de pensée au-dessus de lui quand il a faim (la toucher = le garde-manger) */
+  const thought = hero ? h('button', { type: 'button', class: 'cc-think', hidden: true },
+    h('span', { class: 'cc-think-ico', 'aria-hidden': 'true' }, '🍎')) : null;
 
   /* ----- stade : libellé + petite jauge vers le stade suivant ----- */
   const growIco = h('span', { class: 'cc-grow-ico', 'aria-hidden': 'true' });
@@ -271,34 +309,75 @@ export function renderCompanionCard(container) {
     const bar = h('div', { class: 'cc-gbar', role: 'meter', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-label': label }, fill);
     return { el: h('div', { class: 'cc-gauge g-' + key }, h('div', { class: 'cc-glbl' }, h('span', { 'aria-hidden': 'true' }, icon), ' ' + label), bar), fill, bar };
   };
-  const G = { faim: gauge('faim', 'Faim', '🍎'), forme: gauge('forme', 'Forme', '🎾'), joie: gauge('joie', 'Joie', '💛') };
+  const G = { faim: gauge('faim', 'Ventre', '🍎'), forme: gauge('forme', 'Forme', '🎾'), joie: gauge('joie', 'Joie', '💛') };
 
   const panels = {};
   const act = (key, icon, label, panel) => {
     const b = h('button', { type: 'button', class: 'cc-act', 'data-act': key },
-      h('span', { class: 'cc-act-ico', 'aria-hidden': 'true' }, icon), h('span', { class: 'cc-act-txt' }, label));
+      h('span', { class: 'cc-act-ico', 'aria-hidden': 'true' }, icon), h('span', { class: 'cc-act-txt' }, label),
+      h('span', { class: 'cc-act-state sr-only' }),
+      hero ? h('span', { class: 'cc-act-ok', 'aria-hidden': 'true' }, '✓') : null);
     if (panel) { b.setAttribute('aria-expanded', 'false'); b.setAttribute('aria-controls', uid + '-' + panel); }
     return b;
   };
+  /* 🧽 (Emoji 11) plutôt que le peigne U+1FAAE (Emoji 15, carré vide sur les Android anciens) : sur la scène héros,
+     l'icône est le seul repère visuel */
   const btns = {
     food: act('food', '🥕', 'Nourrir', 'food'),
-    brush: act('brush', '🪮', 'Brosser'),
+    brush: act('brush', '🧽', 'Brosser'),
     walk: act('walk', '🚶', 'Promener'),
     shop: act('shop', '🛍️', 'Boutique', 'shop'),
     settings: act('settings', '⚙️', 'Réglages', 'settings')
   };
+  /* scène héros : chaque soin porte la jauge qu'il remplit (anneau) */
+  const GAUGE_BTN = { faim: 'food', joie: 'brush', forme: 'walk' };
+  const GAUGE_WORD = { faim: 'ventre', joie: 'joie', forme: 'forme' };
 
-  /* panneaux */
+  /* panneaux (titres en h2 sous le h1 de l'accueil) ; scène héros : pas de porte-monnaie dans le panneau, le trésor
+     de la scène (collée en haut tant qu'un panneau est ouvert) le montre déjà */
   const walletPill = () => h('span', { class: 'cc-purse' }, h('span', { 'aria-hidden': 'true' }, '🍎'), h('span', { class: 'cc-purse-n' }, '0'));
-  const panelHead = (title, withPurse) => h('div', { class: 'cc-panel-head' }, h('h3', { class: 'cc-panel-title' }, frTypo(title)), withPurse ? walletPill() : null);
+  /* scène héros : chaque panneau a sa croix (les réglages ne s'ouvrent plus depuis la barre de soins) */
+  const panelClose = () => {
+    if (!hero) return null;
+    const x = h('button', { type: 'button', class: 'cc-panel-x', 'aria-label': 'Fermer' }, '✕');
+    x.addEventListener('click', () => { audio.tap(); togglePanel(null); });
+    return x;
+  };
+  const panelHead = (title, withPurse) => h('div', { class: 'cc-panel-head' }, h('h2', { class: 'cc-panel-title' }, frTypo(title)), withPurse && !hero ? walletPill() : null, panelClose());
   const foodGrid = h('div', { class: 'cc-grid' });
-  const shopGrid = h('div', { class: 'cc-grid' });
-  const mountGrid = h('div', { class: 'cc-grid cc-grid-mounts' });
+  const shopGrid = h('div', { class: 'cc-grid', id: uid + '-habits' });
+  const mountGrid = h('div', { class: 'cc-grid cc-grid-mounts', id: uid + '-animaux' });
   panels.food = h('div', { class: 'cc-panel', id: uid + '-food', hidden: true },
     panelHead('🥕 Le garde-manger', true), foodGrid);
-  panels.shop = h('div', { class: 'cc-panel', id: uid + '-shop', hidden: true },
-    panelHead('🛍️ La boutique — habille ton compagnon !', true), shopGrid,
-    h('h3', { class: 'cc-panel-title cc-sub' }, '🐎 Montures'), mountGrid);
+  /* scène héros : deux rayons, un seul visible (👒 Habits / 🐾 Animaux) ; pendant un essayage, UN bouton « Acheter »,
+     sous le rayon et collé en bas de l'écran tant que le rayon défile (la scène est collée en haut : on voit à la fois
+     le compagnon qui essaie et le bouton, même sur un petit téléphone) */
+  const rayonTab = (key, icon, label) => {
+    const b = h('button', { type: 'button', class: 'cc-rayon', role: 'tab', 'aria-controls': uid + '-' + key, 'data-rayon': key },
+      h('span', { 'aria-hidden': 'true' }, icon), ' ' + label);
+    b.addEventListener('click', () => { if (rayon !== key) { audio.tap(); setRayon(key, true); } });
+    return b;
+  };
+  const rayons = hero ? { habits: rayonTab('habits', '👒', 'Habits'), animaux: rayonTab('animaux', '🐾', 'Animaux') } : null;
+  const rayonBar = hero ? h('div', { class: 'cc-rayons', role: 'tablist', 'aria-label': 'Rayons de la boutique' }, rayons.habits, rayons.animaux) : null;
+  if (rayonBar) {
+    rayonBar.addEventListener('keydown', e => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      e.preventDefault();
+      const next = rayon === 'habits' ? 'animaux' : 'habits';
+      setRayon(next, true);
+      try { rayons[next].focus(); } catch (_) {}
+    });
+  }
+  const buyBtn = hero ? h('button', { type: 'button', class: 'btn block cc-buy', hidden: true }) : null;
+  if (buyBtn) buyBtn.addEventListener('click', () => buyTried());
+  panels.shop = hero
+    ? h('div', { class: 'cc-panel', id: uid + '-shop', hidden: true },
+      panelHead('🛍️ La boutique', true), rayonBar, shopGrid, mountGrid, buyBtn)
+    : h('div', { class: 'cc-panel', id: uid + '-shop', hidden: true },
+      panelHead('🛍️ La boutique — habille ton compagnon !', true), shopGrid,
+      h('h2', { class: 'cc-panel-title cc-sub' }, '🐾 Animaux'), mountGrid);
+  if (hero) { shopGrid.setAttribute('role', 'tabpanel'); mountGrid.setAttribute('role', 'tabpanel'); }
 
   /* réglages : prénom du héros, fille / garçon, nom du compagnon */
   const heroIn = h('input', { class: 'input', type: 'text', id: uid + '-hero', maxlength: '14', autocomplete: 'off', autocapitalize: 'words', spellcheck: 'false', enterkeyhint: 'next' });
@@ -308,21 +387,32 @@ export function renderCompanionCard(container) {
   const segM = h('button', { type: 'button', 'aria-pressed': 'false' }, 'un garçon');
   const seg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Tu es' }, segF, segM);
   const saveBtn = h('button', { type: 'button', class: 'btn small cc-save' }, '✓ Enregistrer');
-  panels.settings = h('div', { class: 'cc-panel', id: uid + '-settings', hidden: true },
-    panelHead('⚙️ Réglages', false),
-    h('div', { class: 'cc-set' },
-      h('div', { class: 'field' }, h('label', { for: uid + '-hero' }, 'Ton prénom'), heroIn),
-      h('div', { class: 'field' }, h('span', { class: 'label' }, 'Tu es'), seg),
-      h('div', { class: 'field' }, h('label', { for: uid + '-mount' }, 'Nom de ton compagnon'), mountIn),
-      saveBtn));
+  const setFields = h('div', { class: 'cc-set' },
+    h('div', { class: 'field' }, h('label', { for: uid + '-hero' }, 'Ton prénom'), heroIn),
+    h('div', { class: 'field' }, h('span', { class: 'label' }, 'Tu es'), seg),
+    h('div', { class: 'field' }, h('label', { for: uid + '-mount' }, 'Nom de ton compagnon'), mountIn),
+    saveBtn);
+  /* scène héros : « Mon compagnon » (plaque du nom) = son stade en clair puis les prénoms */
+  const setTitle = h('h2', { class: 'cc-panel-title' });
+  panels.settings = hero
+    ? h('div', { class: 'cc-panel', id: uid + '-settings', hidden: true },
+      h('div', { class: 'cc-panel-head' }, setTitle, panelClose()), grow, setFields)
+    : h('div', { class: 'cc-panel', id: uid + '-settings', hidden: true }, panelHead('⚙️ Réglages', false), setFields);
 
-  const el = h('section', { class: 'card cc', 'aria-label': 'Ton compagnon' },
-    h('div', { class: 'cc-stage-wrap' }, stage, nameTag),
-    grow,
-    mood,
-    h('div', { class: 'cc-gauges' }, G.faim.el, G.forme.el, G.joie.el),
-    h('div', { class: 'cc-actions' }, btns.food, btns.brush, btns.walk, btns.shop, btns.settings),
-    panels.food, panels.shop, panels.settings);
+  const hud = hero && opts.hud && opts.hud.nodeType === 1 ? opts.hud : null;
+  const el = hero
+    ? h('section', { class: 'card cc is-hero', 'aria-label': 'Ton compagnon' },
+      h('div', { class: 'cc-stage-wrap' }, stage, nameTag, hud, thought, mood),
+      h('div', { class: 'cc-actions', role: 'group', 'aria-label': 'Prendre soin de ton compagnon' },
+        btns.food, btns.brush, btns.walk, btns.shop),
+      panels.food, panels.shop, panels.settings)
+    : h('section', { class: 'card cc', 'aria-label': 'Ton compagnon' },
+      h('div', { class: 'cc-stage-wrap' }, stage, nameTag),
+      grow,
+      mood,
+      h('div', { class: 'cc-gauges' }, G.faim.el, G.forme.el, G.joie.el),
+      h('div', { class: 'cc-actions' }, btns.food, btns.brush, btns.walk, btns.shop, btns.settings),
+      panels.food, panels.shop, panels.settings);
   clear(container);
   container.appendChild(el);
 
@@ -370,8 +460,20 @@ export function renderCompanionCard(container) {
   }
 
   /* ----- rendu ----- */
+  /* cabine d'essayage : le profil tel qu'on le DESSINE (objet ou monture essayés par-dessus ce qui est à lui ; un seul
+     objet par emplacement) — rien n'est enregistré tant que l'enfant n'a pas acheté */
+  function lookProfile(p) {
+    if (!p || !trying || !p.companion) return p;
+    const c = p.companion;
+    if (trying.kind === 'mount') return Object.assign({}, p, { companion: Object.assign({}, c, { type: trying.id }) });
+    const it = SLOT_ITEM(trying.id);
+    if (!it) return p;
+    const worn = ((c.equip && c.equip.worn) || []).filter(x => { const o = SLOT_ITEM(x); return o && o.slot !== it.slot; }).concat(it.id);
+    return Object.assign({}, p, { companion: Object.assign({}, c, { equip: Object.assign({}, c.equip, { worn }) }) });
+  }
   /* ce qui est dessiné : profil, monture, accessoires portés, stade (l'humeur se règle sans redessiner) */
-  function lookOf(p) {
+  function lookOf(p0) {
+    const p = lookProfile(p0);
     const c = (p && p.companion) || {};
     return [p && p.id, c.type, ((c.equip && c.equip.worn) || []).join(','), stageOf(p)].join('|');
   }
@@ -405,16 +507,49 @@ export function renderCompanionCard(container) {
     const m = moodOf(p, g);
     const st = stageOverride || shownStage(p);
     const cls = [night && !awake ? 'sleep' : '', m.cls].filter(Boolean).join(' ');
-    svgEl = setAvatar(holder, avatarOf(p, petSize(), cls, { stage: st }), { live: false });
+    const look = lookProfile(p);                   /* cabine d'essayage : ce qu'il essaie, par-dessus ce qui est à lui */
+    svgEl = setAvatar(holder, avatarOf(look, petSize(), cls, { stage: st }), { live: false });
     shownSig = lookOf(p);
-    stage.setAttribute('data-species', (p.companion && p.companion.type) || 'pony');
+    stage.setAttribute('data-species', (look.companion && look.companion.type) || 'pony');
     if (life && svgEl && svgEl.classList.contains('c-rig')) {
       ctl = life.bringToLife(svgEl, {
-        species: p.companion.type, stage: st, interactive: true, hitEl: stage,
+        species: look.companion.type, stage: st, interactive: true, hitEl: stage,
         greet: !night, awake, mood: g, onEvent: onLife
       });
     }
     stage.classList.toggle('is-asleep', !!(ctl && ctl.state.sleeping));
+    later(placeThought, 60);
+  }
+  /* bulle de pensée : posée au-dessus de sa tête (ancre « top » du dessin), jamais hors de la scène */
+  function placeThought() {
+    if (!thought || thought.hidden || !svgEl) return;
+    try {
+      const r = svgEl.getBoundingClientRect(), w = stage.parentNode.getBoundingClientRect();
+      if (!r.width || !w.width) return;
+      const p = lookProfile(profile());
+      const a = anchorsFn ? anchorsFn(p.companion.type, { stage: shownStage(p) }) : null;
+      const top = a && Array.isArray(a.top) ? a.top : [62, 8];
+      const hx = r.left - w.left + (top[0] / 100) * r.width, hy = r.top - w.top + (top[1] / 84) * r.height;
+      const size = 56;
+      const x = Math.max(8, Math.min(w.width - size - 8, hx + 6));
+      const y = Math.max(52, hy - size - 14);
+      thought.style.left = Math.round(x) + 'px';
+      thought.style.top = Math.round(y) + 'px';
+    } catch (_) {}
+  }
+  /* le compagnon a-t-il faim ? (même seuil que l'anneau orange de 🥕) */
+  function renderNeeds(p, g) {
+    if (!thought) return;
+    /* pas tant qu'un panneau est ouvert : garde-manger (il mange), boutique (elle cacherait ce qu'il essaie sur la tête),
+       « Mon compagnon » (la scène réduite la poserait sur 🚶, V22B-06) */
+    const hungry = g.faim < 35 && !walking && !(ctl && ctl.state.sleeping) && !openPanel;
+    const was = !thought.hidden;
+    thought.hidden = !hungry;
+    if (hungry) {
+      thought.setAttribute('aria-label', say(p, '{N} a faim : lui donner à manger'));
+      placeThought();
+      if (!was && !reduced()) motion.enter(thought, { from: 'scale', dur: 380 });
+    }
   }
   function renderGauges(g) {
     for (const k of ['faim', 'forme', 'joie']) {
@@ -423,7 +558,37 @@ export function renderCompanionCard(container) {
       G[k].bar.setAttribute('aria-valuenow', String(v));
       G[k].bar.setAttribute('aria-valuetext', v + ' sur 100');
       G[k].el.classList.toggle('is-low', v < 35);
+      if (hero) {                                   /* l'anneau de l'icône de soin porte la jauge */
+        const b = btns[GAUGE_BTN[k]];
+        b.style.setProperty('--g', v + '%');
+        b.classList.toggle('is-low', v < 35);
+      }
     }
+    if (hero) renderCareStates(g);
+  }
+  /* scène héros : état de chaque soin dans son nom accessible ; ✓ et icône atténuée quand c'est déjà fait (brossage
+     toutes les 4 h, promenade une fois par jour) ; 🛍️ cerclée d'or quand un objet nouveau est à portée de pommes */
+  function renderCareStates(g) {
+    const p = profile(); if (!p) return;
+    const pet = (p.companion && p.companion.pet) || {};
+    const done = { brush: Date.now() - (pet.brushLast || 0) < PET.BRUSH.cooldown, walk: pet.walkDay === dayStr() };
+    for (const k of ['faim', 'forme', 'joie']) {
+      const key = GAUGE_BTN[k], b = btns[key];
+      const isDone = !!done[key];
+      b.classList.toggle('is-done', isDone);
+      const s = b.querySelector('.cc-act-state');
+      if (s) s.textContent = ' (' + GAUGE_WORD[k] + ' : ' + Math.round(g[k]) + ' sur 100' + (isDone ? ', déjà fait' : '') + ')';
+    }
+    const apples = (p.wallet && p.wallet.apples) | 0;
+    const c = p.companion || {};
+    const owned = (c.equip && c.equip.owned) || [];
+    const tempt = SHOP.some(o => !owned.includes(o.id) && apples >= o.price) ||
+      Object.keys(MOUNTS).some(t => !(c.owned || []).includes(t) && apples >= MOUNTS[t].price);
+    const was = btns.shop.classList.contains('is-tempt');
+    btns.shop.classList.toggle('is-tempt', tempt);
+    if (tempt && !was && !reduced()) btns.shop.classList.add('is-tempt-new');
+    const ss = btns.shop.querySelector('.cc-act-state');
+    if (ss) ss.textContent = tempt ? ' (tu peux t’offrir quelque chose de nouveau)' : '';
   }
   function renderPurse(p) {
     const n = p && p.wallet ? p.wallet.apples : 0;
@@ -432,7 +597,9 @@ export function renderCompanionCard(container) {
   }
   function renderName(p) {
     const m = mountOf(p);
-    nameTag.textContent = m.em + ' ' + ((p && p.companion && p.companion.name) || m.label);
+    const nm = (p && p.companion && p.companion.name) || m.label;
+    if (hero) { nameTxt.textContent = nm; setTitle.textContent = m.em + ' ' + nm; }
+    else nameTag.textContent = nm;
     stage.setAttribute('aria-label', say(p, 'Faire un câlin à {N}'));
   }
   function renderGrowth(p) {
@@ -468,6 +635,14 @@ export function renderCompanionCard(container) {
       growBar.setAttribute('aria-label', 'Stade champion');
       growNext.textContent = '⭐';
     }
+    if (hero) {                                    /* plaque : icône du stade + anneau de progression, phrase en nom accessible */
+      nameIco.textContent = STAGE_ICON[s - 1];
+      nameIco.style.setProperty('--p', growFill.style.width || '0%');
+      nameTag.setAttribute('data-stage', String(s));
+      nameSr.textContent = '';
+      const dot = t => { t = String(t || '').trim(); return /[.!?…]$/.test(t) ? t : t + '.'; };
+      nameTag.setAttribute('aria-label', frTypo([growTxt.textContent, growSub.textContent, 'Touche pour changer son nom ou ton prénom'].map(dot).join(' ')));
+    }
   }
   /* message d'humeur (la nuit : il dort) */
   function moodMsg(p, g) {
@@ -481,11 +656,12 @@ export function renderCompanionCard(container) {
     const g = petNow(p.companion && p.companion.pet);
     lastMoodCls = moodOf(p, g).cls;
     drawSVG(p);
-    tell(moodMsg(p, g));
+    tell(moodMsg(p, g), arrivalQuiet(p, g));
     renderGauges(g);
     renderName(p);
     renderPurse(p);
     renderGrowth(p);
+    renderNeeds(p, g);
   }
   /* rafraîchit jauges, humeur et message sans redessiner (force : remplace le message du moment) */
   function refresh(force) {
@@ -500,10 +676,35 @@ export function renderCompanionCard(container) {
     renderName(p);
     renderPurse(p);
     renderGrowth(p);
+    renderNeeds(p, g);
   }
-  function tell(text) { mood.textContent = text; }
+  /* scène héros : à l'arrivée, pas de légende si tout va bien (« Bonjour {P} ! » salue déjà) ; elle ne parle que
+     s'il a besoin de quelque chose ou s'il dort */
+  function arrivalQuiet(p, g) { return hero && moodOf(p, g).cls !== 'sad' && !(ctl && ctl.state.sleeping); }
+  /* scène héros : la légende apparaît puis s'efface seule (le texte reste lu par la zone aria-live) ;
+     quiet : texte posé sans l'afficher */
+  function tell(text, quiet) {
+    if (hero && quiet) { mood.classList.remove('is-say'); mood.textContent = text; return; }
+    if (hero) {
+      mood.classList.remove('is-say');
+      try { void mood.offsetWidth; } catch (_) {}
+      mood.classList.add('is-say');
+    }
+    mood.textContent = text;
+  }
+  /* ce qu'il dit après un geste de l'enfant (soin, boutique, câlin…) : affiché, et lu à voix haute aux petits lecteurs */
+  function sayOut(text) {
+    tell(text);
+    try { if (readAloud(profile())) voiceSpeak(text); } catch (_) {}
+  }
+  /* plutôt qu'un refus : ce qu'il manque, et comment l'avoir */
+  const missing = n => frTypo('Il te manque ' + n + NBSP + '🍎. Tu les gagnes en jouant !');
 
   /* ----- grilles des panneaux ----- */
+  /* grille reconstruite après un geste au clavier (essayer, acheter, porter, nourrir) : le focus reste sur la même case
+     (V22B-07) ; sinon il tomberait sur la page */
+  const focusAt = grid => (grid.contains(document.activeElement) ? [...grid.children].indexOf(document.activeElement) : -1);
+  const refocus = (grid, i) => { if (i >= 0 && grid.children[i]) { try { grid.children[i].focus({ preventScroll: true }); } catch (_) {} } };
   const item = (cls, icon, name, price, label, onTap, pressed) => {
     const b = h('button', { type: 'button', class: 'cc-item ' + cls, 'aria-label': label },
       h('span', { class: 'cc-item-ico', 'aria-hidden': 'true' }, icon),
@@ -516,39 +717,128 @@ export function renderCompanionCard(container) {
   function renderFood() {
     const p = profile(); if (!p) return;
     const apples = p.wallet.apples;
+    const back = focusAt(foodGrid);
     clear(foodGrid);
     for (const f of FOODS) {
       const ok = apples >= f.price;
       foodGrid.appendChild(item(ok ? 'can' : 'cant', f.e, f.name, f.price + ' 🍎',
         f.name + ', ' + f.price + ' pommes' + (ok ? '' : ' (pas assez de pommes)'), b => feedPet(f.id, b)));
     }
+    refocus(foodGrid, back);
   }
   function renderShop() {
     const p = profile(); if (!p) return;
     const eq = p.companion.equip;
+    const apples = (p.wallet && p.wallet.apples) | 0;
+    const back = focusAt(shopGrid);
     clear(shopGrid);
     for (const it of SHOP) {
       const owned = eq.owned.includes(it.id), worn = eq.worn.includes(it.id);
-      const price = worn ? 'porté ✓' : owned ? 'à porter' : it.price + ' 🍎';
-      const label = it.name + (worn ? ', porté : touche pour l’enlever' : owned ? ', à porter' : ', ' + it.price + ' pommes');
-      shopGrid.appendChild(item(worn ? 'worn' : owned ? 'owned' : '', it.e, it.name, price, label, () => shopTap(it.id), worn));
+      const tried = !!(trying && trying.kind === 'item' && trying.id === it.id);
+      const can = apples >= it.price;
+      const price = worn ? wornWord(it.id) + ' ✓' : owned ? 'à porter' : it.price + ' 🍎';
+      const label = it.name + (worn ? ', ' + wornWord(it.id) + ' : touche pour l’enlever' : owned ? ', à porter'
+        : ', ' + it.price + ' pommes' + (can ? '' : ' (pas assez de pommes)') + (hero ? (tried ? ', en essai' : ' : touche pour l’essayer') : ''));
+      /* scène héros : un objet qu'on n'a pas encore s'ESSAIE d'abord (cabine d'essayage), « Acheter » l'achète ;
+         cadre vert = « tu peux te l'offrir » (comme au garde-manger), objet à toi = cadre en pointillés */
+      const tap = hero && !owned ? () => tryOn('item', it.id) : () => shopTap(it.id);
+      shopGrid.appendChild(item(worn ? 'worn' : owned ? 'owned' : tried ? 'trying' : can ? 'can' : 'cant', it.e, it.name, price, label, tap, worn || tried));
     }
+    refocus(shopGrid, back);
   }
   function renderMounts() {
     const p = profile(); if (!p) return;
     const c = p.companion;
+    const apples = (p.wallet && p.wallet.apples) | 0;
+    const back = focusAt(mountGrid);
     clear(mountGrid);
     Object.keys(MOUNTS).forEach((t, i) => {
       const m = MOUNTS[t];
       const owned = c.owned.includes(t), sel = c.type === t;
-      const price = sel ? 'choisi ✓' : owned ? 'choisir' : m.price + ' 🍎';
-      const label = m.label + (sel ? ', choisi' : owned ? ', à choisir' : ', ' + m.price + ' pommes');
+      const tried = !!(trying && trying.kind === 'mount' && trying.id === t);
+      const can = apples >= m.price;
+      const price = sel ? chosenWord(t) + ' ✓' : owned ? 'choisir' : m.price + ' 🍎';
+      const label = m.label + (sel ? ', ' + chosenWord(t) : owned ? ', à choisir'
+        : ', ' + m.price + ' pommes' + (can ? '' : ' (pas assez de pommes)') + (hero ? (tried ? ', en essai' : ' : touche pour l’essayer') : ''));
       const ico = h('span', { class: 'cc-mount-pic' });
       /* phase : les montures de la liste ne respirent pas en même temps */
       setAvatar(ico, avatarSVG(t, c.equip.worn, 58, '', { stage: stageOf(p), phase: i * 1.3 }), { live: false });
-      mountGrid.appendChild(item(sel ? 'worn' : owned ? 'owned' : '', ico, m.label, price, label, () => mountTap(t), sel));
+      const tap = hero && !owned ? () => tryOn('mount', t) : () => mountTap(t);
+      mountGrid.appendChild(item(sel ? 'worn' : owned ? 'owned' : tried ? 'trying' : can ? 'can' : 'cant', ico, m.label, price, label, tap, sel || tried));
     });
+    refocus(mountGrid, back);
   }
+  /* ----- boutique de la scène héros : rayons et cabine d'essayage ----- */
+  function setRayon(key, user) {
+    if (!rayons) return;
+    rayon = key === 'animaux' ? 'animaux' : 'habits';
+    for (const k of Object.keys(rayons)) {
+      const on = k === rayon;
+      rayons[k].setAttribute('aria-selected', on ? 'true' : 'false');
+      rayons[k].tabIndex = on ? 0 : -1;
+      rayons[k].classList.toggle('on', on);
+    }
+    shopGrid.hidden = rayon !== 'habits';
+    mountGrid.hidden = rayon !== 'animaux';
+    if (user && trying) endTry();
+  }
+  /* toucher un objet (ou un animal) qu'on n'a pas : il l'essaie tout de suite ; le toucher encore = l'acheter */
+  function tryOn(kind, id) {
+    const p = profile();
+    if (!p || busyWalking()) return;
+    if (trying && trying.kind === kind && trying.id === id) { buyTried(); return; }
+    trying = { kind, id };
+    audio.beep(700, 0.06, 0.08);
+    drawSVG(p);
+    if (ctl) ctl.react(kind === 'mount' ? 'appear' : 'proud', kind === 'mount' ? undefined : { acc: id });
+    renderShop(); renderMounts(); renderTry();
+    const m = MOUNTS[id];
+    sayOut(kind === 'mount' ? frTypo('Et en ' + m.noun + ' ? ' + m.em) : say(p, '{N} essaie ' + ((ITEM_WORDS[id] || [''])[0]) + ' ✨'));
+  }
+  function triedThing() {
+    if (!trying) return null;
+    if (trying.kind === 'mount') { const m = MOUNTS[trying.id]; return m ? { e: m.em, price: m.price } : null; }
+    return SLOT_ITEM(trying.id);
+  }
+  /* le bouton de l'essayage : « Acheter 🎀 30 🍎 », ou ce qu'il manque */
+  function renderTry() {
+    if (!buyBtn) return;
+    const p = profile(), o = triedThing();
+    if (!o || !p) { buyBtn.hidden = true; return; }
+    const miss = o.price - ((p.wallet && p.wallet.apples) | 0);
+    buyBtn.hidden = false;
+    buyBtn.classList.toggle('is-short', miss > 0);
+    buyBtn.setAttribute('aria-disabled', miss > 0 ? 'true' : 'false');
+    buyBtn.textContent = miss > 0 ? frTypo('Il te manque ' + miss + NBSP + '🍎') : frTypo('Acheter ' + o.e + ' ' + o.price + NBSP + '🍎');
+  }
+  function buyTried() {
+    const p = profile(), o = triedThing();
+    if (!p || !o) return;
+    const miss = o.price - ((p.wallet && p.wallet.apples) | 0);
+    if (miss > 0) {
+      audio.beep(180, 0.1, 0.06);
+      sayOut(missing(miss));
+      if (buyBtn) motion.shake(buyBtn, { dist: 4 });
+      return;
+    }
+    /* acheté au clavier : le bouton « Acheter » se cache, le focus va sur la case achetée (V22B-07b) */
+    const k = trying.kind, id = trying.id;
+    const hadFocus = !!buyBtn && document.activeElement === buyBtn;
+    if (k === 'mount') mountTap(id); else shopTap(id);
+    if (hadFocus && buyBtn.hidden) {
+      refocus(k === 'mount' ? mountGrid : shopGrid, k === 'mount' ? Object.keys(MOUNTS).indexOf(id) : SHOP.findIndex(x => x.id === id));
+    }
+  }
+  /* fin de l'essayage (rayon changé, boutique fermée) : il reprend ce qui est à lui */
+  function endTry() {
+    if (!trying) return;
+    trying = null;
+    renderTry();
+    const p = profile();
+    if (p && !walking) drawSVG(p);
+    if (openPanel === 'shop') { renderShop(); renderMounts(); }
+  }
+
   function fillSettings() {
     const p = profile(); if (!p) return;
     heroIn.value = p.name || '';
@@ -570,19 +860,31 @@ export function renderCompanionCard(container) {
       if (btns[k]) { btns[k].setAttribute('aria-expanded', String(open)); btns[k].classList.toggle('on', open); }
     }
     openPanel = key && !panels[key].hidden ? key : null;
+    el.classList.toggle('has-panel', !!openPanel);
+    if (openPanel !== 'shop' && trying) endTry();
+    if (thought) { const q = profile(); if (q) renderNeeds(q, petNow(q.companion && q.companion.pet)); }
+    if (nameTag && hero) nameTag.setAttribute('aria-expanded', String(openPanel === 'settings'));
     if (!openPanel) return;
     if (key === 'food') renderFood();
-    if (key === 'shop') { renderShop(); renderMounts(); }
+    if (key === 'shop') { setRayon(rayon); renderShop(); renderMounts(); renderTry(); }
     if (key === 'settings') fillSettings();
     renderPurse(profile());
     const pan = panels[key];
     motion.enter(pan, { from: 'top', dist: 10, dur: 300 });
-    later(() => {
-      try {
-        const r = pan.getBoundingClientRect();
-        if (r.bottom > innerHeight - 8) pan.scrollIntoView({ block: 'nearest', behavior: reduced() ? 'auto' : 'smooth' });
-      } catch (_) {}
-    }, 60);
+    later(() => showPanel(pan, false), settleMs());
+  }
+  /* scène héros : le haut du panneau (titre, ✕) se place juste sous la scène collée (scroll-padding-top de
+     css/ui/companion.css), une fois la scène rétrécie (transition de hauteur) — V22B-02 */
+  function settleMs() {
+    if (!hero) return 60;
+    try { return Math.round((parseFloat(getComputedStyle(stage).transitionDuration) || 0) * 1000) + 60; } catch (_) { return 60; }
+  }
+  function showPanel(pan, always) {
+    try {
+      if (!pan || pan.hidden) return;
+      const r = pan.getBoundingClientRect();
+      if (always || r.bottom > innerHeight - 8) pan.scrollIntoView({ block: hero ? 'start' : 'nearest', behavior: reduced() ? 'auto' : 'smooth' });
+    } catch (_) {}
   }
 
   /* ----- effets HTML (cœurs au bout du doigt) ----- */
@@ -649,7 +951,7 @@ export function renderCompanionCard(container) {
   function busyWalking() {
     if (!walking) return false;
     const p = profile();
-    if (p) tell(say(p, '{N} est en promenade… attends son retour ! 🚶'));
+    if (p) sayOut(say(p, '{N} est en promenade… attends son retour ! 🚶'));
     return true;
   }
   function feedPet(id, srcBtn) {
@@ -658,7 +960,7 @@ export function renderCompanionCard(container) {
     if (!f || !p) return;
     if (busyWalking()) return;
     if (p.wallet.apples < f.price) {
-      tell(frTypo('Pas assez de 🍎… Gagne des pommes en jouant !'));
+      sayOut(missing(f.price - p.wallet.apples));
       motion.shake(mood, { dist: 4 });
       return;
     }
@@ -681,7 +983,7 @@ export function renderCompanionCard(container) {
         motion.flyTo(from, to, { emoji: f.e, size: 30, dur: flight, arc: 0.4, popTarget: false });
         later(() => audio.tap(), flight + 260); later(() => audio.tap(), flight + 780); later(() => audio.tap(), flight + 1300);
       }
-      tell(say(profile(), '{N} croque ' + f.e + ' avec appétit. Miam !'));
+      sayOut(say(profile(), '{N} croque ' + f.e + ' avec appétit. Miam !'));
     });
   }
   function brushPet() {
@@ -689,7 +991,7 @@ export function renderCompanionCard(container) {
     if (busyWalking()) return;
     const now = Date.now();
     if (now - (p.companion.pet.brushLast || 0) < PET.BRUSH.cooldown) {
-      tell(say(p, '{N} est déjà ' + (fem(p) ? 'toute belle' : 'tout beau') + ' ✨ Reviens un peu plus tard !'));
+      sayOut(say(p, '{N} est déjà ' + (fem(p) ? 'toute belle' : 'tout beau') + ' ✨ Reviens un peu plus tard !'));
       return;
     }
     store.mutateProfile(pp => {
@@ -703,14 +1005,14 @@ export function renderCompanionCard(container) {
     const coat = kind === 'dolphin' ? 'quelle peau toute douce !' : kind === 'dragon' ? 'quelles belles écailles !' : 'quel beau poil !';
     whenAwake(() => {
       if (ctl) ctl.react('brush').then(ok => { if (ok && !destroyed && svgEl) motion.sparkle(svgEl, { count: 8 }); });
-      tell(say(profile(), '{N} adore le brossage, ' + coat + ' ✨'));
+      sayOut(say(profile(), '{N} adore le brossage, ' + coat + ' ✨'));
     });
   }
   function walkPet() {
     const p = profile(); if (!p) return;
     const today = dayStr();
     if (p.companion.pet.walkDay === today) {
-      tell(say(p, '{N} a déjà eu sa promenade du jour 🚶 À demain !'));
+      sayOut(say(p, '{N} a déjà eu sa promenade du jour 🚶 À demain !'));
       return;
     }
     if (walking) return;
@@ -729,7 +1031,7 @@ export function renderCompanionCard(container) {
       clip = audio.clipClop();
       if (ctl) ctl.react('walk', { ms: ms - 500 });
       walkPath(ms);
-      tell(say(profile(), '{N} part en promenade, quel bonheur ! 🚶'));
+      sayOut(say(profile(), '{N} part en promenade, quel bonheur ! 🚶'));
     });
     later(() => {
       walking = false; clip = null;
@@ -783,9 +1085,10 @@ export function renderCompanionCard(container) {
     const eq = p.companion.equip;
     if (!eq.owned.includes(id) && p.wallet.apples < it.price) {
       audio.beep(180, 0.1, 0.06);
-      tell(frTypo('Pas assez de 🍎… Gagne des pommes en jouant !'));
+      sayOut(missing(it.price - p.wallet.apples));
       return;
     }
+    if (trying) { trying = null; renderTry(); }       /* l'essai devient un achat (ou un autre objet est porté) */
     let bought = false, wornNow = false, replaced = null;
     swapping = true;                                  /* la scène redessine elle-même le compagnon */
     store.mutateProfile(pp => {
@@ -806,9 +1109,9 @@ export function renderCompanionCard(container) {
     renderShop(); renderMounts(); refresh();
     swapLook(wornNow ? 'wear' : 'unwear', id);
     const [art, pl] = ITEM_WORDS[id] || [it.name.toLowerCase(), false];
-    if (wornNow && replaced && ITEM_WORDS[replaced]) tell(frTypo(cap(art) + (pl ? ' remplacent ' : ' remplace ') + ITEM_WORDS[replaced][0] + ' ✨'));
-    else if (wornNow) tell(say(profile(), '{N} est trop chic ! ✨'));
-    else tell(frTypo(cap(art) + (pl ? ' retournent' : ' retourne') + ' dans le coffre.'));
+    if (wornNow && replaced && ITEM_WORDS[replaced]) sayOut(frTypo(cap(art) + (pl ? ' remplacent ' : ' remplace ') + ITEM_WORDS[replaced][0] + ' ✨'));
+    else if (wornNow) sayOut(say(profile(), (bought ? 'C’est à toi ! ' : '') + '{N} est trop chic ! ✨'));
+    else sayOut(frTypo(cap(art) + (pl ? ' retournent' : ' retourne') + ' dans le coffre.'));
   }
   function mountTap(t) {
     const m = MOUNTS[t];
@@ -816,9 +1119,10 @@ export function renderCompanionCard(container) {
     if (!m || !p) return;
     if (!p.companion.owned.includes(t) && p.wallet.apples < m.price) {
       audio.beep(180, 0.1, 0.06);
-      tell(frTypo('Pas assez de 🍎… Gagne des pommes en jouant !'));
+      sayOut(missing(m.price - p.wallet.apples));
       return;
     }
+    if (trying) { trying = null; renderTry(); }
     const same = p.companion.type === t;
     let bought = false;
     if (!same) swapping = true;                       /* la scène redessine elle-même le compagnon */
@@ -826,7 +1130,7 @@ export function renderCompanionCard(container) {
       if (!pp.companion.owned.includes(t)) { addApples(pp, -m.price); pp.companion.owned.push(t); bought = true; }
       pp.companion.type = t;
     });
-    if (bought) { audio.fanfare(); motion.confetti(); }
+    if (bought) { audio.fanfare(); motion.confetti(); sayOut(frTypo('C’est à toi ! ' + m.em)); }
     renderMounts(); renderShop(); refresh();
     if (same) { if (ctl) ctl.react('tap'); } else swapLook('mount');
   }
@@ -844,6 +1148,8 @@ export function renderCompanionCard(container) {
     tell(say(q, (f ? 'Enchantée' : 'Enchanté') + ' {P} ! {N} est ' + (f ? 'ravie' : 'ravi') + ' de faire équipe avec toi 💛'));
     audio.beep(760, 0.1, 0.1);
     motion.pop(saveBtn, { scale: 1.08 });
+    /* scène héros : le panneau se referme, on remonte voir le compagnon réagir */
+    if (hero) later(() => { togglePanel(null); try { window.scrollTo({ top: 0, behavior: reduced() ? 'auto' : 'smooth' }); } catch (_) {} }, 650);
   }
 
   /* ----- évolution (stade atteint : fêtée une seule fois, mémorisée dans companion.stage) ----- */
@@ -898,6 +1204,9 @@ export function renderCompanionCard(container) {
   btns.walk.addEventListener('click', walkPet);
   btns.shop.addEventListener('click', () => togglePanel('shop'));
   btns.settings.addEventListener('click', () => togglePanel('settings'));
+  if (thought) thought.addEventListener('click', () => { audio.tap(); togglePanel('food'); });
+  if (hero) nameTag.addEventListener('click', () => { audio.tap(); togglePanel('settings'); });
+  if (hero) setRayon('habits');
   segF.addEventListener('click', () => setGender('f'));
   segM.addEventListener('click', () => setGender('m'));
   saveBtn.addEventListener('click', saveSettings);
@@ -946,13 +1255,19 @@ export function renderCompanionCard(container) {
       if (destroyed) return;
       updateSky();
       const p = profile();
-      if (p && !walking) { drawSVG(p); renderGrowth(p); tell(moodMsg(p, petNow(p.companion.pet))); }
+      if (p && !walking) { const g0 = petNow(p.companion.pet); drawSVG(p); renderGrowth(p); tell(moodMsg(p, g0), arrivalQuiet(p, g0)); }
       checkEvolution();
     });
   }
 
   return {
     el,
+    /* ouvre un panneau ('food' | 'shop' | 'settings') depuis l'extérieur (scène héros : ⚙️ de l'en-tête) */
+    openPanel(key) {
+      if (destroyed || !panels[key]) return;
+      if (openPanel !== key) togglePanel(key);
+      later(() => showPanel(panels[key], true), settleMs() + 20);
+    },
     /* fin de balade : le compagnon danse, confettis, fanfare */
     dance() {
       if (destroyed) return;
@@ -963,6 +1278,7 @@ export function renderCompanionCard(container) {
     destroy() {
       if (destroyed) return;
       destroyed = true;
+      try { voiceHush(); } catch (_) {}            /* on quitte l'accueil : le compagnon se tait */
       clearInterval(minuteTimer);
       for (const t of timers) clearTimeout(t);
       timers.clear();

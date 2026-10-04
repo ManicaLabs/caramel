@@ -14,6 +14,10 @@ const V11_COMMIT = 'c5bd8d1';
 const src = readFileSync(join(root, 'js', 'core', 'speech.js'), 'utf8');
 const srcLines = new Set(src.split('\n').map(l => l.trim()).filter(Boolean));
 
+/* seuls textes d'état retouchés depuis la v11 (2.2, typographie) : tout autre écart reste une régression */
+const V22_TEXTS = [["'🎙 Moteur vocal : chargement...'", "'🎙 Moteur vocal : chargement\\u2026'"]];
+const retext = l => V22_TEXTS.reduce((t, [a, b]) => t.replace(a, b), l);
+
 let v11 = null;
 try { v11 = execFileSync('git', ['-C', root, 'show', V11_COMMIT + ':index.html'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }); }
 catch (_) { console.log('  (speech-port : historique git indisponible, comparaison à la v11 ignorée)'); }
@@ -63,7 +67,7 @@ test('constantes v11 (VOSK_LIB, MODEL_URL) et messages de statut identiques', ()
   if (!v11) return;
   assert.ok(v11.includes("const VOSK_LIB = '" + speech.VOSK_LIB + "';"));
   assert.ok(v11.includes("const MODEL_URL = '" + speech.MODEL_URL + "';"));
-  for (const m of v11.match(/setVoiceStatus\('[^\n]*?'(?: \+ p \+ '[^\n]*?')?\);/g)) assert.ok(src.includes(m), m);
+  for (const m of v11.match(/setVoiceStatus\('[^\n]*?'(?: \+ p \+ '[^\n]*?')?\);/g)) assert.ok(src.includes(retext(m)), m);
 });
 
 test('fonctions v11 recopiées caractère pour caractère', () => {
@@ -86,7 +90,7 @@ test('fonctions v11 généralisées : toutes les autres lignes sont intactes', (
     assert.ok(ref, name + ' introuvable dans la v11');
     for (const raw of ref.split('\n').map(l => l.trim()).filter(Boolean)) {
       if (CHANGED.some(re => re.test(raw))) continue;
-      assert.ok(srcLines.has(rename(raw)), name + ' : ligne v11 absente → ' + raw);
+      assert.ok(srcLines.has(retext(rename(raw))), name + ' : ligne v11 absente → ' + raw);
     }
   }
   /* choix du moteur de micTap() */
@@ -177,7 +181,7 @@ test('arrêt pendant le chargement du modèle : le micro ne s’ouvre pas', asyn
   assert.ok(sim.log.models[0].startsWith('blob:'), 'modèle chargé depuis le blob');
   assert.ok(sim.cache.has('vosk-model-v1|' + speech.MODEL_URL), 'modèle mis en cache vosk-model-v1');
   assert.deepEqual(pcts, [50, 99]);
-  assert.deepEqual(statuses, ['', '🎙 Moteur vocal : chargement...', '🎙 Moteur vocal : téléchargement 50 % (1re fois seulement)',
+  assert.deepEqual(statuses, ['', '🎙 Moteur vocal : chargement\u2026', '🎙 Moteur vocal : téléchargement 50 % (1re fois seulement)',
     '🎙 Moteur vocal : téléchargement 99 % (1re fois seulement)', '🎙 Moteur vocal prêt ✓ — la voix reste sur l’appareil']);
   assert.equal(speech.statusText(), '🎙 Moteur vocal prêt ✓ — la voix reste sur l’appareil');
   off();
@@ -263,6 +267,7 @@ test('autre erreur Vosk → secours Web Speech (fr-FR, relance onend à 200 ms)'
   const texts = [];
   const r = await quiet(() => speech.startListening({ grammar: ['a'], onText: (t, f) => texts.push([t, f]) }));
   assert.deepEqual(r, { engine: 'webspeech' });
+  assert.equal(speech.statusText(), '🎙 Moteur intégré indisponible → reconnaissance Google en secours', 'statut (2.2) : la voix passe par Google');
   assert.ok(lastCtx().closed, 'Vosk arrêté avant le secours');
   const sr = sim.log.sr.at(-1);
   assert.equal(sr.lang, 'fr-FR'); assert.equal(sr.continuous, true); assert.equal(sr.interimResults, true);

@@ -12,9 +12,12 @@
      --tile-<jeu> (cartes « Mes jeux » et choix du jeu libre).
    Inchangés dans tous les thèmes : --card (blanc), --ok* (réussite verte), --soft* (erreur douce orange),
    --sky/--grass, --fr/--ma (radars officiels) et la palette --n-* des décors naturels des jeux.
+   L'habillage (--amber-400/500, --pink-400, --focus, --amber-200, --pink-200) reste loin de l'orange de l'erreur douce
+   et n'est jamais rouge : un enfant ne doit pas confondre un bouton avec « essaie encore ».
    Contraste vérifié par tests/themes.test.mjs : --ink, --ink-2, --ink-3, --title ≥ 4,5:1 sur --card,
    --bg-1/2/3, --pink-50, --amber-50/100 ; --amber-900 sur --amber-50…400 ; --pink-800 sur --pink-50/100 ;
-   texte des cartes de jeux sur --tile-*. Aucune référence à une marque (thème « Super-héros » générique). */
+   texte des cartes de jeux sur --tile-* ; --focus ≥ 4,5:1 sur --card et --bg-1/2/3 ; écart de couleur (ΔE76) avec
+   --soft et --soft-bg. Aucune référence à une marque (thème « Super-héros » générique). */
 
 /* ---------- jetons dérivés, recalculés sur chaque porteur de thème (page ou carte d'aperçu) ---------- */
 [data-theme] {
@@ -66,22 +69,22 @@
   --pink-50: #f0f6ff; --pink-100: #dde9ff; --pink-200: #b4cdfb; --pink-400: #2f6ae0; --pink-800: #1b3a8f;
   --amber-50: #fffce6;
   --amber-100: #fff6bf; --amber-200: #ffec80; --amber-300: #ffe04a; --amber-400: #fdd21f; --amber-500: #e9b600; --amber-900: #14234d;
-  --shade: #1b3a8f; --accent: #c21d1d; --focus: #c21d1d;
+  --shade: #1b3a8f; --accent: #c21d1d; --focus: #1b3a8f;
   --panel-bg: #f0f6ff; --panel-line: #93b8f7;
   --ava-ring: repeating-conic-gradient(#fdd21f 0 15deg, #2f6ae0 15deg 30deg);
   --tile-course: #e1ecff; --tile-cloture: #fff4c2; --tile-tables: #e3f0ff;
   --tile-pommes: #ffeccc; --tile-orchestre: #e8e9ff; --tile-operations: #fff6d6;
 }
 
-/* ---------- DINOSAURES : vert feuillage, terre et orange volcan ; empreintes et feuilles ; boutons orange ---------- */
+/* ---------- DINOSAURES : vert feuillage, terre et ocre ; empreintes et feuilles ; boutons ocre (l'orange volcan reste dans --accent) ---------- */
 [data-theme="dinosaures"] {
   --bg-1: #f3f9ea; --bg-2: #fbf5e6; --bg-3: #edf6e3;
   --bg-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cg fill='%236b4f2c' fill-opacity='.075'%3E%3Cg transform='translate(34 44) rotate(-16)'%3E%3Cellipse cx='9' cy='17' rx='6.5' ry='7'/%3E%3Cpath d='M3 12L-3 0 6 9Z'/%3E%3Cpath d='M7 10L9 -4 12 10Z'/%3E%3Cpath d='M13 11L22 1 16 13Z'/%3E%3C/g%3E%3Cg transform='translate(66 98) rotate(-6)'%3E%3Cellipse cx='9' cy='17' rx='6.5' ry='7'/%3E%3Cpath d='M3 12L-3 0 6 9Z'/%3E%3Cpath d='M7 10L9 -4 12 10Z'/%3E%3Cpath d='M13 11L22 1 16 13Z'/%3E%3C/g%3E%3C/g%3E%3Cpath transform='translate(140 30) rotate(30)' d='M0 0C10 -4 22 2 24 14C12 16 2 10 0 0Z' fill='%235f8f22' fill-opacity='.12'/%3E%3Cpath transform='translate(126 150) rotate(-40)' d='M0 0C10 -4 22 2 24 14C12 16 2 10 0 0Z' fill='%235f8f22' fill-opacity='.1'/%3E%3Ccircle cx='170' cy='104' r='3' fill='%23ef7417' fill-opacity='.14'/%3E%3Ccircle cx='22' cy='160' r='2.4' fill='%235f8f22' fill-opacity='.16'/%3E%3C/svg%3E");
   --ink: #33281a; --ink-2: #4f402b; --ink-3: #5f5036; --ink-4: #9a8b6c; --ink-5: #bcb092;
   --title: #2f6a1e;
   --pink-50: #f6faeb; --pink-100: #ebf4d4; --pink-200: #d4e6a6; --pink-400: #7ea52f; --pink-800: #3c5a12;
-  --amber-50: #fff7ed;
-  --amber-100: #ffead2; --amber-200: #fed2a4; --amber-300: #fdb36f; --amber-400: #fb9440; --amber-500: #ef7417; --amber-900: #5e1f08;
+  --amber-50: #fffbea;
+  --amber-100: #fdf2c6; --amber-200: #f9e28f; --amber-300: #eec350; --amber-400: #d9a12a; --amber-500: #b7820f; --amber-900: #3a2804;
   --shade: #55621c; --accent: #ef7417; --focus: #2f6a1e;
   --panel-bg: #f6faeb; --panel-line: #bcd681;
   --ava-ring: repeating-conic-gradient(#7ea52f 0 22.5deg, #b9d46b 22.5deg 45deg);
@@ -89,16 +92,16 @@
   --tile-pommes: #ffe9d5; --tile-orchestre: #f0ecd9; --tile-operations: #e5efe0;
 }
 
-/* ---------- BOLIDES : bleu course, rouge et gris bitume ; damier et traits de vitesse ; boutons bleus, accents rouges ---------- */
+/* ---------- BOLIDES : bleu course, gris bitume et titres rouges ; damier et traits de vitesse ; boutons bleus, bordures grises ---------- */
 [data-theme="bolides"] {
   --bg-1: #f1f4f8; --bg-2: #f7f9fb; --bg-3: #ebeff5;
   --bg-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='168' height='168'%3E%3Cg fill='%231d2633' fill-opacity='.06' transform='translate(20 24)'%3E%3Crect width='6' height='6'/%3E%3Crect x='12' width='6' height='6'/%3E%3Crect x='6' y='6' width='6' height='6'/%3E%3Crect x='18' y='6' width='6' height='6'/%3E%3Crect y='12' width='6' height='6'/%3E%3Crect x='12' y='12' width='6' height='6'/%3E%3C/g%3E%3Cg stroke='%232f7de8' stroke-opacity='.13' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M96 104h34'/%3E%3Cpath d='M104 114h24'/%3E%3Cpath d='M112 124h14'/%3E%3C/g%3E%3Cg fill='%231d2633' fill-opacity='.05' transform='translate(118 34)'%3E%3Crect width='5' height='5'/%3E%3Crect x='10' width='5' height='5'/%3E%3Crect x='5' y='5' width='5' height='5'/%3E%3Crect y='10' width='5' height='5'/%3E%3Crect x='10' y='10' width='5' height='5'/%3E%3C/g%3E%3Ccircle cx='40' cy='138' r='2.4' fill='%231d2633' fill-opacity='.09'/%3E%3C/svg%3E");
   --ink: #1d2633; --ink-2: #36404f; --ink-3: #4a5566; --ink-4: #8c97a8; --ink-5: #b3bcc9;
   --title: #c0141c;
-  --pink-50: #f4f6f9; --pink-100: #e8ecf2; --pink-200: #cfd6e1; --pink-400: #d42a2f; --pink-800: #2d3748;
+  --pink-50: #f4f6f9; --pink-100: #e8ecf2; --pink-200: #cfd6e1; --pink-400: #4a5566; --pink-800: #1d2633;
   --amber-50: #eef5ff;
   --amber-100: #dbe9ff; --amber-200: #bad5ff; --amber-300: #8dbaff; --amber-400: #5b9df7; --amber-500: #2f7de8; --amber-900: #0b1c45;
-  --shade: #1d2633; --accent: #2f7de8; --focus: #c0141c;
+  --shade: #1d2633; --accent: #2f7de8; --focus: #0b1c45;
   --panel-bg: #f4f6f9; --panel-line: #b3bcc9;
   --ava-ring: repeating-conic-gradient(#1d2633 0 25%, #ffffff 0 50%) 0 0 / 10px 10px;
   --tile-course: #e4ebf5; --tile-cloture: #e1edff; --tile-tables: #eceff3;
@@ -121,13 +124,13 @@
   --tile-pommes: #ffeede; --tile-orchestre: #e2eaff; --tile-operations: #eee6ff;
 }
 
-/* ---------- OCÉAN : turquoise, sable et corail ; vagues et bulles ; boutons turquoise, bordures corail ---------- */
+/* ---------- OCÉAN : turquoise, bleu lagon et sable ; vagues et bulles ; boutons turquoise, bordures bleues ---------- */
 [data-theme="ocean"] {
   --bg-1: #ecfbfd; --bg-2: #fdf8ec; --bg-3: #e8f7fb;
   --bg-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='140'%3E%3Cpath d='M0 34q12.5 -9 25 0t25 0t25 0t25 0t25 0t25 0t25 0t25 0' fill='none' stroke='%231fb3c4' stroke-opacity='.12' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M0 104q12.5 -9 25 0t25 0t25 0t25 0t25 0t25 0t25 0t25 0' fill='none' stroke='%231fb3c4' stroke-opacity='.08' stroke-width='2.2' stroke-linecap='round'/%3E%3Cg fill='none' stroke='%231fb3c4' stroke-opacity='.17' stroke-width='1.6'%3E%3Ccircle cx='40' cy='66' r='6'/%3E%3Ccircle cx='54' cy='55' r='3.6'/%3E%3Ccircle cx='152' cy='70' r='5'/%3E%3C/g%3E%3Ccircle cx='120' cy='126' r='2.4' fill='%23ff9563' fill-opacity='.22'/%3E%3Ccircle cx='176' cy='12' r='2' fill='%23ff9563' fill-opacity='.22'/%3E%3C/svg%3E");
   --ink: #123649; --ink-2: #24506a; --ink-3: #305e78; --ink-4: #7d9fb0; --ink-5: #a8c3cf;
   --title: #0c6283;
-  --pink-50: #fff6f2; --pink-100: #ffe8df; --pink-200: #ffcdb9; --pink-400: #f97a52; --pink-800: #8f2d0e;
+  --pink-50: #f0f7fc; --pink-100: #dcedf8; --pink-200: #b6d9f0; --pink-400: #2b83c0; --pink-800: #0b4a73;
   --amber-50: #ecfeff;
   --amber-100: #cdf9fd; --amber-200: #a2f0f9; --amber-300: #67e3f3; --amber-400: #2dd0e8; --amber-500: #0db3cc; --amber-900: #062f3d;
   --shade: #0b5866; --accent: #1fb3c4; --focus: #0c6283;

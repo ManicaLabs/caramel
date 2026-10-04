@@ -1,6 +1,7 @@
 /* Thèmes visuels (v2.1) : catalogue, présélection, normalisation, et css/themes.css lu comme du texte :
-   chaque thème redéfinit TOUS les jetons thémables, contraste AA (≥ 4,5:1) de chaque texte sur ses fonds,
-   pas de rose dans les thèmes qui ne le sont pas, aucune marque, cohérence avec index.html. */
+   chaque thème redéfinit TOUS les jetons thémables, contraste AA (≥ 4,5:1) de chaque texte et de l'anneau de focus sur
+   ses fonds, habillage loin de l'orange de l'erreur douce et jamais rouge (2.2), pas de rose dans les thèmes qui ne le
+   sont pas, aucune marque, cohérence avec index.html. */
 import { test, assert } from './_t.mjs';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -47,6 +48,14 @@ function hsl(h) {
   hh *= 60; if (hh < 0) hh += 360;
   return { h: hh, s, l };
 }
+/* écart de couleur CIE76 (Lab, blanc D65) : au-dessous de 20 environ, deux couleurs se confondent d'un coup d'œil */
+function lab(h) {
+  const [r, g, b] = rgb(h).map(v => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
+  const f = t => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+  const x = f((r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047), y = f(r * 0.2126 + g * 0.7152 + b * 0.0722), z = f((r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883);
+  return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+}
+const deltaE = (a, b) => { const p = lab(a), q = lab(b); return Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]); };
 /* valeur hexadécimale d'un jeton (jetons du thème, sinon jetons fixes ; var(--x) suivi) */
 function val(id, k, depth = 0) {
   if (k.startsWith('#')) return k;
@@ -67,6 +76,7 @@ const PAIRS = [
   ...['--card', '--bg-1', '--bg-2', '--bg-3', '--pink-50', '--amber-50', '--amber-100', '--panel-bg'].map(b => ['--ink-3', b]),
   ...['--card', '--bg-1', '--bg-2', '--bg-3', '--pink-50', '--amber-50', '--amber-100', '--panel-bg'].map(b => ['--title', b]),
   ...['--card', '--pink-50', '--pink-100'].map(b => ['--pink-800', b]),
+  ...['--card', '--bg-1', '--bg-2', '--bg-3'].map(b => ['--focus', b]),          /* anneau de focus clavier */
   ...['--amber-400', '--amber-300', '--amber-200', '--amber-100', '--amber-50', '--card'].map(b => ['--amber-900', b]),
   ['#ffffff', '--ink'], ['#ffffff', '--title'],
   ...['course', 'cloture', 'tables', 'pommes', 'orchestre', 'operations'].flatMap(g => [['--ink', '--tile-' + g], ['--ink-2', '--tile-' + g]])
@@ -161,6 +171,26 @@ test('thèmes CSS : contraste AA (≥ 4,5:1) de chaque texte sur ses fonds, dans
     report.push(id + ' ' + min.toFixed(2) + ' (' + worst + ')');
   }
   console.log('    contraste minimal par thème : ' + report.join(' · '));
+});
+
+test('thèmes CSS : l’habillage reste loin de l’orange de l’erreur douce et n’est jamais rouge', () => {
+  /* un bouton, une bordure ou l'anneau de focus ne doivent pas ressembler au retour « essaie encore » (--soft) */
+  const soft = val('caramel', '--soft'), softBg = val('caramel', '--soft-bg');
+  assert.match(soft, HEX); assert.match(softBg, HEX);
+  for (const id of IDS) {
+    for (const k of ['--amber-400', '--amber-500', '--pink-400', '--focus']) {
+      const d = deltaE(val(id, k), soft);
+      assert.ok(d >= 30, `${id} : ${k} = ${val(id, k)} trop proche de --soft (ΔE ${d.toFixed(1)})`);
+    }
+    for (const k of ['--amber-200', '--pink-200']) {
+      const d = deltaE(val(id, k), softBg);
+      assert.ok(d >= 18, `${id} : ${k} = ${val(id, k)} trop proche de --soft-bg (ΔE ${d.toFixed(1)})`);
+    }
+    for (const k of ['--pink-400', '--focus']) {
+      const c = hsl(val(id, k));
+      assert.ok(!((c.h < 12 || c.h > 350) && c.s > 0.5 && c.l < 0.6), `${id} : ${k} = ${val(id, k)} est rouge`);
+    }
+  }
 });
 
 test('thèmes CSS : pas de rose dans les thèmes qui ne sont pas roses', () => {

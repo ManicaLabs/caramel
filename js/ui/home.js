@@ -1,15 +1,23 @@
-/* ============ ACCUEIL (JEUX.md §8) ============
-   En-tête (compagnon avec l'anneau et la pastille du thème, « Bonjour {P} ! », 🎨 « Mon thème » → feuille
-   « Choisis ton univers » (theme-picker.js), changer d'enfant, porte-monnaie ⭐ 🍎 🔥) · bandeau « Je passe en … ! »
-   · carte du compagnon (js/ui/companion.js) · carte « Ma balade du jour » · grille « Mes jeux »
-   · « Mes progrès 📈 » (+ « En famille 🏆 » dès deux enfants) · rappels quotidiens · pied (espace parents,
-   crédits v11, version, moteur vocal).
-   « Qui joue ? » (v2.1, plusieurs enfants sur un même appareil) : toucher l'avatar (ou 👥) ouvre une feuille avec
-   tous les profils (compagnon, prénom, 🍎, 🔥 ; chaque vignette aux couleurs du thème de l'enfant), « ➕ Ajouter un
-   enfant » et « 🏆 En famille ». Toucher un autre enfant = bascule immédiate : store.setActive + sessionStorage
-   'caramel-picked' (main.js réapplique aussitôt son thème, son et animations), puis l'accueil est remonté pour lui,
-   dans une transition de vue (fondu des couleurs, l'avatar choisi vole jusqu'à l'en-tête). Rien n'est perdu :
-   chaque profil garde ses données (balade du jour comprise, profile.today).
+/* ============ ACCUEIL « UN SEUL GROS BOUTON » (JEUX.md §8, CDC §1 principe 7) ============
+   Pensé d'abord pour un CP : le compagnon en grand (scène héros de js/ui/companion.js : vivant, câlin au toucher) et
+   UN très grand bouton « Jouer ▶ » qui lance directement le jeu de l'étape en cours de la balade du jour (la suite
+   s'enchaîne depuis le bilan : js/ui/game-shell.js). Tout le reste est secondaire et discret :
+     - en-tête : avatar = « Qui joue ? », « Bonjour {P} ! », 🎨 « Mon univers » (CDC §10.5 : le thème se choisit sur
+       l'accueil), 🔒 « Espace parents » (discret, toujours au même endroit ; la porte et son code sont dans parents.js) ;
+     - sur la scène : plaque « 🌱 Caramel » (stade ; la toucher = « Mon compagnon » : son stade en clair, les prénoms),
+       🍎 et 🔥, bulle de pensée 🍎 quand il a faim ; sous la scène : 4 soins en icônes (jauges en anneau, ✓ quand c'est
+       déjà fait, 🛍️ dorée quand un objet nouveau est à portée de pommes) ;
+     - sous le bouton : les pierres de la balade (icônes des jeux ; toucher = la carte du pré #/balade), puis
+       🎲 « Jeux » (feuille de tuiles, sans description) et 📈 « Mes progrès » — ce dernier seulement quand le radar a
+       quelque chose à montrer (une partie jouée ou une fiche importée) : divulgation progressive.
+   Balade finie : le bouton devient « 🎲 Encore un jeu ? » (couleur secondaire).
+   Déplacés dans l'espace parents (js/ui/parents.js) : rappels quotidiens, crédits et liens, version, moteur vocal.
+   Bandeau « Je passe en … ! » (rentrée) : inchangé.
+   « Qui joue ? » (plusieurs enfants sur un même appareil) : toucher l'avatar ouvre une feuille avec tous les profils
+   (compagnon + prénom, chaque carte aux couleurs du thème de l'enfant : la MÊME carte que l'écran #/profiles,
+   kidCard de js/ui/profiles.js), « ➕ Ajouter » et, dès deux enfants, « 🏆 En famille ». Toucher un autre enfant =
+   bascule immédiate : store.setActive + sessionStorage 'caramel-picked'
+   (main.js réapplique son thème, son et animations), puis l'accueil est remonté pour lui dans une transition de vue.
    Lecture : store.getProfile() ; écriture : store.mutateProfile uniquement (plan du jour, classe).
    Les blocs se mettent à jour en place à chaque changement du store (aucune reconstruction de l'écran). */
 
@@ -19,24 +27,16 @@ import * as router from '../router.js';
 import * as motion from '../core/motion.js';
 import * as audio from '../core/audio.js';
 import * as kit from './kit.js';
-import * as notifs from '../core/notifs.js';
-import * as speech from '../core/speech.js';
-import { fillTemplate, offerNextClasse, setClasse } from '../core/profiles.js';
+import { offerNextClasse, setClasse } from '../core/profiles.js';
 import { ensureToday } from '../core/session.js';
-import { gamesFor, GAME_BY_ID } from '../games/index.js';
-import { totalStarsOf } from '../content/stories/index.js';
 import { MOUNTS } from '../content/companion-data.js';
 import { themeOf } from '../core/themes.js';
 import { renderCompanionCard, mountReady, avatarOf, setAvatar } from './companion.js';
-import { stepInfo } from './balade.js';
+import { stepInfo, currentStep, launchStep, openGamePicker } from './balade.js';
 import { openThemeSheet } from './theme-picker.js';
 import { stageOf } from '../core/family.js';
+import { kidCard, kidActions } from './profiles.js';
 
-/* liens v11 (crédits) */
-const LINKEDIN_PROFILE = 'https://www.linkedin.com/in/cedric-delalande-57bb7860/';
-const FEEDBACK_URL = 'https://www.linkedin.com/posts/cedric-delalande-57bb7860_ia-edtech-aezducation-share-7485434729584902144-3tnJ/';
-
-const VT_NAME = 'vt-game-icon';
 const FROM_KEY = 'caramel-play-from';
 const ssGet = k => { try { return sessionStorage.getItem(k); } catch (_) { return null; } };
 const ssSet = (k, v) => { try { sessionStorage.setItem(k, v); } catch (_) {} };
@@ -45,9 +45,9 @@ let st = null;   /* état de l'écran monté */
 const PICKED_KEY = 'caramel-picked';           /* sessionStorage : profil choisi pendant cette session (main.js) */
 const WHO_VT = 'hm-who-ava';                   /* élément partagé : vignette choisie → avatar de l'en-tête */
 
-function version() {
-  try { const m = document.querySelector('meta[name="caramel-version"]'); return (m && m.content) || ''; } catch (_) { return ''; }
-}
+/* le radar a-t-il quelque chose à montrer ? (compétence observée en jeu, lecture de la course, ou fiche importée) */
+const hasRadar = q => !!q && ((q.skills && typeof q.skills === 'object' && Object.keys(q.skills).length > 0) || (Array.isArray(q.evals) && q.evals.length > 0));
+
 const canVT = () => { try { return typeof document.startViewTransition === 'function' && !motion.reduced(); } catch (_) { return false; } };
 
 /* compagnon dessiné avec son stade (mountSVG, opts { expr, stage } + view 'portrait' de l'avatar rond, phase) ;
@@ -72,8 +72,10 @@ const HOME = {
     let p = store.getProfile();
     if (!p) { router.go(store.listProfiles().length ? 'profiles' : 'onboarding', { replace: true }); return; }
     if (!p.classe) { router.go('welcome', { replace: true }); return; }
-    await Promise.all([loadCSS('css/ui/home.css'), loadCSS('css/ui/companion.css'), mountReady(), svgReady]);
-    if (!root.isConnected) return;                    /* on est déjà reparti ailleurs pendant le chargement */
+    /* balade.css : tuiles de la feuille « Choisis ton jeu » ; profiles.css : cartes de la feuille « Qui joue ? » */
+    await Promise.all([loadCSS('css/ui/home.css'), loadCSS('css/ui/companion.css'), loadCSS('css/ui/balade.css'),
+      loadCSS('css/ui/profiles.css'), mountReady(), svgReady]);
+    if (!root.isConnected) return;
     teardown();
     p = store.getProfile();
     if (!p || !p.classe) return;
@@ -82,79 +84,55 @@ const HOME = {
     /* plan du jour (recalculé s'il manque, date d'un autre jour ou n'est plus valable) */
     try { store.mutateProfile(pp => { ensureToday(pp, today); }); } catch (e) { console.error('Balade du jour', e); }
 
-    /* ----- en-tête ----- */
+    /* ----- en-tête : qui joue · bonjour · univers · espace parents ----- */
     const ava = h('span', { class: 'hm-ava', 'aria-hidden': 'true' });
     const sticker = h('span', { class: 'hm-sticker', 'aria-hidden': 'true' });       /* pastille du thème (🦖, 👑…) */
-    /* l'avatar ouvre « Qui joue ? » (changer d'enfant en un geste, ajouter un enfant, En famille) */
     const avaWrap = h('button', { type: 'button', class: 'hm-ava-wrap hm-ava-btn', 'aria-haspopup': 'dialog' }, ava, sticker);
     avaWrap.addEventListener('click', () => openWho());
     const hello = h('h1', { class: 'hm-hello' });
-    const sub = h('p', { class: 'hm-sub' });
-    const switchBtn = h('button', { type: 'button', class: 'chip hm-switch', 'aria-label': 'Changer d’enfant', title: 'Changer d’enfant', 'aria-haspopup': 'dialog' },
-      h('span', { class: 'hm-switch-ico', 'aria-hidden': 'true' }, '👥'), h('span', { class: 'hm-switch-txt', 'aria-hidden': 'true' }, 'Changer d’enfant'));
-    switchBtn.addEventListener('click', () => openWho());
-    const themeBtn = h('button', { type: 'button', class: 'chip hm-theme', 'aria-label': 'Changer de thème', title: 'Mon thème' },
-      h('span', { class: 'hm-theme-ico', 'aria-hidden': 'true' }, '🎨'), h('span', { class: 'hm-theme-txt', 'aria-hidden': 'true' }, 'Mon thème'));
-    themeBtn.addEventListener('click', () => {
-      audio.tap();
-      const q = store.getProfile();
-      const s = q ? openThemeSheet({ profileId: q.id }) : null;
-      if (s && s.el) my.sheet = s;
-    });
-    const coin = (icon, cls) => {
-      const n = h('b', { class: 'hm-coin-n' }, '0');
-      return { el: h('span', { class: 'hm-coin ' + cls }, h('span', { class: 'hm-coin-ico', 'aria-hidden': 'true' }, icon), n), n };
-    };
-    const W = { stars: coin('⭐', 'is-stars'), apples: coin('🍎', 'is-apples'), streak: coin('🔥', 'is-streak') };
-    const purse = h('div', { class: 'hm-purse', role: 'group', 'aria-label': 'Ton trésor' }, W.stars.el, W.apples.el, W.streak.el);
-    const head = h('header', { class: 'hm-head' },
-      h('div', { class: 'hm-head-row' }, avaWrap, h('div', { class: 'hm-head-txt' }, hello, sub),
-        h('div', { class: 'hm-head-btns' }, switchBtn, themeBtn)),
-      purse);
+    const themeBtn = h('button', { type: 'button', class: 'hm-icon-btn hm-theme-btn', 'aria-haspopup': 'dialog' },
+      h('span', { 'aria-hidden': 'true' }, '🎨'));
+    themeBtn.addEventListener('click', () => openTheme());
+    const lockBtn = h('button', { type: 'button', class: 'hm-icon-btn hm-lock-btn', 'aria-label': 'Espace parents' },
+      h('span', { 'aria-hidden': 'true' }, '🔒'));
+    lockBtn.addEventListener('click', () => { if (my.switching || sheetOpen()) return; audio.tap(); router.go('parents'); });
+    const head = h('header', { class: 'hm-head' }, avaWrap, hello, themeBtn, lockBtn);
 
     /* ----- bandeau « Je passe en … ! » ----- */
     const nextBox = h('div', { class: 'hm-next-slot' });
 
-    /* ----- compagnon ----- */
+    /* ----- trésor posé sur le ciel de la scène : 🍎 (et 🔥 dès le premier jour de série) ----- */
+    const coin = (icon, cls) => {
+      const n = h('b', { class: 'hm-coin-n', 'aria-hidden': 'true' }, '0');
+      const sr = h('span', { class: 'sr-only' });
+      return { el: h('span', { class: 'hm-coin ' + cls }, h('span', { class: 'hm-coin-ico', 'aria-hidden': 'true' }, icon), n, sr), n, sr };
+    };
+    const W = { apples: coin('🍎', 'is-apples'), streak: coin('🔥', 'is-streak') };
+    const hud = h('div', { class: 'cc-hud hm-purse', role: 'group', 'aria-label': 'Ton trésor' }, W.apples.el, W.streak.el);
+
+    /* ----- compagnon (scène héros) ----- */
     const petBox = h('div', { class: 'hm-pet' });
 
-    /* ----- balade du jour ----- */
-    const bTitle = h('h2', { class: 'hm-b-title', id: 'hm-b-title' }, 'Ma balade du jour');
-    const bDur = h('span', { class: 'hm-b-dur' });
-    const bSub = h('p', { class: 'hm-b-sub' });
-    const bSteps = h('ol', { class: 'hm-steps', 'aria-label': 'Les étapes de ta balade' });
-    const bGo = h('button', { type: 'button', class: 'btn big block hm-b-go' });
-    bGo.addEventListener('click', () => { audio.tap(); router.go('balade'); });
-    const balade = h('section', { class: 'card hero hm-balade', 'aria-labelledby': 'hm-b-title' },
-      h('div', { class: 'hm-b-top' }, h('span', { class: 'hm-b-badge', 'aria-hidden': 'true' }, '🗺️'), bTitle, bDur),
-      bSub, bSteps, bGo);
+    /* ----- LE bouton, et les pierres de la balade dessous ----- */
+    const goTxt = h('span', { class: 'hm-go-t' });
+    const goIco = h('span', { class: 'btn-play-ico hm-go-ico', 'aria-hidden': 'true' });
+    const go = h('button', { type: 'button', class: 'btn play block hm-go' }, goTxt, goIco);
+    go.addEventListener('click', onGo);
+    const pebs = h('span', { class: 'hm-pebs', 'aria-hidden': 'true' });
+    const path = h('button', { type: 'button', class: 'hm-path' }, pebs);
+    path.addEventListener('click', () => { audio.tap(); router.go('balade'); });
+    const play = h('section', { class: 'hm-play', 'aria-label': 'Ma balade du jour' }, go, path);
 
-    /* ----- mes jeux ----- */
-    const gamesTitle = h('h2', { class: 'section-title hm-games-title' }, 'Mes jeux');
-    const games = h('div', { class: 'hm-games' });
-
-    /* ----- progrès, rappels, pied ----- */
-    const progressBtn = h('button', { type: 'button', class: 'btn white block hm-progress' },
-      h('span', null, 'Mes progrès'), h('span', { 'aria-hidden': 'true' }, '📈'));
+    /* ----- secondaire : jeux libres, progrès ----- */
+    const gamesBtn = h('button', { type: 'button', class: 'hm-alt-btn hm-games-btn' },
+      h('span', { class: 'hm-alt-ico', 'aria-hidden': 'true' }, '🎲'), h('span', null, 'Jeux'));
+    gamesBtn.addEventListener('click', () => { audio.tap(); openGames(frTypo('Choisis ton jeu')); });
+    const progressBtn = h('button', { type: 'button', class: 'hm-alt-btn hm-progress' },
+      h('span', { class: 'hm-alt-ico', 'aria-hidden': 'true' }, '📈'), h('span', null, 'Mes progrès'));
     progressBtn.addEventListener('click', () => { audio.tap(); router.go('progres'); });
-    const familyBtn = h('button', { type: 'button', class: 'btn white block hm-family' },
-      h('span', null, 'En famille'), h('span', { 'aria-hidden': 'true' }, '🏆'));
-    familyBtn.addEventListener('click', () => { audio.tap(); router.go('famille'); });
-    const progress = h('div', { class: 'hm-more' }, progressBtn, familyBtn);
-    const notifSlot = h('div', { class: 'hm-notif-slot' });
-    const voice = h('span', { class: 'hm-voice' });
-    const parentsBtn = h('button', { type: 'button', class: 'btn white small hm-parents' },
-      h('span', null, 'Espace parents'), h('span', { 'aria-hidden': 'true' }, '🔒'));
-    parentsBtn.addEventListener('click', () => { audio.tap(); router.go('parents'); });
-    const ver = version();
-    const foot = h('footer', { class: 'hm-foot' },
-      parentsBtn,
-      h('p', null, 'Créé avec ❤️ par ', h('a', { href: LINKEDIN_PROFILE, target: '_blank', rel: 'noopener' }, 'Cédric Delalande')),
-      h('p', null, frTypo('💡 Une idée pour améliorer le jeu ? '), h('a', { href: FEEDBACK_URL, target: '_blank', rel: 'noopener' }, 'Dis-le-moi sur LinkedIn')),
-      h('p', { class: 'hm-meta' }, ver ? 'Caramel ' + ver : 'Caramel', voice));
+    const alt = h('nav', { class: 'hm-alt', 'aria-label': 'Autres activités' }, gamesBtn, progressBtn);
 
-    const main = h('div', { class: 'hm-main' }, petBox, balade);
-    const screen = h('div', { class: 'screen hm' }, head, nextBox, main, gamesTitle, games, progress, notifSlot, foot);
+    const screen = h('div', { class: 'screen hm' }, head, nextBox, petBox, play, alt);
     clear(root);
     root.appendChild(screen);
 
@@ -163,35 +141,32 @@ const HOME = {
     function renderHead() {
       const q = store.getProfile(); if (!q) return;
       hello.textContent = frTypo('Bonjour ' + q.name + ' !');
-      const plan = q.today;
-      const f = q.g !== 'm';
-      sub.textContent = frTypo(plan && plan.done ? 'Bravo, ta balade du jour est faite !'
-        : plan && plan.blocks && plan.blocks.some(b => b.done) ? 'On continue la balade ?'
-          : (f ? 'Prête' : 'Prêt') + ' pour ta balade du jour ?');
       const look = [q.id, q.companion.type, q.companion.equip.worn.join(','), stageOf(q.companion)].join('|');
       if (look !== shownLook) { shownLook = look; setAvatar(ava, petSVG(q, 54, 'neutral', '', { view: 'portrait' })); }
       const th = themeOf(q.settings && q.settings.theme);
       if (sticker.textContent !== th.sticker) sticker.textContent = th.sticker;
       sticker.hidden = !th.sticker;
-      themeBtn.setAttribute('aria-label', 'Changer de thème (thème actuel : ' + th.name + ')');
+      themeBtn.setAttribute('aria-label', frTypo('Mon univers : ' + th.name));
       const many = store.listProfiles().length >= 2;
-      switchBtn.hidden = !many;
-      familyBtn.hidden = !many;
-      progress.classList.toggle('is-pair', many);
       avaWrap.setAttribute('aria-label', frTypo('Qui joue ? En ce moment : ' + q.name + (many ? '. Touche pour changer d’enfant.' : '. Touche pour ajouter un enfant.')));
-      const stars = totalStarsOf(q), apples = q.wallet.apples, streak = q.streak.count;
-      setCoin(W.stars, stars, stars + ' étoile' + (stars > 1 ? 's' : ''));
+      const apples = q.wallet.apples, streak = q.streak.count;
       setCoin(W.apples, apples, apples + ' pomme' + (apples > 1 ? 's' : ''));
-      setCoin(W.streak, streak + ' j', 'Série de ' + streak + ' jour' + (streak > 1 ? 's' : ''));
+      setCoin(W.streak, streak, streak + ' jour' + (streak > 1 ? 's' : '') + ' de suite');
+      W.streak.el.hidden = !(streak > 0);
+      fitPlate();
+    }
+    /* la plaque du nom s'arrête avant le trésor (V22B-05 : nom long à 360 px ; largeur lue par css/ui/companion.css) */
+    function fitPlate() {
+      try { if (hud.isConnected) petBox.style.setProperty('--hud-w', hud.offsetWidth + 'px'); } catch (_) {}
     }
     function setCoin(c, v, label) {
-      const s = String(v);
+      const s = fmtNum(v);
       if (c.n.textContent !== s) {
         const was = c.n.textContent;
         c.n.textContent = s;
         if (was !== '0' && was !== '' && my.ready) motion.pop(c.el, { scale: 1.12, dur: 320 });
       }
-      c.el.setAttribute('aria-label', label);
+      c.sr.textContent = label;
     }
 
     function renderNext() {
@@ -212,36 +187,100 @@ const HOME = {
         motion.confetti();
         audio.fanfare();
         kit.toast(frTypo('Bienvenue en ' + next + ' ! 🎉'));
-        renderNext(); renderGames(); renderBalade();
+        renderNext(); renderPlay();
       });
       nextBox.appendChild(box);
       if (my.ready) motion.enter(box, { from: 'top' });
     }
 
+    /* le bouton : étape en cours de la balade, ou « encore un jeu ? » quand elle est finie */
+    function renderPlay() {
+      const q = store.getProfile(); if (!q) return;
+      const plan = q.today && q.today.d === today ? q.today : null;
+      const blocks = plan && Array.isArray(plan.blocks) ? plan.blocks : [];
+      const N = blocks.length;
+      const cur = currentStep(q, today);
+      const done = !!(plan && plan.done);
+      clear(pebs);
+      blocks.forEach((b, i) => {
+        const info = stepInfo(q, plan, i);
+        const state = b.done ? 'done' : i === cur ? 'now' : 'todo';
+        pebs.appendChild(h('span', { class: 'hm-peb is-' + state },
+          h('span', { class: 'hm-peb-ico' }, info.icon), b.done ? h('span', { class: 'hm-peb-ok' }, '✓') : null));
+      });
+      path.hidden = !N;
+      const doneN = blocks.filter(b => b.done).length;
+      path.setAttribute('aria-label', done ? 'Ma balade du jour est finie : voir le chemin'
+        : 'Ma balade du jour, étape ' + (cur + 1) + ' sur ' + N + (doneN ? ' (' + doneN + ' faite' + (doneN > 1 ? 's' : '') + ')' : '') + ' : voir le chemin');
+      go.classList.toggle('is-done', done || !N);
+      gamesBtn.hidden = done || !N;                     /* le gros bouton fait déjà « encore un jeu ? » */
+      progressBtn.hidden = !hasRadar(q);                /* enfant tout neuf : rien à voir encore, « Jouer ▶ » suffit */
+      alt.hidden = gamesBtn.hidden && progressBtn.hidden;
+      if (done || !N) {
+        goTxt.textContent = frTypo('Encore un jeu ?');
+        goIco.textContent = '🎲';
+        go.setAttribute('aria-label', frTypo(done ? 'Balade finie, bravo ! Encore un jeu ?' : 'Choisir un jeu'));
+      } else {
+        const info = stepInfo(q, plan, cur);
+        goTxt.textContent = 'Jouer';
+        goIco.textContent = '▶';
+        go.setAttribute('aria-label', 'Jouer : ' + (info.title || 'jeu au choix') + ', étape ' + (cur + 1) + ' sur ' + N);
+      }
+    }
+    /* une feuille est-elle ouverte ? (les feuilles des autres modules ne préviennent pas de leur fermeture) */
+    const sheetOpen = () => !!(my.sheet && my.sheet.el && my.sheet.el.isConnected);
+    function onGo() {
+      audio.tap();
+      const q = store.getProfile(); if (!q || sheetOpen()) return;
+      const cur = currentStep(q, today);
+      if (cur < 0) { openGames(frTypo('Encore un jeu ?')); return; }
+      const s = launchStep(cur, { from: '#/home' });
+      if (s) my.sheet = s;
+    }
+    /* partie libre (hors balade) */
+    function openGames(title) {
+      if (sheetOpen()) return;
+      const s = openGamePicker({ title, onPick: id => { ssSet(FROM_KEY, '#/home'); router.go('play/' + id); } });
+      if (s) my.sheet = s;
+    }
+
+    /* ----- 🎨 « Mon univers » : le choix du thème (feuille de theme-picker.js) ----- */
+    function openTheme() {
+      if (my !== st || my.switching || sheetOpen()) return;
+      audio.tap();
+      const q = store.getProfile(); if (!q) return;
+      const s = openThemeSheet({ profileId: q.id });
+      if (s && s.el) my.sheet = s;
+    }
+
     /* ----- « Qui joue ? » : tous les enfants de l'appareil, bascule en un geste ----- */
     function openWho() {
-      if (my !== st || my.switching || my.sheet) return;
+      if (my !== st || my.switching || sheetOpen()) return;
       audio.tap();
       const list = store.listProfiles();
       const cur = store.getProfile();
       if (!cur) return;
-      const grid = h('div', { class: 'hw-grid' + (list.length === 1 ? ' is-one' : ''), role: 'group', 'aria-label': 'Les enfants' });
-      list.forEach((q, i) => grid.appendChild(whoCard(q, q.id === cur.id, i)));
-      const add = h('button', { type: 'button', class: 'btn white hw-add' }, h('span', { 'aria-hidden': 'true' }, '➕'), 'Ajouter un enfant');
-      add.addEventListener('click', () => { audio.tap(); closeWhoThen(() => router.go('onboarding')); });
-      const fam = h('button', { type: 'button', class: 'btn hw-fam' }, h('span', { 'aria-hidden': 'true' }, '🏆'), 'En famille');
-      fam.addEventListener('click', () => { audio.tap(); closeWhoThen(() => router.go('famille')); });
-      const content = h('div', { class: 'hw' },
-        h('p', { class: 'hw-sub' }, frTypo(list.length > 1
-          ? 'Touche ton compagnon : chacun retrouve ses pommes, sa balade et ses progrès.'
-          : 'Un frère, une sœur, un copain ? Chacun peut avoir son compagnon sur cet appareil.')),
-        grid, h('div', { class: 'hw-actions' }, add, fam));
+      const grid = h('div', { class: 'kid-grid' + (list.length === 1 ? ' is-one' : ''), role: 'group', 'aria-label': 'Les enfants' });
+      list.forEach((q, i) => {
+        const current = q.id === cur.id;
+        grid.appendChild(kidCard(q, {
+          current, index: i, size: 96,
+          onPick: (card, pic) => {
+            if (current) { audio.tap(); closeWhoThen(() => {}); return; }
+            switchTo(q.id, card, pic);
+          }
+        }));
+      });
+      const actions = kidActions(list.length, {
+        onAdd: () => { audio.tap(); closeWhoThen(() => router.go('onboarding')); },
+        onFamily: () => { audio.tap(); closeWhoThen(() => router.go('famille')); }
+      });
+      const content = h('div', { class: 'kid-sheet' }, grid, actions);
       const s = kit.sheet({
         title: frTypo('Qui joue ?'), content,
         onClose: () => { if (my.sheet === s) my.sheet = null; }
       });
       if (!s || !s.el) return;
-      s.el.classList.add('hw-sheet');
       my.sheet = s;
       motion.stagger(grid.children, el => motion.enter(el, { from: 'scale', dur: 360 }), 60);
     }
@@ -249,32 +288,6 @@ const HOME = {
       const s = my.sheet;
       my.sheet = null;
       if (s) s.close('action').then(() => { if (my === st) fn(); }); else fn();
-    }
-    /* vignette d'un enfant, aux couleurs de SON thème (data-theme) */
-    function whoCard(q, current, i = 0) {
-      const th = themeOf(q.settings && q.settings.theme);
-      const apples = Math.max(0, (q.wallet && q.wallet.apples) | 0);
-      const streak = Math.max(0, (q.streak && q.streak.count) | 0);
-      const pic = h('span', { class: 'hw-pic' });
-      setAvatar(pic, petSVG(q, 96, current ? 'happy' : 'neutral', '', { phase: i * 1.3 }));   /* phase : pas de respiration en chœur */
-      const card = h('button', {
-        type: 'button', class: 'hw-card' + (current ? ' is-current' : ''), 'data-theme': th.id, 'data-id': q.id,
-        'aria-current': current ? 'true' : null,
-        'aria-label': q.name + ' : ' + apples + ' pomme' + (apples > 1 ? 's' : '') + ', série de ' + streak + ' jour' + (streak > 1 ? 's' : '')
-          + (current ? ', en train de jouer' : '')
-      },
-      /* « En jeu » posé sur le bord haut de la carte, hors de la scène : il ne cache jamais les oreilles, la corne ou
-         la couronne d'un grand compagnon */
-      current ? h('span', { class: 'hw-now', 'aria-hidden': 'true' }, '✓ En jeu') : null,
-      h('span', { class: 'hw-stage', 'aria-hidden': 'true' }, pic, th.sticker ? h('span', { class: 'hw-sticker' }, th.sticker) : null),
-      h('span', { class: 'hw-name', 'aria-hidden': 'true' }, q.name),
-      h('span', { class: 'hw-stats', 'aria-hidden': 'true' },
-        h('span', null, '🍎\u00a0' + fmtNum(apples)), h('span', null, '🔥\u00a0' + fmtNum(streak))));
-      card.addEventListener('click', () => {
-        if (current) { audio.tap(); closeWhoThen(() => {}); return; }
-        switchTo(q.id, card, pic);
-      });
-      return card;
     }
     /* bascule : profil actif + session, thème appliqué par main.js, accueil remonté pour l'enfant choisi */
     function switchTo(id, card, pic) {
@@ -332,122 +345,11 @@ const HOME = {
       });
     }
 
-    function renderBalade() {
-      const q = store.getProfile(); if (!q) return;
-      const plan = q.today && q.today.d === today ? q.today : null;
-      const blocks = plan && Array.isArray(plan.blocks) ? plan.blocks : [];
-      const min = (q.settings && q.settings.sessionMin) || 15;
-      bDur.textContent = '≈ ' + min + ' min';
-      bDur.setAttribute('aria-label', 'Environ ' + min + ' minutes');
-      clear(bSteps);
-      const doneN = blocks.filter(b => b.done).length;
-      const curIdx = plan && !plan.done ? blocks.findIndex(b => !b.done) : -1;
-      blocks.forEach((b, i) => {
-        const info = stepInfo(q, plan, i);
-        const state = b.done ? 'done' : i === curIdx ? 'now' : 'todo';
-        bSteps.appendChild(h('li', {
-          class: 'hm-step is-' + state,
-          'aria-label': 'Étape ' + (i + 1) + ', ' + info.label + ' : ' + (info.title || 'jeu au choix') +
-            (b.done ? ', terminée' : i === curIdx ? ', à faire maintenant' : '')
-        },
-        h('span', { class: 'hm-step-ico', 'aria-hidden': 'true' }, info.icon,
-          b.done ? h('span', { class: 'hm-step-ok' }, '✓') : null),
-        h('span', { class: 'hm-step-k', 'aria-hidden': 'true' }, info.label)));
-      });
-      const N = blocks.length;
-      balade.classList.toggle('is-done', !!(plan && plan.done));
-      if (!N) {
-        bSub.textContent = frTypo('Ta balade se prépare…');
-        bGo.textContent = 'Voir la balade';
-      } else if (plan.done) {
-        bSub.textContent = frTypo('Bravo, toutes les étapes sont faites !');
-        bGo.textContent = frTypo('Balade terminée ✓ — encore un jeu ?');
-      } else if (doneN) {
-        const info = stepInfo(q, plan, curIdx);
-        bSub.textContent = frTypo('Étape ' + (curIdx + 1) + ' sur ' + N + ' : ' + info.label.toLowerCase() + ' ' + info.emoji);
-        bGo.textContent = 'Continuer ➜';
-      } else {
-        const m = MOUNTS[q.companion.type] || MOUNTS.pony;
-        bSub.textContent = frTypo(N + ' petites étapes avec ' + q.companion.name + ' ' + m.em);
-        bGo.textContent = frTypo('C’est parti !');
-      }
-      bGo.classList.toggle('is-long', !!(plan && plan.done));
-      bGo.classList.toggle('pink', !!(plan && plan.done));
-    }
-
-    function renderGames() {
-      const q = store.getProfile(); if (!q) return;
-      const list = gamesFor(q.classe);
-      const have = [...games.children].map(c => c.dataset.id).join(',');
-      if (have === list.map(g => g.id).join(',')) {          /* déjà là : seuls les titres changent ({N}) */
-        for (const c of games.children) {
-          const g = GAME_BY_ID[c.dataset.id];
-          const t = c.querySelector('.hm-game-title');
-          const txt = fillTemplate(g.title, q);
-          if (t && t.textContent !== txt) t.textContent = txt;
-        }
-        return;
-      }
-      clear(games);
-      for (const g of list) {
-        const ico = h('span', { class: 'hm-game-ico', 'aria-hidden': 'true' }, g.icon);
-        const card = h('button', { type: 'button', class: 'hm-game', 'data-id': g.id },
-          ico,
-          h('span', { class: 'hm-game-title' }, fillTemplate(g.title, q)),
-          h('span', { class: 'hm-game-blurb' }, frTypo(g.blurb)));
-        /* teinte de la carte : jeton du thème (--tile-<jeu>, css/themes.css), repli sur la teinte du registre */
-        if (g.tint) card.style.setProperty('--tint', 'var(--tile-' + g.id + ', ' + g.tint + ')');
-        card.addEventListener('click', () => {
-          audio.tap();
-          if (canVT()) ico.style.viewTransitionName = VT_NAME;
-          ssSet(FROM_KEY, '#/home');
-          ssSet('caramel-vt-game', g.id);
-          router.go('play/' + g.id);
-        });
-        games.appendChild(card);
-      }
-    }
-
-    function renderNotif() {
-      clear(notifSlot);
-      if (!notifs.shouldOffer()) return;
-      const on = h('button', { type: 'button', class: 'btn small' }, 'Activer');
-      const later = h('button', { type: 'button', class: 'btn ghost' }, 'Plus tard');
-      const box = h('div', { class: 'banner hm-notif' },
-        h('span', { class: 'hm-notif-txt' }, frTypo('🔔 Un petit rappel chaque jour ?')), h('span', { class: 'hm-notif-btns' }, on, later));
-      on.addEventListener('click', async () => {
-        on.disabled = true;
-        let r = 'unsupported';
-        try { r = await notifs.enable(); } catch (_) {}
-        if (my !== st) return;
-        clear(notifSlot);
-        if (r === 'on' || r === 'daily') kit.toast(frTypo('Rappels activés ! 🌟'));
-      });
-      later.addEventListener('click', () => { notifs.dismiss(); clear(notifSlot); });
-      notifSlot.appendChild(box);
-    }
-
-    renderHead(); renderNext(); renderBalade(); renderGames(); renderNotif();
-    my.card = renderCompanionCard(petBox);
-
-    /* retour d'un jeu : l'icône de l'en-tête revient se poser sur sa carte (transition de vue) */
-    const back = ssGet('caramel-vt-game');
-    if (back && canVT()) {
-      const c = games.querySelector('[data-id="' + back + '"] .hm-game-ico');
-      if (c) {
-        c.style.viewTransitionName = VT_NAME;
-        const t = setTimeout(() => { c.style.viewTransitionName = ''; }, 900);
-        my.timers.add(t);
-      }
-    }
+    renderHead(); renderNext(); renderPlay();
+    my.card = renderCompanionCard(petBox, { hero: true, hud });
+    fitPlate();                                   /* trésor posé sur la scène : sa largeur est connue */
+    try { document.fonts.ready.then(() => { if (my === st) fitPlate(); }); } catch (_) {}
     try { sessionStorage.removeItem('caramel-vt-game'); } catch (_) {}
-
-    /* statut du moteur vocal (rempli après le premier chargement de Vosk), ou message de compatibilité */
-    my.unsubs.push(speech.onStatus(txt => {
-      let t = txt || '';
-      if (!t && !speech.speechSupported()) t = speech.COMPAT_MSG;
-      voice.textContent = t ? ' · ' + t : '';
-    }));
 
     /* mises à jour en place (compagnon renommé, pommes dépensées, classe changée…) */
     let queued = false;
@@ -460,12 +362,11 @@ const HOME = {
         const q = store.getProfile();
         if (!q) { router.go('profiles', { replace: true }); return; }
         if (!q.classe) { router.go('welcome', { replace: true }); return; }
-        renderHead(); renderBalade(); renderGames();
+        renderHead(); renderPlay();
       });
     }));
 
-    /* entrée en cascade, discrète — sauf pendant la bascule « Qui joue ? » : la transition de vue s'en charge
-       (fondu des couleurs du thème, la vignette choisie vole jusqu'à l'avatar de l'en-tête) */
+    /* entrée en cascade, discrète — sauf pendant la bascule « Qui joue ? » : la transition de vue s'en charge */
     if (opts && opts.switching) {
       if (canVT()) {
         ava.style.viewTransitionName = WHO_VT;
@@ -483,8 +384,8 @@ const HOME = {
       my.timers.add(t2);
       try { kit.toast(frTypo('À toi de jouer, ' + p.name + ' ! ' + (MOUNTS[p.companion.type] || MOUNTS.pony).em)); } catch (_) {}
     } else {
-      const blocks = [head, nextBox.firstChild, petBox, balade, gamesTitle, ...games.children, progress, notifSlot.firstChild, foot].filter(Boolean);
-      motion.stagger(blocks, el => motion.enter(el, { from: 'bottom', dist: 14, dur: 420 }), 45);
+      const blocks = [head, nextBox.firstChild, petBox, play, alt].filter(Boolean);
+      motion.stagger(blocks, el => motion.enter(el, { from: 'bottom', dist: 14, dur: 420 }), 60);
     }
     my.ready = true;
   },

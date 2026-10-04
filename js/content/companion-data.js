@@ -33,7 +33,7 @@ export const MOUNTS = {
 
 export const FOODS = [
   { id:'carotte', e:'🥕', name:'Carotte', price:5,  faim:15, joie:0 },
-  { id:'pomme',   e:'🍎', name:'Pomme',   price:10, faim:30, joie:5 },
+  { id:'pomme',   e:'🍐', name:'Poire',   price:10, faim:30, joie:5 },   /* id gardé (sauvegardes) ; une « pomme » à 10 🍎 prêtait à confusion (D4-24) */
   { id:'tarte',   e:'🥧', name:'Tarte',   price:25, faim:70, joie:12 }
 ];
 

@@ -1,4 +1,4 @@
-# Caramel 2 — Conception des jeux et des écrans (v2.1)
+# Caramel 2 — Conception des jeux et des écrans (v2.2)
 
 > Complète le CDC v2 (§6 catalogue, §9 radar, §10 compagnon, §11 motion) et `docs/ARCHITECTURE.md` (API).
 > Public : enfants de 6 à 11 ans, sur téléphone Android (Chrome), parfois tablette ou PC.
@@ -20,6 +20,7 @@
 - En-tête (56 px) : ← retour (quitter = `manche.abort()`, aucun reproche) · icône + titre (templaté) · bouton joker 💡 avec compteur (2) · compteur 🍎 de la manche. Sous l'en-tête : pastilles de progression (`ctx.progress`).
 - Corps : `root` passé à `game.mount(root, ctx)`.
 - Fin (`ctx.end()`) : `manche.finish()` puis **bilan** en feuille centrale : compagnon (SVG 120 px, classe `joy`), titre de `cheer('end')`, « 🍎 +N » (compte animé + pommes qui volent), phrase positive (« Tu as trouvé 7 réponses du premier coup ! » — on ne montre **jamais** le nombre d'erreurs ni un « 7/10 »), bonus de série éventuel (« 🔥 3 jours de suite : +10 🍎 »). Boutons : balade → « Continuer la balade ➜ » (`#/balade`) ; libre → « Rejouer 🔄 » et « Accueil 🏠 ». `extra.skipSummary` (course) : pas de bilan, retour direct.
+  v2.2 : en-tête du jeu sur **une ligne** (← · pastilles « Question i sur n » · 🔊 · 💡 ; titre du jeu masqué, lu par les lecteurs d'écran) ; après une erreur, un mot doux puis l'astuce seule ; bilan à **un seul nombre** « 🍎 +N », phrase dite aux petits lecteurs, et en balade **« Étape suivante ▶ »** qui lance directement l'étape suivante (le compagnon marche sur les pierres du bilan) ; dernier bilan = fin de balade ; retour Android en cours de partie : « Tu t'arrêtes ? Tes pommes sont gardées. » ; sans micro (refusé, absent, hors ligne), la course propose « Changer de jeu ➜ » et la balade ne bloque plus.
 - `unmount` du jeu toujours appelé (navigation, retour Android).
 
 ## 2. La course de {N} (`course`) — fr.fluence (+ fr.comp_ecrit)
@@ -70,7 +71,7 @@
 
 ## 8. Écrans
 
-- **Accueil (`home`)** : en-tête (avatar du compagnon — v2.1 : il ouvre « Qui joue ? » —, « Bonjour {P} ! », « 👥 Changer d’enfant », « 🎨 Mon thème », porte-monnaie ⭐ 🍎 🔥) ; bandeau « Je passe en … ! » (`offerNextClasse`) ; **carte du compagnon** (port v11 : scène, jauges, nourrir/brosser/promener/boutique/réglages) ; **carte « Ma balade du jour »** (4 étapes, durée, bouton C'est parti / Continuer / Terminée ✓) ; grille **« Mes jeux »** ; bouton **« Mes progrès 📈 »** ; carte de rappels (v11) ; pied : « Espace parents 🔒 », crédits, version, statut du moteur vocal.
+- **Accueil (`home`)** — v2.2, « un seul gros bouton » (CDC §1 principe 7, ARCHITECTURE §8.6 bis) : tout tient sur un écran — en-tête (avatar = « Qui joue ? », « Bonjour {P} ! », 🎨, 🔒), compagnon en grand avec sa plaque « Mon compagnon », 🍎 et 🔥, bulle de pensée 🍎 quand il a faim ; 4 soins en icônes-jauges (🥕 🧽 🚶 🛍️) ; **un seul bouton principal « Jouer ▶ »** qui lance l'étape du jour ; les 4 pierres de la balade ; « 🎲 Jeux » ; « 📈 Mes progrès » dès qu'il y a quelque chose à montrer ; bandeau « Je passe en … ! » quand c'est le moment. Les liens externes, les rappels et la version sont dans l'espace parents. Avant la 2.2 : carte du compagnon, carte de la balade, grille « Mes jeux » décrite, rappels et pied de page sur une longue page.
 - **Profils (`profiles`)** : grandes cartes (compagnon + prénom) + « Ajouter un enfant ».
 - **Bienvenue (`welcome`, profil migré)** : confettis, « Bienvenue dans Caramel 2 ! Tes X 🍎 et Y ⭐ sont bien là. », prénom modifiable, « Tu es en quelle classe ? » (5 gros boutons), puis proposition d'importer la fiche d'évaluation (parents) ou plus tard.
 - **Nouvel enfant (`onboarding`)** : prénom + fille/garçon → classe → nom du compagnon → « Tu as ta fiche d'évaluation nationale ? » (importer / plus tard).

@@ -27,7 +27,7 @@ const WIDE_PX = 640;        /* au-delà (largeur de scène), tailles « grand é
 let inst = null, seq = 0;
 
 export default {
-  id: 'cloture', title: 'Le Chemin de la clôture', icon: '🪵', axes: ['ma.ligne'],
+  id: 'cloture', title: 'Le Chemin de la clôture', icon: '📏', axes: ['ma.ligne'],
   css: 'css/games/cloture.css',
   async mount(root, ctx) {
     if (inst) inst.destroy();
@@ -133,6 +133,10 @@ function svgFrac(x, y, n, d, fs, cls) {
 
 /* ======================================================================================== */
 function createCloture(root, ctx) {
+  /* voix du compagnon (petits lecteurs, js/ui/voice.js) : la consigne, l'indice, l'explication ; le texte reste affiché */
+  const say = t => { try { return ctx.voice ? Promise.resolve(ctx.voice.say(String(t || ''))) : Promise.resolve(false); } catch (_) { return Promise.resolve(false); } };
+  const hush = () => { try { if (ctx.voice) ctx.voice.hush(); } catch (_) {} };
+  let placeN = 0;            /* carottes à placer déjà proposées dans la manche : la ligne du geste n'est montrée qu'à la 1re */
   const M = ctx.motion, K = ctx.kit, AU = ctx.audio;
   const uid = 'cl' + (++seq);
   let alive = true, token = 0;
@@ -221,7 +225,8 @@ function createCloture(root, ctx) {
   /* bornes de la clôture : départ après la place du compagnon ; les plaquettes des bouts restent dans la scène */
   function scalesFor(planes) {
     const edge = 2;                                /* une plaquette ne sort jamais de la scène (elle peut passer devant le foin) */
-    let x0 = lay.left, x1 = W - (wide ? 22 : 14);
+    /* téléphone : la dernière graduation à 28 px du bord, loin du geste « retour » d'Android (D1-09) */
+    let x0 = lay.left, x1 = W - (wide ? 22 : 28);
     for (let pass = 0; pass < 3; pass++) {
       let over = 0, under = 0;
       for (const p of planes) {
@@ -769,7 +774,9 @@ function createCloture(root, ctx) {
   function setSub() {
     subEl.classList.remove('hidden');
     if (placing()) {
-      subEl.textContent = marker === null ? frTypo('Touche la clôture pour poser la carotte 🥕')
+      /* le geste n'est écrit qu'à la 1re carotte de la manche (hauteur gardée : rien ne bouge) ; le lecteur d'écran
+         l'entend à chaque fois (annonce de next) */
+      subEl.textContent = placeN > 1 ? '' : marker === null ? frTypo('Touche la clôture pour poser la carotte 🥕')
         : frTypo('Glisse la carotte pour l’ajuster, puis valide.');
     } else if (D.zoom && !compact) {
       subEl.textContent = frTypo('🔍 On regarde de plus près…');
@@ -881,6 +888,7 @@ function createCloture(root, ctx) {
     zoomDone = !D.zoom; diving = false;
     phase = 'answer';
     keepLift = null;
+    if (placing()) placeN++;
     setCompact();
     buildPrompt();
     buildAnswer();
@@ -905,6 +913,9 @@ function createCloture(root, ctx) {
       ? spoken(`Place ${D.text} sur la clôture. Touche la clôture pour poser la carotte, puis valide.`)
       : spoken(item.prompt);
     ctx.announce(frTypo(intro));
+    /* petits lecteurs : le compagnon dit la consigne (le geste seulement à la 1re carotte) et le coup de pouce */
+    const told = placing() && placeN > 1 ? spoken(`Place ${D.text} sur la clôture.`) : intro;
+    say(frTypo(told) + (it.assist ? ' ' + spoken(frTypo('Petit coup de pouce : ') + item.hint) : ''));
   }
   /* petit écran (hauteur utile < 660 px) avec pavé numérique : consigne et bandes resserrées */
   function setCompact() {
@@ -921,10 +932,13 @@ function createCloture(root, ctx) {
   function showHint(kind) {
     hintShown = true;
     stepHint = true;
+    /* la bulle : un mot doux (1 à 3 mots, kit.cheer) puis l'astuce ; dite aux petits lecteurs (sauf le coup de pouce
+       d'arrivée : next() le dit avec la consigne) */
     const pre = kind === 'assist' ? frTypo('Petit coup de pouce : ') : kind === 'retry' ? K.cheer('retry', ctx.rng) + ' ' : '';
     setBubble(pre + item.hint, 'hint', '💡');
     drawHops(true);
     ctx.announce(spoken(pre + item.hint));
+    if (kind !== 'assist') say(spoken(pre + item.hint));
   }
   function onJoker(cur) {
     if (!alive || !item || phase !== 'answer' || (cur && cur !== item)) return false;
@@ -983,6 +997,7 @@ function createCloture(root, ctx) {
   }
   function onRight(el) {
     phase = 'busy';
+    hush();
     const tok = token;
     const fb = report(true) || {};
     const streak = fb.streak || 0;
@@ -996,7 +1011,7 @@ function createCloture(root, ctx) {
       safe(() => K.celebrateRight(board || okBtn, streak));
       flyApple(board);
       moodOnce('joy', 1100);
-      laterItem(() => next(false), 1350);
+      laterItem(() => next(false), 1100);
     } else {
       safe(() => K.celebrateRight(el, streak));
       laterItem(() => {
@@ -1008,7 +1023,7 @@ function createCloture(root, ctx) {
           moodOnce('joy', 1100);
         });
       }, 120);
-      laterItem(() => next(false), 1500);
+      laterItem(() => next(false), 1150);         /* saut (≤ 400 ms) + valeur montrée, puis la suite (D1-20) */
     }
   }
   function onWrong(el) {
@@ -1053,8 +1068,9 @@ function createCloture(root, ctx) {
     if (placing()) clear(answer);
     answer.append(btn);
     M.enter(btn, { from: 'bottom', dist: 10, dur: 300 });
-    setBubble(learnTxt, 'soft', '🧐');
+    setBubble(learnTxt, 'soft');                  /* pastille 🤗, la même dans tous les jeux (D4-24) */
     ctx.announce(spoken(learnTxt));
+    say(spoken(learnTxt));
     later(() => { if (tok === token && btn.isConnected) safe(() => btn.focus({ preventScroll: true })); }, 60);
     const target = { kind: 'v', v: D.value };
     if (placing() && gCarrot) {
@@ -1221,6 +1237,7 @@ function createCloture(root, ctx) {
   function destroy() {
     if (!alive) return;
     alive = false;
+    hush();
     token++;
     for (const t of timers) clearTimeout(t);
     timers.clear();

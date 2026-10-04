@@ -35,6 +35,8 @@ function ensureCSS() {
    la page, activé, et qu'aucune feuille n'est ouverte par-dessus ; seul le dernier pavé créé écoute. */
 const KEYPADS = [];
 let kbBound = false;
+/* commandes qu'Entrée active d'elle-même quand elles ont le focus */
+const ACTIVABLE = 'button, a[href], summary, [role="button"], [role="switch"], [role="slider"], [tabindex]:not([tabindex="-1"])';
 function onDocKey(e) {
   if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
   const t = e.target;
@@ -43,6 +45,9 @@ function onDocKey(e) {
     const kp = KEYPADS[i];
     if (!kp.el.isConnected) continue;
     if (kp.isOff() || coveredByOverlay(kp.el)) return;
+    /* Entrée sur une commande focalisée HORS du pavé (Retour, Joker, 🎤…) : elle s'active normalement au lieu de valider
+       la réponse. Sur une touche du pavé, Entrée valide toujours (frappe au clavier physique) */
+    if (e.key === 'Enter' && t && t !== G.document.body && !kp.el.contains(t) && t.closest && t.closest(ACTIVABLE)) return;
     if (kp.handleKey(e.key)) e.preventDefault();
     return;
   }
@@ -190,7 +195,18 @@ export function keypad({ decimal = false, maxLen = 7, onSubmit, onChange, submit
    → { el, buttons, mark(value, 'right'|'wrong'|null), reveal(value), dimOthers(value), disable(), enable(), reset() }
    choices = [{ label, value }] (label : texte ou nœud) ou valeurs simples (nombres affichés à la française).
    read = police de lecture (Andika) pour les phrases. Un choix déjà marqué ne se rejoue pas ;
-   un double appui accidentel (< 350 ms) est ignoré. */
+   un double appui accidentel (< 350 ms) est ignoré.
+   Clavier (D2-10) : disable() garde le focus sur le choix touché (aria-disabled au lieu de disabled, sinon le focus
+   tomberait sur la page) ; une nouvelle grille reçoit le focus si l'enfant joue au clavier et que le focus est perdu. */
+let lastInput = '', inputTracked = false;
+function trackInput() {
+  if (inputTracked || !G.document) return;
+  inputTracked = true;
+  G.document.addEventListener('keydown', e => {
+    if (/^(Tab|Enter| |Spacebar|Arrow)/.test(e.key || '')) lastInput = 'key';
+  }, true);
+  G.document.addEventListener('pointerdown', () => { lastInput = 'pointer'; }, true);
+}
 export function choiceGrid(choices, { onPick, cols = 2, read = false } = {}) {
   ensureCSS();
   const items = (Array.isArray(choices) ? choices : []).map(c =>
@@ -204,6 +220,15 @@ export function choiceGrid(choices, { onPick, cols = 2, read = false } = {}) {
     return h('button', { type: 'button', class: ['choice', read && 'read', long && 'is-long'], 'data-i': i }, label);
   });
   el.append(...buttons);
+  trackInput();
+  if (lastInput === 'key' && typeof G.requestAnimationFrame === 'function') {
+    G.requestAnimationFrame(() => {
+      const a = G.document.activeElement;
+      if ((!a || a === G.document.body) && el.isConnected && buttons[0] && !coveredByOverlay(el)) {
+        try { buttons[0].focus({ preventScroll: true }); } catch (_) {}
+      }
+    });
+  }
   let off = false, lastPick = 0;
   const same = (a, b) => a === b || String(a) === String(b);
   const btnsOf = v => buttons.filter((b, i) => same(items[i].value, v));
@@ -238,8 +263,21 @@ export function choiceGrid(choices, { onPick, cols = 2, read = false } = {}) {
       }
     },
     dimOthers(v) { buttons.forEach((b, i) => b.classList.toggle('dim', !same(items[i].value, v))); },
-    disable() { off = true; for (const b of buttons) b.disabled = true; },
-    enable() { off = false; for (const b of buttons) b.disabled = false; },
+    disable() {
+      off = true;
+      const a = G.document && G.document.activeElement;
+      for (const b of buttons) {
+        if (b === a) b.setAttribute('aria-disabled', 'true');   /* garde le focus clavier ; le drapeau off bloque le clic */
+        else b.disabled = true;
+      }
+    },
+    enable() {
+      off = false;
+      for (const b of buttons) {
+        b.disabled = false;
+        if (!b.classList.contains('right') && !b.classList.contains('wrong')) b.removeAttribute('aria-disabled');
+      }
+    },
     reset() {
       off = false;
       for (const b of buttons) { b.disabled = false; b.classList.remove('right', 'wrong', 'dim', 'revealed'); b.removeAttribute('aria-disabled'); }
@@ -248,10 +286,12 @@ export function choiceGrid(choices, { onPick, cols = 2, read = false } = {}) {
 }
 
 /* ============ TOAST ============
-   toast(message, ms) : bandeau éphémère en bas de l'écran (un seul à la fois : le suivant remplace le
-   précédent). Il ne capte pas les touches (le pavé dessous reste utilisable). → l'élément */
+   toast(message, ms) : bandeau éphémère en bas de l'écran (en haut si une feuille est ouverte ; un seul à la fois :
+   le suivant remplace le précédent). Il ne capte pas les touches (le pavé dessous reste utilisable). → l'élément
+   Durée par défaut selon la longueur, pour un lecteur débutant : 60 ms par caractère, entre 2,5 et 7 s. */
 let toastEl = null, toastTimer = 0;
-export function toast(msg, ms = 2200) {
+export const toastMs = (msg, ms) => Math.max(600, +ms || Math.min(7000, Math.max(2500, 60 * String(msg ?? '').length)));
+export function toast(msg, ms) {
   ensureCSS();
   const d = G.document;
   if (!d || !d.body) return null;
@@ -272,24 +312,28 @@ export function toast(msg, ms = 2200) {
       t.remove();
       if (toastEl === t) toastEl = null;
     }, 240);
-  }, Math.max(600, +ms || 2200));
+  }, toastMs(msg, ms));
   return t;
 }
 
 /* ============ BULLE ============
-   bubble(texte, kind = 'hint' | 'soft' | 'good', { icon }) → élément à insérer
+   bubble(texte, kind = 'hint' | 'soft' | 'good', { icon, live }) → élément à insérer
    Bulle de dialogue avec une petite pastille (emoji du compagnon, 💡…) ; texte ou nœud ;
-   les retours à la ligne du texte sont conservés. icon = chaîne, nœud, ou '' pour aucune. */
+   les retours à la ligne du texte sont conservés. icon = chaîne, nœud, ou '' pour aucune.
+   live : zone annoncée par le lecteur d'écran. Faux par défaut : les jeux annoncent déjà leurs bulles (ctx.announce),
+   une 2e zone les ferait entendre deux fois. */
 const BUBBLE_ICON = { hint: '💡', soft: '🤗', good: '🌟' };
 /* « 24 + 24 = 48 » ne se coupe pas en fin de ligne : espaces insécables autour des opérateurs */
 const keepMath = s => s.replace(/ ([+−×÷=<>≈]) (?=[\d(…]|$)/g, ' $1\u00A0');   /* insécable APRÈS l'opérateur seulement : jamais un nombre coupé */
-export function bubble(text, kind = 'hint', { icon } = {}) {
+/* une terminaison « -ent », « -ais » ne se coupe pas après son tiret (gluon U+2060 après le tiret) ; « peut-être » intact */
+export const keepSuffix = s => s.replace(/(^|[\s(«])-(?=\p{L})/gu, '$1-\u2060');
+export function bubble(text, kind = 'hint', { icon, live = false } = {}) {
   ensureCSS();
   const k = BUBBLE_ICON[kind] ? kind : 'hint';
   const ic = icon === undefined ? BUBBLE_ICON[k] : icon;
   const ava = ic ? h('span', { class: 'kit-bubble-ava', 'aria-hidden': 'true' }, ic) : null;
-  const body = h('div', { class: 'bubble ' + k + ' kit-bubble-body' }, typeof text === 'string' ? keepMath(text) : text);
-  return h('div', { class: 'kit-bubble kit-bubble--' + k + (ava ? '' : ' no-ava'), role: 'status', 'aria-live': 'polite' }, ava, body);
+  const body = h('div', { class: 'bubble ' + k + ' kit-bubble-body' }, typeof text === 'string' ? keepSuffix(keepMath(text)) : text);
+  return h('div', { class: 'kit-bubble kit-bubble--' + k + (ava ? '' : ' no-ava'), role: live ? 'status' : null, 'aria-live': live ? 'polite' : null }, ava, body);
 }
 
 /* ============ FEUILLE DU BAS ============
@@ -298,7 +342,7 @@ export function bubble(text, kind = 'hint', { icon } = {}) {
    kind = classes de bouton de base.css ('' = ambre, 'pink', 'white', 'ghost', 'big'…).
    onClick(event, api) ; la feuille se ferme ensuite, sauf si onClick renvoie false.
    dismissable : fermeture au fond, par Échap, par la croix ou en glissant vers le bas.
-   onClose(raison) : 'action' | 'backdrop' | 'escape' | 'x' | 'swipe' | 'api'.
+   onClose(raison) : 'action' | 'backdrop' | 'escape' | 'x' | 'swipe' | 'back' (retour Android) | 'api'.
    center : fenêtre centrée (bilan) au lieu d'une feuille du bas. label : nom accessible si pas de titre.
    Focus piégé dans la feuille, rendu à l'élément d'origine à la fermeture ;
    le reste de l'appli (#app) est inerte pendant ce temps. */
@@ -374,6 +418,15 @@ export function sheet({ title, content, actions = [], dismissable = true, onClos
   };
   d.addEventListener('keydown', onKey, true);
 
+  /* retour Android (geste ou bouton) : il ferme la feuille au lieu de quitter l'appli (D1-06). CloseWatcher quand le
+     navigateur le connaît (Chrome ≥ 120 ; il ne touche pas à l'historique du routeur) ; ailleurs, rien ne change */
+  let watcher = null;
+  if (dismissable) {
+    try {
+      if (typeof G.CloseWatcher === 'function') { watcher = new G.CloseWatcher(); watcher.onclose = () => close('back'); }
+    } catch (_) { watcher = null; }
+  }
+
   /* glisser vers le bas pour fermer (poignée et titre) */
   let drag = null;
   const dragZone = t => dismissable && !center && ((grab && grab.contains(t)) || (titleEl && titleEl.contains(t)));
@@ -421,6 +474,7 @@ export function sheet({ title, content, actions = [], dismissable = true, onClos
     if (closing) return closing;
     liveSheets.delete(api);
     d.removeEventListener('keydown', onKey, true);
+    if (watcher) { const w = watcher; watcher = null; try { w.destroy(); } catch (_) {} }
     closing = (async () => {
       if (reason !== 'nav') try {   /* changement d'écran : retrait immédiat, sans animation */
         const cur = panel.style.transform || 'translateY(0)';
@@ -488,7 +542,8 @@ export function gentleWrong(el) {
 
 /* ============ ENCOURAGEMENTS ============
    cheer(kind, rng) → phrase au hasard, jamais deux fois la même de suite pour un même type.
-   kind : 'right' (juste du premier coup) · 'retry' (après une 1re erreur, avant le nouvel essai) ·
+   kind : 'right' (juste du premier coup) · 'retry' (après une 1re erreur, avant le nouvel essai : 1 à 3 mots, l'indice
+          suit dans la même bulle — CDC §1 principe 7, une phrase courte) ·
           'helped' (juste avec un indice, le joker ou au 2e essai) · 'learn' (après la bonne réponse
           montrée) · 'end' (fin de manche). rng : objet de makeRng, fonction () → [0 ; 1[, ou rien.
    Formulations neutres en genre ; jamais « faux » ni « raté ». */
@@ -499,11 +554,8 @@ const CHEER_SRC = {
     'Tu gères !', 'Waouh, bravo !', 'Bonne réponse !'
   ],
   retry: [
-    'Presque ! Regarde l’indice…', 'Tu y es presque !', 'Pas tout à fait… Essaie encore !',
-    'Bien essayé ! L’indice va t’aider.', 'Tu chauffes ! Encore un petit essai.', 'Prends ton temps, tu vas trouver.',
-    'Regarde bien l’indice, tu vas y arriver !', 'Encore un essai, je crois en toi !', 'Pas encore, mais ça vient !',
-    'Respire un grand coup et réessaie.', 'Ouvre l’œil, l’indice est là !', 'On réessaie ensemble ?',
-    'Ça arrive à tout le monde ! Encore un essai.', 'Courage, tu es sur la bonne piste !'
+    'Presque !', 'Tu y es presque !', 'Pas tout à fait !', 'Pas encore !', 'Encore un essai !',
+    'Tu chauffes !', 'Courage !', 'On réessaie ?', 'Tu vas trouver !', 'Bien essayé !'
   ],
   helped: [
     'Voilà, tu as trouvé !', 'Bien rattrapé !', 'Tu vois, tu as réussi !', 'Bravo, tu n’as rien lâché !',
@@ -519,11 +571,11 @@ const CHEER_SRC = {
     'On continue, tu progresses !'
   ],
   end: [
-    'Quelle belle manche !', 'Tu as bien travaillé !', 'Bravo pour cette partie !', 'Mission accomplie !',
-    'Belle partie, bravo !', 'Ton cerveau a bien travaillé !', 'Encore une manche dans la poche !',
+    'Quelle belle partie !', 'Tu as bien travaillé !', 'Bravo pour cette partie !', 'Mission accomplie !',
+    'Belle partie, bravo !', 'Ton cerveau a bien travaillé !', 'Encore une partie dans la poche !',
     'Tu progresses à chaque partie !', 'Super boulot !', 'C’était chouette de jouer avec toi !',
     'Tu as fait du beau travail !', 'Waouh, quelle énergie !', 'Bien joué, tu as tout donné !',
-    'Une manche de plus, bravo !', 'Quel beau travail !'
+    'Une partie de plus, bravo !', 'Quel beau travail !'
   ]
 };
 /* typographie française appliquée une fois pour toutes (espaces fines avant ! ? ; :) */

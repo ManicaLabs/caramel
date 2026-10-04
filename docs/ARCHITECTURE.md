@@ -1,4 +1,4 @@
-# Caramel 2 — Architecture & contrat des modules (v2.1)
+# Caramel 2 — Architecture & contrat des modules (v2.2)
 
 > Document technique compagnon du **CDC v2** (`docs/CDC-v2.md`, la spec produit).
 > Il fixe les **interfaces exactes** entre modules : toute personne (ou agent) qui écrit un module
@@ -19,7 +19,7 @@
 ## 1. Arborescence et responsabilités
 
 ```
-index.html                    coquille : <div id="app">, polices, css/base.css, js/main.js (type=module)
+index.html                    coquille : <main id="app"> (v2.2, seul repère « main »), polices, css/base.css, js/main.js (type=module)
 manifest.webmanifest  sw.js   PWA (sw.js : cache versionné, liste ASSETS générée par tools/precache.mjs)
 fonts/                        Fredoka 500/600/700 (interface), Andika 400/700 (lecture) + OFL.txt
 css/base.css                  jetons (thème Caramel), socle mobile, composants partagés (cf. §9)
@@ -54,6 +54,7 @@ js/ui/game-ctx.js             ✅ écrit — construit le ctx d'un jeu à partir
 js/ui/game-header.js          ✅ écrit — en-tête commun des jeux (retour, titre, joker 💡, 🍎, pastilles)
 js/ui/mount-svg.js            v2.1 — compagnon SVG redessiné (8 espèces, rig commun, expressions, stades) + css/ui/mount.css (animations du rig)
 js/ui/companion-life.js       v2.1 — moteur de vie du compagnon (attente, regard, sommeil, réactions aux soins) + ciel jour/nuit/saisons
+js/ui/voice.js                v2.2 — voix des petits lecteurs (lecture à voix haute en CP-CE1, 🔊), cf. §8.8
 js/ui/theme-picker.js         v2.1 — application du thème (html[data-theme], theme-color), grille de choix, feuille « Choisis ton univers »
 js/ui/radar-detect.js         v2.1 — détection automatique du radar photographié (+ radar-detect-worker.js, Web Worker)
 js/ui/<écran>.js              écrans (home, profiles, onboarding, balade, game-shell, progres, parents, import-eval, backup, radar, companion,
@@ -435,7 +436,7 @@ L'alignement mot à mot (tokenize, computeProper, FORGIVE, isMatch, levenshtein,
 - `tts.js` : `speak(texte, opts) → Promise<boolean>` (false si aucune voix fr : l'appelant affiche déjà le texte), `stopSpeaking()`, `ttsAvailable()`.
 - `audio.js` : `unlock()`, `setMuted(b)`, `isMuted()`, `beep(f, dur, gain)` (compatible v11), `success(step)` (pentatonique montante), `soft()` (bois doux), `tap()`, `coin()`, `fanfare()`, `whoosh()`, `neigh()`, `clipClop()`, `metronome({ bpm, beatsPerBar, onBeat }) → { stop(), setBpm() }`.
 - `motion.js` : `EASE`, `DUR`, `setMode('full'|'soft')`, `reduced()`, `pop`, `squash`, `shake` (6 px), `enter`, `stagger`, `flyTo(from, to, { emoji, count })`, `burst(x, y, opts)`, `sparkle(el)`, `countUp(el, from, to, dur)`, `morphPolygon(poly, fromPts, toPts, dur)`, `confetti()` (emojis du thème par défaut), `setTheme({ confetti })` (v2.1), `viewTransition(fn)`. Mouvement réduit (préférence système ou réglage « animations douces ») → fondus uniquement.
-- `kit.js` : `keypad(opts)`, `choiceGrid(choices, opts)`, `toast(msg)`, `bubble(text, kind)`, `sheet(opts)`, `confirmSheet(text, opts)`, `celebrateRight(el, streak)`, `gentleWrong(el)`, `cheer(kind, rng)` (phrases d'encouragement variées).
+- `kit.js` : `keypad(opts)`, `choiceGrid(choices, opts)`, `toast(msg)`, `bubble(text, kind)`, `sheet(opts)`, `confirmSheet(text, opts)`, `celebrateRight(el, streak)`, `gentleWrong(el)`, `cheer(kind, rng)` (phrases d'encouragement variées). v2.2 : durée des toasts selon la longueur (≈ 60 ms par caractère, 2,5 à 7 s ; une durée imposée est gardée ; en haut de l'écran quand une feuille est ouverte) ; `bubble(…, { live })` (pas de zone annoncée par défaut : les jeux annoncent par `ctx.announce`, une seule fois) ; terminaisons « -ent », « -ais » jamais coupées par la césure ; focus gardé sur le choix touché d'un QCM puis porté sur le premier choix de la question suivante ; Entrée sur un bouton focalisé hors du pavé l'active ; `sheet()` se ferme au **retour Android** (CloseWatcher, raison `'back'`) au lieu de quitter l'appli ; `cheer('retry')` = mots doux de 1 à 3 mots (« Presque ! », « Tu chauffes ! »…) devant l'astuce.
 
 ### 8.3 Routeur et écrans
 Routes : `#/home`, `#/profiles`, `#/onboarding`, `#/welcome`, `#/balade`, `#/play/<id>?mode=balade&block=<i>` (sinon libre), `#/progres`, `#/parents`, `#/import?from=…`, et en v2.1 `#/famille` (classements, concours), `#/famille/concours` (spectacle du concours), `#/battle` (défi en famille). Un écran = `export default { async mount(root, params, query), unmount() }`.
@@ -443,7 +444,8 @@ Démarrage (`main.js`) : `store.init()` → réglages du profil actif (son, mouv
 
 ### 8.4 Service worker (`sw.js`) — CDC §13.4
 Cache `caramel-<VERSION>` pré-rempli avec `ASSETS` (liste générée). `install` : précache ; `skipWaiting()` immédiat **seulement** si l'ancien cache v11 `caramel-shell-v1` existe (bascule v11 → v2 sans bandeau). `activate` : supprime les caches `caramel-*` obsolètes (**jamais** `vosk-model-v1` ni `vosk-lib-v1`), `clients.claim()`. `message {type:'SKIP_WAITING'}` → `skipWaiting()`. `fetch` : GET même origine hors `/models/` → navigation servie par `index.html` du cache (repli réseau) ; ressources cache d'abord puis réseau ; `VOSK_LIB` (jsDelivr) mis en cache `vosk-lib-v1`. Rappels quotidiens `periodicsync caramel-daily` + `notificationclick` conservés.
-Page : nouvelle version en attente → bandeau « Nouvelle version — touche pour mettre à jour » (jamais pendant un jeu ni un défi) → `SKIP_WAITING` → rechargement au `controllerchange` (seulement après ce geste).
+Changement d'écran (v2.2) : titre d'onglet « titre de l'écran · Caramel » (l'accueil garde « Caramel ») et focus sur le `h1` de l'écran pour les lecteurs d'écran.
+Page : nouvelle version en attente → bandeau « Nouvelle version — touche pour mettre à jour » (jamais pendant un jeu, un défi, l'arrivée d'un enfant ni la saisie d'une fiche) → `SKIP_WAITING` → rechargement au `controllerchange` (seulement après ce geste).
 
 ### 8.5 Thèmes visuels (`js/core/themes.js` pur, `js/ui/theme-picker.js`, `css/themes.css`) — v2.1, CDC §10.5
 ```js
@@ -455,7 +457,7 @@ applyTheme(id) ; previewTheme(id, { animate }) ; endPreview() ; shownTheme() ; s
 themeGrid({ value, onPick, compact, label }) → { el, set(id), value() }   // groupe radio, chaque carte porte son propre data-theme
 cheerTheme(id, card) ; openThemeSheet({ profileId }) → feuille « Choisis ton univers 🎨 » (enregistre et applique)
 ```
-Un thème = des **jetons** surchargés sous `[data-theme="<id>"]` (sur `<html>` ou sur n'importe quel sous-arbre pour un aperçu) : fonds `--bg-*` et motif `--bg-pattern`, encres, `--pink-*` (famille secondaire), `--amber-*` (famille principale), `--shade`, `--accent`, `--focus`, `--panel-*`, `--ava-ring`, `--tile-<jeu>`. Invariants dans tous les thèmes : `--card`, `--ok*`, `--soft*` (erreur douce), `--sky`/`--grass`, `--fr`/`--ma` (radars officiels) et les décors naturels des jeux. Contrastes ≥ 4,5:1 vérifiés par `tests/themes.test.mjs`. Aucune marque (thème « Super-héros » générique). Choix : création du profil (présélection), accueil (« 🎨 Mon thème »), espace parents.
+Un thème = des **jetons** surchargés sous `[data-theme="<id>"]` (sur `<html>` ou sur n'importe quel sous-arbre pour un aperçu) : fonds `--bg-*` et motif `--bg-pattern`, encres, `--pink-*` (famille secondaire), `--amber-*` (famille principale), `--shade`, `--accent`, `--focus`, `--panel-*`, `--ava-ring`, `--tile-<jeu>`. Invariants dans tous les thèmes : `--card`, `--ok*`, `--soft*` (erreur douce), `--sky`/`--grass`, `--fr`/`--ma` (radars officiels) et les décors naturels des jeux. Contrastes ≥ 4,5:1 vérifiés par `tests/themes.test.mjs`, ainsi que (v2.2) l'anneau de focus ≥ 4,5:1 sur les fonds et la règle « l'habillage d'un thème reste loin de l'orange de l'erreur douce (ΔE ≥ 30) et n'est jamais rouge » (Dinosaures : boutons ocre ; Océan : bordures bleues ; Bolides : bordures grises ; focus Caramel #78350f). Aucune marque (thème « Super-héros » générique). Choix : création du profil (présélection), accueil (« 🎨 Mon thème »), espace parents.
 
 ### 8.6 Compagnon (`js/ui/mount-svg.js`, `css/ui/mount.css`, `js/ui/companion-life.js`) — v2.1, CDC §10.3
 - `mountSVG(type, worn, size, moodClass, { expr, stage, shadow = true, phase, view })` → chaîne SVG (`width = size`, `height = round(size × 0,84)`, viewBox `0 0 100 84`, type inconnu → poney ; `shadow: false` = sans ombre au sol quand l'écran pose la sienne ; `phase` (s) = décalage de l'attente pour désynchroniser plusieurs compagnons ; `view: 'portrait'` = cadrage tête pour les avatars ronds ; contour affiné au-delà de 140 px) ; `EXPRESSIONS`, `MOODS`, `ensureMountCSS()`, `mountAnchors(type, opts)` → `{ ground, mouth, eyes, top, neck, back, chest, tail }` (unités du viewBox, à utiliser pour viser la bouche, poser un objet…).
@@ -465,6 +467,9 @@ Un thème = des **jetons** surchargés sous `[data-theme="<id>"]` (sur `<html>` 
 - `js/ui/companion.js` : `avatarSVG`, `avatarOf(profile, size, mood, opts)` (stade du profil), `stageOf(profile)`, `setAvatar(el, html, { live })`, `renderCompanionCard(container)` (diorama jour/nuit/saisons, évolution fêtée une seule fois).
 - Intégration dans les écrans (v2.1) : les jeux passent par `ctx.petSVG` / `ctx.petAnchors` (§7.2) ; avatars ronds (en-tête de l'accueil, pastilles et rubans de la famille, résultats et bulle « la bonne réponse » du défi) en `view: 'portrait'` ; listes de compagnons côte à côte (montures de la boutique, « Qui joue ? », profils) avec `phase: i × 1,3` ; **une seule ombre au sol**, celle du rig (aucun écran n'ajoute d'ellipse ni de filtre `drop-shadow` ; `shadow: false` s'il pose la sienne). La vague du dauphin fait partie du dessin (elle cache le bas de son corps) : elle le suit partout, y compris sur la botte de foin de la clôture. **Sauts et bonds** (tables, course, clôture, petits bonds de la marche de la balade, temps fort du chef d'orchestre) : on anime le corps `.c-all` (WAAPI, `composite: 'add'` sur le pas ou l'attente du rig, translations en unités du viewBox = px × 100 / largeur du SVG), jamais un conteneur qui emporterait l'ombre et la vague ; l'ombre `.c-shadow` rétrécit en l'air (pas la flaque du dauphin) ; un objet tenu suit la bouche (clôture : la carotte rejoue les images clés de l'humeur du corps). Changer une classe d'humeur (`walk`, `joy`…) pendant un tel saut : recalculer le style aussitôt (`getBoundingClientRect()`), sinon Chrome perd une image de l'effet « add ». Avatars ronds (`view: 'portrait'`) : jamais l'humeur `sleep` (la pose couchée sort la tête du cadrage) ; l'expression `sleepy` dit qu'il dort.
 - Planche contact : `tests/harness/companion.html` (espèces × expressions × humeurs × stades, silhouettes noires).
+
+### 8.6 bis Accueil « un seul gros bouton » (v2.2, `js/ui/home.js`, `js/ui/companion.js` en scène héros) — CDC §1 principe 7
+Accueil sur un seul écran : en-tête (avatar = « Qui joue ? », « Bonjour {P} ! », 🎨 thème, 🔒 espace parents), la scène du compagnon en grand (plaque « Mon compagnon » : stade et prénoms ; pastilles 🍎 et 🔥 ; bulle de pensée 🍎 quand il a faim, qui ouvre le garde-manger), 4 soins en icônes dont l'anneau est la jauge (🥕 ventre, 🧽 joie, 🚶 forme ; ✓ quand un soin est déjà fait ; 🛍️ cerclée d'or quand un objet nouveau est à portée de pommes), UN bouton « Jouer ▶ » qui lance l'étape du jour (« 🎲 Encore un jeu ? » quand la balade est finie), les 4 pierres de la balade, « 🎲 Jeux » et « 📈 Mes progrès » (dès qu'il y a quelque chose à montrer). Boutique en deux rayons (👒 Habits, 🐾 Animaux) avec **cabine d'essayage** : toucher un objet le fait essayer, « Acheter » l'achète (« Il te manque N 🍎 » sinon). La balade s'enchaîne depuis le bilan (« Étape suivante ▶ »). Spécification complète : rapport de synthèse S9 (jury de 3 pistes), reprise dans `docs/JEUX.md` §1 et §8.
 
 ### 8.7 Détection du radar photographié (`js/ui/radar-detect.js` + `radar-detect-worker.js`) — v2.1, CDC §8.3
 ```js
@@ -479,7 +484,20 @@ Tout se fait sur l'appareil, dans un Web Worker (message `{ id, width, height, b
 
 **Gabarits des fiches** (`ficheTemplate(classe, matière)` de `js/core/axes.js`, communs à la saisie manuelle et à la photo) : `{ classe, subject, exact, axes: [{ id, angle, label, domain }] }`, angles en degrés, sens horaire depuis le haut ; la valeur lue ou saisie sur l'axe `i` va à `axes[i].id` (`ficheToAxes` fait la moyenne quand deux axes de la fiche partagent un axe interne). Au CM2, angles relevés sur des fiches réelles (`exact: true`). Du CP au CM1, convention : sur la fiche, le haut (repères ⊕) tombe entre deux axes disposés symétriquement ; la liste part de l'axe juste à gauche du haut et l'axe `i` est à (i − ½) × pas, pas = 360 / nombre d'axes (1er axe à −pas/2, soit 334,3° sur une fiche à 7 axes ; 2e à +pas/2, soit 25,7°). Les angles restent croissants, sans être ramenés dans [0 ; 360[ (le détecteur prend le milieu de deux axes consécutifs). L'ordre des compétences a été lu libellé par libellé sur les maquettes DEPP 2026 (diaporama de présentation, guide d'accès enseignant au portail) et sur les mini-radars des fiches descriptives pour les parents (CE1 français, CE2 maths, CM1 français) ; `tests/fiches.test.mjs` le fige. En v2.0, le 1er axe était à +pas/2 et l'ordre du CP maths et du CE1 français ne suivait pas la fiche : du CP au CM1, sauf en CE2 maths, chaque valeur tombait sous une autre compétence que celle imprimée.
 
+### 8.8 Voix des petits lecteurs (`js/ui/voice.js`) — v2.2
+```js
+readAloud(profile) → boolean        // settings.readAloud : 'auto' (CP et CE1) | 'on' | 'off' ; anciens booléens acceptés
+voiceOn(profile) → boolean          // readAloud ET une voix française possible
+speakable(texte) → texte à dire     // « × » → « fois », « 20 🍎 » → « 20 pommes », « … » → pause, emojis muets
+speak(texte, { force }) → Promise<boolean>   // via js/core/tts.js ; force = geste 🔊 explicite
+hush()                              // se tait (changement d'écran, bonne réponse, micro)
+listenButton(get, { label }) → bouton 🔊 de 48 px qui relit la dernière phrase
+// jeux : ctx.voice = { on, say(texte, { quiet }) → Promise<boolean>, hush() } (js/ui/game-ctx.js)
+```
+Rien n'est lu quand le son est coupé, sans voix française sur l'appareil, avant le premier geste de la page, ni **pendant que le micro écoute** ; le texte reste toujours affiché (CDC §16). La voix dit la question, la consigne au premier calcul, le mot doux et l'astuce, l'explication, la phrase du bilan et les réactions du compagnon. Le moteur vocal de la course n'est pas concerné (la course ne parle pas).
+
 ## 9. Design system (`css/base.css`, ✅ écrit)
+Jetons (v2.2, en plus de ceux ci-dessous) : échelle de tailles `--fs-*`, rayons `--r-xs`/`--r-xl`, relief `--shadow-press`, espacements `--sp-*`, couleurs fixes du pré `--n-sky-*`, `--n-grass-*`, `--n-meadow`, `--n-amber-400` (or des médailles, jauge de joie), alias sémantiques `--pri-*` / `--sec-*` / `--on-*` (les noms historiques `--pink-*` / `--amber-*` restent la famille secondaire / principale). Mouvement réduit : transitions nulles (plus de transition de 1 ms sur toutes les propriétés, qui faussait les mesures de mise en page).
 Jetons : `--bg-*`, `--ink…--ink-5`, `--title`, `--pink-*`, `--amber-*`, `--ok*`, `--soft*` (erreur douce), `--fr`/`--ma`, et en v2.1 `--bg-pattern`, `--shade`, `--accent`, `--focus`, `--panel-bg`/`--panel-line`, `--ava-ring`, `--tile-<jeu>` (thémables, §8.5), `--r-s/m/l/pill`, `--shadow-1/2/btn`, `--font-ui` (Fredoka), `--font-read` (Andika), `--ease-out`, `--ease-pop`, `--dur-1/2/3` (150/300/600 ms), `--safe-*`.
 Classes : `.screen` (`.is-full` plein cadre), `.stack`, `.row`, `.grid-2`, `.title`, `.title-xl`, `.subtitle`, `.section-title`, `.read`, `.num`, `.muted`, `.small`, `.topbar`/`.back`/`.topbar-title`, `.btn` (`.pink` `.white` `.ghost` `.big` `.small` `.block`), `.btn-icon`, `.card` (`.tap` `.dashed` `.hero` `.locked`), `.chip`, `.wallet`, `.badge`, `.dots`/`.dot` (`.done` `.helped` `.now`), `.gauge`, `.choices`/`.choice` (`.right` `.wrong` `.dim`), `.answer`, `.keypad`/`.key` (`.ok` `.del`), `.bubble` (`.hint` `.soft` `.good`), `.banner`, `.toast`, `.overlay`/`.sheet`, `.field`/`.input`/`.seg`/`.switch`.
 Chaque écran/jeu ajoute son CSS dans `css/ui/` ou `css/games/` et **réutilise les jetons** (aucune couleur d'habillage en dur : elle ne suivrait pas le thème ; seuls les décors naturels des jeux — ciel, herbe, bois — gardent leurs couleurs).

@@ -220,8 +220,8 @@ export function approachSeconds(distance, cruise = 1, speed = GROUND_SPEED, brak
   return ((d - b) + 2 * b) / (speed * Math.max(0.01, cruise));
 }
 
-/* combo affiché à partir de 2 réussites de suite */
+/* combo affiché à partir de 2 réussites de suite : « ⚡ 3 » (🔥 est réservé aux jours de suite, D4-12) */
 export function comboLabel(streak) {
   const s = Math.floor(Number(streak) || 0);
-  return s >= 2 ? '\u{1F525}\u{a0}' + s : '';
+  return s >= 2 ? '\u{26A1}\u{a0}' + s : '';
 }

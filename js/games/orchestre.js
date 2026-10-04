@@ -21,7 +21,8 @@ import * as L from './orchestre-logic.js';
 const NS = 'http://www.w3.org/2000/svg';
 const now = () => (globalThis.performance && performance.now ? performance.now() : Date.now());
 const SWAY = 3.2;                               /* amplitude du balancement (degrés) */
-const NEXT_AFTER_RIGHT = 1050;                  /* item suivant après une bonne réponse (ms) */
+const NEXT_AFTER_RIGHT = 700;                   /* item suivant après une bonne réponse (ms) : le temps de voir la phrase
+                                                   complète ; la note et la pomme finissent leur vol en fond (D1-20) */
 const LIGHT_BASE = 0.5;                         /* opacité des projecteurs au repos */
 /* position du pied de chaque musicien dans la scène, et départ de ses notes (♪) */
 const MUSICIANS = [
@@ -58,6 +59,9 @@ function createGame(root, ctx) {
     sway: [0, 0, 0, 0], baton: -24, flip: false, ended: false, destroy
   };
   const { kit, motion, audio } = ctx;
+  /* voix du compagnon (petits lecteurs, js/ui/voice.js) : la phrase, l'indice, l'explication ; le texte reste affiché */
+  const say = t => { try { return ctx.voice ? Promise.resolve(ctx.voice.say(String(t || ''))) : Promise.resolve(false); } catch (_) { return Promise.resolve(false); } };
+  const hush = () => { try { if (ctx.voice) ctx.voice.hush(); } catch (_) {} };
   const reduced = () => { try { return motion.reduced(); } catch (_) { return false; } };
   const later = (fn, ms) => {
     const id = setTimeout(() => { my.timers.delete(id); if (my.alive) { try { fn(); } catch (e) { console.error(e); } } }, Math.max(0, ms));
@@ -92,7 +96,18 @@ function createGame(root, ctx) {
   root.appendChild(wrap);
 
   ctx.onJoker(() => onJoker());
-  showIntro();
+  /* l'intro ne revient pas à chaque partie (« Rejouer », balade) : une fois par séance et par enfant (D1-15) ;
+     le son a déjà été débloqué par un geste (main.js) */
+  const introKey = 'caramel-orc-intro-' + ((ctx.profile && ctx.profile.id) || '');
+  let introSeen = false;
+  try { introSeen = !!sessionStorage.getItem(introKey); } catch (_) {}
+  if (introSeen) {
+    try { audio.unlock(); } catch (_) {}
+    next();
+  } else {
+    try { sessionStorage.setItem(introKey, '1'); } catch (_) {}
+    showIntro();
+  }
 
   /* ======================= écrans ======================= */
   function showIntro() {
@@ -128,8 +143,20 @@ function createGame(root, ctx) {
     clear(okBox);
     if (item.assist) showHint(frTypo('Petit coup de pouce : ') + item.hint);
     if (!my.metro) startMusic();
-    const said = item.prompt + ' ' + L.sentenceText(my.model, my.model.mode === 'underline' ? '' : '…');
-    ctx.announce(my.model.mode === 'underline' ? said + ' ' + frTypo('Verbe souligné : « ' + my.model.slotText + ' ».') : said);
+    /* dit comme affiché : consigne, étiquettes (« verbe avoir », « au présent »), phrase modèle, puis la phrase
+       (V22A-2 : sans le verbe, impossible de choisir « ont » ou « sont » à l'oreille) */
+    const tg = L.tagsFor(item);
+    const tags = [tg.verb ? 'verbe : ' + tg.verb : '', tg.tense || ''].filter(Boolean).join(', ');
+    const single = L.modelLine(item);
+    const said = item.prompt + (tags ? ' ' + frTypo(tags.charAt(0).toUpperCase() + tags.slice(1) + '.') : '')
+      + (single ? ' ' + frTypo('Au singulier : ') + single : '')
+      + ' ' + L.sentenceText(my.model, my.model.mode === 'underline' ? '' : '…');
+    const full = my.model.mode === 'underline' ? said + ' ' + frTypo('Verbe souligné : « ' + my.model.slotText + ' ».') : said;
+    ctx.announce(full);
+    /* petits lecteurs : la consigne et la phrase dites ; le temps d'écoute ne compte pas */
+    const it = item;
+    say(full + (item.assist ? ' ' + frTypo('Petit coup de pouce : ') + item.hint : ''))
+      .then(ok => { if (ok && my.item === it && my.phase === 'item' && !my.tries) my.t0 = now(); });
   }
 
   function renderItem(item) {
@@ -193,6 +220,7 @@ function createGame(root, ctx) {
 
   function right(item, value, btn, ms) {
     my.locked = true;
+    hush();
     const helped = my.hinted || my.tries > 0;
     my.grid.mark(value, 'right');
     my.grid.disable();
@@ -232,6 +260,7 @@ function createGame(root, ctx) {
     const msg = kit.cheer('retry', ctx.rng);
     showHint(msg + '\n' + item.hint);
     ctx.announce(msg + ' ' + item.hint);
+    say(msg + ' ' + item.hint);
   }
 
   function secondWrong(item, value, btn, ms) {
@@ -253,11 +282,13 @@ function createGame(root, ctx) {
       next();
     }, { once: true });
     clear(help);
-    help.append(kit.bubble(msg + '\n' + item.explain, 'soft', '🧐'));
+    /* pastille 🤗 de l'explication, la même dans tous les jeux (D3V-M2 : l'icône était ignorée ; D4-24 : 🧐 juge) */
+    help.append(kit.bubble(msg + '\n' + item.explain, 'soft'));
     clear(okBox);
     okBox.append(ok);
     keepAnswersVisible();
     ctx.announce(msg + ' ' + item.explain);
+    say(msg + ' ' + item.explain);
     later(() => { try { ok.focus({ preventScroll: true }); } catch (_) {} }, 60);
   }
 
@@ -274,6 +305,7 @@ function createGame(root, ctx) {
     refreshEmphasis();
     showHint(my.item.hint);
     ctx.announce(my.item.hint);
+    say(my.item.hint);
     return true;
   }
 
@@ -570,6 +602,7 @@ function createGame(root, ctx) {
   function destroy() {
     if (!my.alive) return;
     my.alive = false;
+    hush();
     stopMusic();
     for (const id of my.timers) clearTimeout(id);
     my.timers.clear();

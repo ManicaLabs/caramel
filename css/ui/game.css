@@ -1,31 +1,67 @@
-/* ============ COQUILLE DE JEU : en-tête commun + zone de jeu ============ */
+/* ============ COQUILLE DE JEU : en-tête commun + zone de jeu ============
+   En-tête sur UNE ligne : ← · pastilles de progression (centre) · 🔊 (petits lecteurs) · joker 💡. Le titre est un h1
+   masqué. */
 .game-screen { gap: 0; }
-.game-header { flex: none; padding-bottom: 6px; }
-.gh-row { display: flex; align-items: center; gap: 6px; min-height: 52px; }
-.gh-title { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 6px;
-  font-weight: 700; font-size: 1.05rem; color: var(--title); }
+/* jeux : fond uni du thème, sans son motif derrière les consignes à lire (le motif reste sur les écrans de navigation),
+   D3-13 */
+html:has(.game-screen) body { background: linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 60%, var(--bg-3) 100%) fixed; }
+.game-header { flex: none; padding-bottom: 4px; }
+.gh-row { display: flex; align-items: center; gap: 8px; min-height: 52px; }
+.gh-mid { position: relative; flex: 1; min-width: 0; min-height: 48px; display: flex; align-items: center; justify-content: center; }
+.gh-sink { position: absolute; left: 50%; top: 50%; width: 1px; height: 1px; pointer-events: none; }
+.gh-title { font-weight: 700; color: var(--title); }
 .gh-icon { font-size: 1.35rem; flex: none; }
 .gh-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gh-short { display: none; }
-@media (max-width: 420px) {                 /* titre court du registre sur téléphone */
-  .gh-long { display: none; }
-  .gh-short { display: block; }
-  .gh-joker, .gh-apples { padding: 4px 8px; }
-}
-.gh-joker, .gh-apples {
-  flex: none; display: inline-flex; align-items: center; gap: 4px; min-height: 48px; padding: 4px 10px;
+.gh-joker {
+  flex: none; display: inline-flex; align-items: center; gap: 4px; min-height: 48px; padding: 4px 12px;
   border-radius: var(--r-pill); background: var(--card); border: 2px solid var(--amber-200);
-  font-weight: 700; font-size: 1rem; color: var(--amber-900); box-shadow: var(--shadow-1);
+  font-weight: 700; font-size: 1.2rem; color: var(--amber-900); box-shadow: var(--shadow-1);
+  transition: transform var(--dur-1) var(--ease-out), opacity var(--dur-2);
 }
-.gh-joker { font-size: 1.2rem; transition: transform var(--dur-1) var(--ease-out), opacity var(--dur-2); }
 .gh-joker:active { transform: scale(.92); }
 .gh-joker.empty { opacity: .45; }
 .gh-badge { min-width: 20px; height: 20px; padding: 0 5px; border-radius: var(--r-pill); background: var(--amber-400);
   color: var(--amber-900); font-size: .8rem; display: inline-grid; place-items: center; }
-.gh-apples { border-color: var(--pink-200); color: var(--ink); font-variant-numeric: tabular-nums; }
-.gh-dots { margin-top: 4px; }
-.gh-counter { text-align: center; font-weight: 700; color: var(--ink-3); margin-top: 2px; }
-.game-body { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
-@media (min-width: 900px) {
-  .gh-title { font-size: 1.25rem; }
+/* pastilles : un peu plus grandes et bien cerclées (elles sont le seul repère de l'en-tête) ; bords à 3:1 au moins sur
+   blanc dans les 8 thèmes (D2-13) */
+.gh-dots { gap: 5px; margin: 0; }
+.gh-dots .dot { width: 14px; height: 14px; background: var(--card); border-color: color-mix(in srgb, var(--ink-3) 80%, var(--card)); }
+.gh-dots .dot.done { background: var(--ok); border-color: var(--ok); }
+.gh-dots .dot.helped { background: var(--amber-400); border-color: var(--amber-900); }
+.gh-dots .dot.now { background: var(--amber-200); border-color: var(--title); }
+.gh-counter { font-weight: 700; color: var(--ink-3); font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+/* 🔊 « Écouter encore » (js/ui/voice.js) : rond de 48 px, vagues pendant la lecture */
+.vx-listen {
+  position: relative; flex: none; width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--card); border: 2px solid var(--pink-200); box-shadow: var(--shadow-1); font-size: 1.2rem; line-height: 1;
+  transition: transform var(--dur-1) var(--ease-out), border-color var(--dur-1);
 }
+.vx-listen[hidden] { display: none; }
+.vx-listen:active { transform: scale(.92); }
+.vx-listen:focus-visible { border-radius: 50%; }
+.vx-ico { position: relative; z-index: 1; }
+.vx-wave { position: absolute; inset: -2px; border-radius: 50%; border: 2px solid var(--pink-400); opacity: 0; pointer-events: none; }
+.vx-listen.is-speaking { border-color: var(--pink-400); }
+.vx-listen.is-speaking .vx-wave { animation: vx-wave 1.2s var(--ease-out) infinite; }
+@keyframes vx-wave { from { opacity: .8; transform: scale(1); } to { opacity: 0; transform: scale(1.35); } }
+@media (prefers-reduced-motion: reduce) { .vx-listen.is-speaking .vx-wave { animation: none; opacity: .8; } }
+html.motion-soft .vx-listen.is-speaking .vx-wave { animation: none; opacity: .8; }
+.game-body { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+/* feuille « Aide pour l'adulte » (micro impossible : ctx.mic.help) : texte de lecture, vouvoiement */
+.gx-adult p { font-family: var(--font-read); font-size: 1.05rem; line-height: 1.5; color: var(--ink); }
+@media (max-width: 380px) {
+  .gh-dots { gap: 4px; }
+  .gh-dots .dot { width: 12px; height: 12px; }
+  .gh-joker { padding: 4px 9px; }
+}
+/* 🔊 présent (petits lecteurs) : pastilles un peu plus petites pour garder UNE ligne jusqu'à 10 questions */
+.game-header.has-listen .gh-row { gap: 6px; }
+.game-header.has-listen .gh-dots { gap: 4px; }
+.game-header.has-listen .gh-dots .dot { width: 11px; height: 11px; }
+@media (max-width: 380px) {
+  .game-header.has-listen .gh-dots { gap: 3px; }
+  .game-header.has-listen .gh-dots .dot { width: 10px; height: 10px; }
+}
+/* 11 ou 12 questions (séance de 20 min) : pastilles plus serrées, toujours UNE ligne (V22B-04) */
+.gh-dots:has(.dot:nth-child(11)) { gap: 2px; }

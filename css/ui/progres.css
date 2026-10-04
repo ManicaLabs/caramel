@@ -27,16 +27,40 @@
   box-shadow: inset 0 0 0 2px var(--ink-5); }
 .pg-key--star { font-size: 1rem; line-height: 1; }
 
+/* ---------- onglets Français / Maths (un radar à la fois sur téléphone) ---------- */
+.pg-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 4px; border-radius: var(--r-pill); background: var(--pink-50); border: 2px solid var(--pink-200); }
+.pg-tab {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 6px 12px; border-radius: var(--r-pill);
+  border: 2px solid transparent; font-weight: 600; font-size: 1.05rem; color: var(--ink-3);
+}
+.pg-tab.on { background: var(--card); border-color: var(--pink-400); color: var(--title); font-weight: 700; box-shadow: var(--shadow-1); }
+.pg-tab:focus-visible { border-radius: var(--r-pill); }
+.pg-tab-emo { font-size: 1.2rem; line-height: 1; }
+.pg-tab-star { font-size: .95rem; line-height: 1; }
+/* « bientôt » (axes sans jeu) : l'enfant n'a pas à le lire ; le libellé reste grisé */
+.pg-screen .rl-chip.is-soon { display: none; }
+.pg-play { margin-top: 2px; }
+
 /* ---------- radars ---------- */
 .pg-radars { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.pg-card[hidden] { display: none; }
 .pg-card { padding: 12px 6px 10px; }
 .pg-card-title { display: flex; align-items: center; gap: 8px; padding: 0 10px 2px; font-size: 1.15rem; font-weight: 700; color: var(--ink); }
 .pg-card-emo { font-size: 1.3rem; line-height: 1; }
 .pg-card--fr { border-color: var(--fr-fill); }
 .pg-card--ma { border-color: var(--ma-fill); }
 
-/* ---------- médailles ---------- */
-.pg-medals-sec .section-title { margin-top: 10px; }
+/* ---------- médailles (repliées : un geste pour les voir) ---------- */
+.pg-medals-sum {
+  display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 52px; padding: 8px 18px; border-radius: var(--r-pill);
+  background: var(--card); border: 2px solid var(--pink-200); box-shadow: var(--shadow-1);
+  font-weight: 700; font-size: 1.08rem; color: var(--title); cursor: pointer; list-style: none;
+}
+.pg-medals-sum::-webkit-details-marker { display: none; }
+.pg-medals-sum::after { content: '▾'; margin-left: 4px; color: var(--ink-3); transition: transform var(--dur-2) var(--ease-out); }
+.pg-medals-sec[open] .pg-medals-sum::after { transform: rotate(180deg); }
+.pg-medals-n { color: var(--ink-3); font-weight: 600; }
+.pg-medals-sum:focus-visible { border-radius: var(--r-pill); }
 .pg-medals { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 14px 8px; padding: 6px 2px 2px; }
 .pg-medal { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
 .pg-medal.is-waiting { opacity: 0; }
@@ -60,16 +84,18 @@
 .pg-medal-name { font-weight: 700; font-size: .92rem; line-height: 1.2; color: var(--ink); }
 .pg-medal-tier { font-size: .8rem; color: var(--ink-3); font-weight: 600; }
 .pg-medal.anim-spin-in { animation-delay: calc(var(--i, 0) * 90ms); }
-.pg-medals-empty { display: flex; align-items: center; gap: 12px; color: var(--ink-2); }
-.pg-medals-empty-txt { display: grid; gap: 10px; justify-items: start; min-width: 0; }
-.pg-go { min-height: 48px; padding: 10px 22px; font-size: 1.05rem; }
-.pg-medals-empty-emo { font-size: 2rem; line-height: 1; filter: grayscale(.3); }
-
-.pg-home { margin-top: 8px; }
 
 /* ---------- grand écran : radars côte à côte ---------- */
 @media (min-width: 900px) {
-  .pg-radars { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pg-radars.is-both { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .pg-hero { padding: 18px 22px; }
   .pg-medals { grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); }
 }
+/* l'effort : série et étoiles, sous la phrase du compagnon */
+.pg-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.pg-pill {
+  display: inline-flex; align-items: center; gap: 5px; min-height: 30px; padding: 3px 11px; border-radius: var(--r-pill);
+  background: var(--card); border: 2px solid var(--pink-200); font-size: .95rem; line-height: 1.1; color: var(--ink);
+}
+.pg-pill b { font-weight: 700; font-variant-numeric: tabular-nums; }
+.pg-pill.is-fire { border-color: var(--amber-200); }

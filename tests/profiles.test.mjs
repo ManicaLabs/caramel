@@ -1,7 +1,7 @@
 /* Profils : création, normalisation (invariants du contrat §2), templating v11, classe. */
 import { test, assert } from './_t.mjs';
 import { defaultProfile, normalizeProfile, sanitizeName, tplMap, fillTemplate, setClasse, nextClasse,
-         offerNextClasse, newProfileId, toDay, CAPS, DEFAULT_SETTINGS } from '../js/core/profiles.js';
+         offerNextClasse, newProfileId, toDay, CAPS, DEFAULT_SETTINGS, READ_ALOUD_MODES } from '../js/core/profiles.js';
 import { MOUNTS, SHOP } from '../js/content/companion-data.js';
 import { thetaFromMclm } from '../js/core/levels.js';
 import { deepClone } from '../js/core/util.js';
@@ -154,7 +154,7 @@ test('defaultProfile : profil complet, réglages par défaut', () => {
     pet: { faim: 80, forme: 80, joie: 80, last: 0, brushLast: 0, walkDay: '' }, stage: 1, minutes: 0 });
   assert.deepEqual(p.wallet, { apples: 0, stars: {} });
   assert.deepEqual(p.streak, { count: 0, last: '', freezes: 1, freezeWeek: '' });
-  assert.deepEqual(p.settings, { sessionMin: 15, timers: false, sound: true, motion: 'full', theme: 'caramel' });
+  assert.deepEqual(p.settings, { sessionMin: 15, timers: false, sound: true, motion: 'full', theme: 'caramel', readAloud: 'auto' });
   assert.deepEqual(p.settings, DEFAULT_SETTINGS);
   assert.notEqual(p.settings, DEFAULT_SETTINGS, 'copie, pas la référence partagée');
   assert.deepEqual(p.stats, { minutes: 0, sessions: 0, items: 0 });
@@ -251,7 +251,7 @@ test('normalizeProfile : invariants (bornes, ids, un objet par emplacement, plaf
   /* divers */
   assert.equal(p.today, null);
   assert.deepEqual(p.legacy, { from: 'v11', mclm: null, stars: 12 });
-  assert.deepEqual(p.settings, { sessionMin: 15, timers: false, sound: true, motion: 'full', theme: 'caramel' });
+  assert.deepEqual(p.settings, { sessionMin: 15, timers: false, sound: true, motion: 'full', theme: 'caramel', readAloud: 'auto' });
   assert.deepEqual(p.stats, { minutes: 0, sessions: 2, items: 0 });
   assert.deepEqual(p.champFutur, [1, 2, 3]);
 });
@@ -265,7 +265,7 @@ test('normalizeProfile : idempotente, sans effet sur un profil sain', () => {
   q.history.push({ d: TODAY, t: 1759400000000, g: 'tables', ax: 'ma.faits', n: 10, ok: 8, hint: 1, ms: 180000, th: 1.62, mode: 'balade' });
   q.mclm.push({ d: TODAY, t: 1759400000000, s: 'pomme', v: 92, p: 95, z: 88 });
   q.today = { d: TODAY, idx: 0, done: false, rewarded: false, blocks: [{ kind: 'echauffement', game: 'tables', axis: 'ma.faits', count: 7, offset: -0.6, done: false, result: null }] };
-  q.settings = { sessionMin: 20, timers: true, sound: false, motion: 'soft', theme: 'ocean' };
+  q.settings = { sessionMin: 20, timers: true, sound: false, motion: 'soft', theme: 'ocean', readAloud: 'on' };
   assert.equal(JSON.stringify(normalizeProfile(q, '2030-01-01')), JSON.stringify(q));
   /* entrée non objet → profil par défaut */
   for (const bad of [null, undefined, 42, 'texte', [1, 2]]) {
@@ -274,6 +274,21 @@ test('normalizeProfile : idempotente, sans effet sur un profil sain', () => {
     assert.equal(d.companion.type, 'pony');
     assert.deepEqual(d.settings, DEFAULT_SETTINGS);
   }
+});
+
+test('réglage readAloud (voix des petits lecteurs) : auto par défaut, anciens booléens acceptés', () => {
+  assert.deepEqual([...READ_ALOUD_MODES], ['auto', 'on', 'off']);
+  assert.equal(DEFAULT_SETTINGS.readAloud, 'auto');
+  const ra = v => normalizeProfile({ name: 'Inès', classe: 'CE1', settings: v === undefined ? {} : { readAloud: v } }, TODAY).settings.readAloud;
+  assert.equal(ra(undefined), 'auto', 'profil d’avant la 2.2 (réglage absent)');
+  for (const m of ['auto', 'on', 'off']) assert.equal(ra(m), m);
+  assert.equal(ra(true), 'on', 'ancien booléen vrai');
+  assert.equal(ra(false), 'off', 'ancien booléen faux');
+  for (const bad of [null, '', 'ON', 'oui', 1, 0, {}, ['on']]) assert.equal(ra(bad), 'auto', JSON.stringify(bad));
+  const p = normalizeProfile({ name: 'Hugo', classe: 'CP', settings: { readAloud: false, sessionMin: 10 } }, TODAY);
+  assert.equal(p.settings.readAloud, 'off');
+  assert.equal(p.settings.sessionMin, 10);
+  assert.equal(JSON.stringify(normalizeProfile(p, '2027-01-01')), JSON.stringify(p), 'idempotent');
 });
 
 /* ---------- classe ---------- */

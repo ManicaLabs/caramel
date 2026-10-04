@@ -6,12 +6,14 @@
    - Zen (défaut) : l'obstacle freine et s'arrête devant le compagnon, qui attend.
    - Chrono (settings.timers) : l'obstacle approche en 2 × autoMs avec une jauge douce ; s'il arrive, le
      compagnon s'arrête et attend (jamais d'échec).
-   - Juste : saut en arc par-dessus l'obstacle, combo « 🔥 3 », note qui monte (celebrateRight), 🍎 qui vole.
+   - Juste : saut en arc par-dessus l'obstacle, combo « ⚡ 3 » (🔥 = jours de suite), note qui monte (celebrateRight),
+     🍎 qui vole ; le calcul suivant arrive dès la réception (D1-20).
    - Faux : petit trébuchement, bulle d'indice (stratégie item.hint) + panneau de points pour les petits faits,
      nouvel essai ; 2e erreur : réponse dans la case + explication + « J’ai compris ✓ » (contrat §7.3).
    - Voix (bouton 🎤 dans la case libre du pavé) : grammarFor(1000) tel quel, parseSpoken ; juste dès qu'il est
      entendu, autre nombre stable 1,5 s = essai faux (« J’ai entendu 54… ») ; coupée pour les réponses décimales
      ou > 1 000 (data.voice) ; resetTranscript à chaque item ; écoute coupée au démontage.
+   - Micro impossible (refusé, absent, hors ligne) : une phrase d'enfant (ctx.mic.trouble), le pavé reste là (D4-04).
    Logique pure (énoncé, saisie, juge de la voix, vitesses) : js/games/tables-logic.js (tests/tables.test.mjs). */
 
 import { h, svg, clear, fmtNum, frTypo } from '../core/util.js';
@@ -19,7 +21,7 @@ import * as L from './tables-logic.js';
 
 const JUMP_MS = 660;            /* saut (élan, envol, réception) */
 const LEAP_RATE = 2;            /* vitesse du monde pendant le saut : l'obstacle passe sous le compagnon */
-const NEXT_AFTER_LEAP = 240;    /* l'item suivant arrive pendant la réception */
+const NEXT_AFTER_LEAP = 0;      /* l'item suivant arrive à la réception (D1-20 : 240 ms de moins entre deux calculs) */
 const WRONG_CLEAR_MS = 650;     /* la saisie fausse reste visible, puis la case se vide */
 const REVEAL_MS = 420;          /* 2e erreur : la bonne réponse apparaît après la petite secousse */
 const SOFT_NEXT_MS = 900;       /* mouvement réduit : délai avant l'item suivant */
@@ -69,6 +71,11 @@ function createTables(root, ctx) {
   const animate = (el, frames, opts) => { try { return el && el.animate ? track(el.animate(frames, opts)) : null; } catch (_) { return null; } };
   const announce = t => safe(() => ctx.announce(String(t || '')));
   const cheer = kind => { try { return ctx.kit.cheer(kind); } catch (_) { return ''; } };
+  /* voix du compagnon (petits lecteurs, js/ui/voice.js) : la question, l'indice, l'explication ; le texte reste affiché.
+     Micro demandé (préparation comprise) : rien n'est dit, 🔊 garde la phrase (V22A-4 : le micro n'entend que l'enfant) */
+  const micWanted = () => { try { return !!voice.wanted; } catch (_) { return false; } };
+  const say = t => { try { return ctx.voice ? Promise.resolve(ctx.voice.say(String(t || ''), { quiet: micWanted() })) : Promise.resolve(false); } catch (_) { return Promise.resolve(false); } };
+  const hush = () => { try { if (ctx.voice) ctx.voice.hush(); } catch (_) {} };
   const sound = name => { try { const f = ctx.audio && ctx.audio[name]; if (typeof f === 'function') return f(); } catch (_) {} return null; };
 
   /* ---------- décor ---------- */
@@ -327,17 +334,25 @@ function createTables(root, ctx) {
   }
   function stopClip() { if (clip && clip.stop) { try { clip.stop(); } catch (_) {} } clip = null; }
 
-  /* jauge douce du chrono : se vide pendant l'approche */
+  /* jauge douce du chrono : se vide pendant l'approche. Animation Web (pas une transition CSS) : le mouvement réduit
+     du système, qui raccourcit les transitions, ne la vide plus d'un coup (D2-06) ; c'est une information, pas un effet */
+  let gaugeAnim = null;
+  function stopGaugeAnim() { if (gaugeAnim) { try { gaugeAnim.cancel(); } catch (_) {} gaugeAnim = null; } }
   function startGauge(ms) {
+    stopGaugeAnim();
     gauge.classList.remove('is-hidden', 'is-out');
     gaugeFill.style.transition = 'none';
     gaugeFill.style.transform = 'scaleX(1)';
-    void gaugeFill.offsetWidth;
-    gaugeFill.style.transition = `transform ${Math.round(ms)}ms linear`;
-    gaugeFill.style.transform = 'scaleX(0)';
+    gaugeAnim = animate(gaugeFill, [{ transform: 'scaleX(1)' }, { transform: 'scaleX(0)' }],
+      { duration: Math.max(1, Math.round(ms)), easing: 'linear', fill: 'forwards' });
+    if (!gaugeAnim) {                                  /* navigateur sans animations Web : transition CSS */
+      void gaugeFill.offsetWidth;
+      gaugeFill.style.transition = `transform ${Math.round(ms)}ms linear`;
+      gaugeFill.style.transform = 'scaleX(0)';
+    }
   }
   function endGauge() { gauge.classList.add('is-out'); }
-  function hideGauge() { gauge.classList.add('is-hidden'); gaugeFill.style.transition = 'none'; }
+  function hideGauge() { stopGaugeAnim(); gauge.classList.add('is-hidden'); gaugeFill.style.transition = 'none'; }
 
   /* saut : l'obstacle passe sous le compagnon (monde accéléré pendant l'envol) */
   let leapCb = null;
@@ -429,19 +444,21 @@ function createTables(root, ctx) {
   }
 
   /* ---------- bulles ---------- */
-  function idleLine() {
-    const t = !voice.supported ? 'Tape la réponse sur le pavé.'
+  function idleText() {
+    return frTypo(!voice.supported ? 'Tape la réponse sur le pavé.'
       : !voice.on ? 'Tape la réponse, ou touche 🎤 et dis-la.'
         : cur && !cur.info.voice ? 'Pour ce calcul, tape la réponse.'
-          : 'Dis ta réponse, ou tape-la sur le pavé.';
-    return h('p', { class: 'tb-idle' }, frTypo(t));
+          : 'Dis ta réponse, ou tape-la sur le pavé.');
   }
+  function idleLine() { return h('p', { class: 'tb-idle' }, idleText()); }
   const refreshIdle = () => { if (help.querySelector('.tb-idle')) showIdle(); };
   function showBubble(text, kind, icon) {
     clear(help);
     help.appendChild(ctx.kit.bubble(text, kind, { icon }));
   }
-  function showIdle() { clear(help); help.appendChild(idleLine()); }
+  /* « comment répondre » : au premier calcul seulement (divulgation progressive, CDC §1 principe 7) ; ensuite la zone
+     d'aide reste vide jusqu'à une bulle (sa hauteur est réservée : rien ne bouge), le pavé et 🎤 suffisent */
+  function showIdle() { clear(help); if (index <= 1) help.appendChild(idleLine()); }
 
   /* ---------- indice visuel (petits faits) ---------- */
   function drawVisual(v) {
@@ -501,7 +518,8 @@ function createTables(root, ctx) {
   /* le panneau d'indice se plante dans le pré, à droite de l'obstacle, sous le panneau du calcul */
   function placeBoard() {
     if (!cur || !cur.boardShown) return;
-    const groundH = Math.max(20, ground.offsetHeight - 6);
+    /* le sol est un <svg> : pas d'offsetHeight (→ NaN : panneau d'indice mal placé à 360 × 740, D1-04) */
+    const groundH = Math.max(20, (ground.getBoundingClientRect().height || 26) - 6);
     const left = geo.waitX + geo.baleW + 14;
     const width = Math.min(geo.W - left - 10, 260);
     const maxH = Math.floor((geo.H - groundH - 8) - (signBottom() + 10));
@@ -552,6 +570,11 @@ function createTables(root, ctx) {
     spawnBale();
     announce(L.promptAria(parts));
     cur.t0 = nowMs();
+    /* petits lecteurs : le compagnon dit le calcul (et, au premier, comment répondre) ; le temps d'écoute ne compte
+       pas dans la vitesse de réponse */
+    const c = cur;
+    const line = L.promptAria(parts) + (item.assist ? ' ' + frTypo('Petit coup de pouce : ') + item.hint : index <= 1 ? ' ' + idleText() : '');
+    say(line).then(ok => { if (ok && cur === c && !c.resolved && c.tries === 0) c.t0 = nowMs(); });
   }
 
   function onTyped(str) {
@@ -566,6 +589,7 @@ function createTables(root, ctx) {
     const c = cur;
     if (!c || c.resolved) return;
     c.resolved = true;
+    hush();
     cancelVoiceTimer();
     const hinted = !!(c.hinted || c.tries > 0);
     kp.setState('right');
@@ -594,9 +618,11 @@ function createTables(root, ctx) {
     safe(() => ctx.kit.gentleWrong(kp.answer));
     stumble();
     if (c.tries === 1) {
+      /* la bulle : un mot doux (1 à 3 mots, kit.cheer) puis l'astuce ; dite aux petits lecteurs */
       const head = via === 'voice' ? frTypo('J’ai entendu ' + fmtNum(value) + '…') + '\n' : cheer('retry') + '\n';
       showHint(head);
       announce(head + c.item.hint);
+      say(head + c.item.hint);
       later(() => { if (cur === c && !c.resolved && !c.locked) { kp.clear(); kp.setState(null); } }, WRONG_CLEAR_MS);
       return;
     }
@@ -634,6 +660,7 @@ function createTables(root, ctx) {
     });
     if (kp) kp.el.classList.add('is-masked');
     pad.appendChild(learnEl);
+    say(text);
     animate(learnEl, reduced() ? [{ opacity: 0 }, { opacity: 1 }]
       : [{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'none' }], { duration: reduced() ? 150 : 300, easing: 'cubic-bezier(.22, 1, .36, 1)' });
     announce(text);
@@ -661,6 +688,7 @@ function createTables(root, ctx) {
     cur.hinted = true;
     showHint('');
     announce(cur.item.hint);
+    say(cur.item.hint);
     return true;
   }));
 
@@ -688,7 +716,11 @@ function createTables(root, ctx) {
     micBtn.setAttribute('aria-pressed', voice.wanted ? 'true' : 'false');
     micBtn.setAttribute('aria-label', voice.wanted ? 'Arrêter le micro' : 'Répondre à voix haute');
     let text = '';
-    if (voice.starting) text = voice.pct !== null && voice.pct < 100 ? frTypo('Téléchargement du moteur : ') + voice.pct + NNBSP + '%' : 'Préparation du micro… 🎙️';
+    /* attente du moteur vocal : une phrase d'enfant, plus de « Téléchargement du moteur » (D1-10) */
+    if (voice.starting) {
+      text = voice.pct === null ? 'Préparation du micro… 🎙️'
+        : voice.pct < 99 ? frTypo('Je me prépare à t’écouter… ') + voice.pct + NNBSP + '%' : frTypo('Presque prêt…');
+    }
     else if (voice.on) {
       if (!voiceOk) text = '🎤 Micro en pause';
       else if (voice.heard !== null) text = '👂 ' + L.heardLabel(voice.heard);
@@ -701,6 +733,7 @@ function createTables(root, ctx) {
   }
   async function startVoice() {
     if (!voice.supported || voice.wanted || !alive) return;
+    hush();                                       /* le micro n'entend que l'enfant : le compagnon se tait */
     voice.wanted = true; voice.starting = true; voice.pct = null; voice.err = '';
     stopClip();
     renderVoice();
@@ -720,6 +753,7 @@ function createTables(root, ctx) {
       return;
     }
     voice.on = true;
+    hush();                                       /* au cas où une phrase courrait encore : le micro écoute */
     /* le temps de chargement du micro ne compte pas dans la vitesse de réponse */
     if (cur && !cur.resolved && cur.tries === 0) cur.t0 = nowMs();
     resetVoiceForItem();
@@ -736,11 +770,14 @@ function createTables(root, ctx) {
   }
   function showVoiceProblem(msg) {
     voice.err = msg;
-    if (cur && !cur.resolved && !cur.locked && !cur.hintShown) showBubble(msg, 'soft', '🎙️');
+    if (cur && !cur.resolved && !cur.locked && !cur.hintShown) { showBubble(msg, 'soft', '🎙️'); say(msg); }
   }
-  function onVoiceError(_code, msg) {
+  /* micro impossible (refusé, absent, hors ligne…) : une phrase pour l'enfant, le pavé reste là (D4-04) ; la marche
+     à suivre pour l'adulte est dans la course (aide pour l'adulte) */
+  function onVoiceError(code, msg) {
     if (!alive) return;
-    const text = frTypo(msg || 'Le micro n’a pas démarré 😕');
+    const t = safe(() => ctx.mic.trouble(code));
+    const text = t && t.hard ? t.title + ' ' + frTypo('Tape la réponse avec les touches.') : frTypo(msg || 'Le micro n’a pas démarré 😕');
     if (voice.err === text) return;
     stopVoice();
     showVoiceProblem(text);
@@ -809,6 +846,7 @@ function createTables(root, ctx) {
   function destroy() {
     if (!alive) return;
     alive = false;
+    hush();
     for (const id of timers) clearTimeout(id);
     timers.clear();
     if (world.raf) { try { cancelAnimationFrame(world.raf); } catch (_) {} world.raf = 0; }

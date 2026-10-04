@@ -1333,10 +1333,9 @@ const SUB_HELP = {
   cassage: 'Par cassage : on « casse » une dizaine (ou une centaine) du nombre du haut ; on barre le chiffre de la colonne suivante et on écrit au-dessus ce chiffre moins 1, et le chiffre du haut gagne 10.'
 };
 /* lecture des consignes à voix haute (contrat partagé avec les jeux) : 'auto' (CP-CE1) · 'on' · 'off' ; défaut 'auto'.
-   Réglage MASQUÉ tant qu'aucun jeu ne lit ses consignes (lecture à voix haute dans les jeux : 2.2, constat d'audit
-   D1-02) : un réglage sans effet promettrait aux parents une lecture qui n'existe pas. settings.readAloud reste dans
-   les données et les sauvegardes ; passer READ_ALOUD_READY à true quand les jeux l'appliqueront. */
-const READ_ALOUD_READY = false;
+   Affiché depuis la 2.2 : la voix des petits lecteurs (js/ui/voice.js, ctx.voice) lit la question, l'indice et le bilan
+   (constat d'audit D1-02). En 2.1 il était masqué, faute de lecture dans les jeux (tests/parents.test.mjs le vérifie). */
+const READ_ALOUD_READY = true;
 const READ_ALOUD = ['auto', 'on', 'off'];
 const readAloudOf = s => (READ_ALOUD.includes(s && s.readAloud) ? s.readAloud : s && s.readAloud === true ? 'on' : s && s.readAloud === false ? 'off' : 'auto');
 function settingsCard(p) {

@@ -17,6 +17,13 @@
    - cycle de vie de la manche : rapport de course à l'arrivée → question → ctx.end({ stay: true }) →
      résultats → Revanche / Suite / Histoires (ctx.again) ou « Continuer la balade » (ctx.leave).
    Aucune écriture directe : tout passe par ctx.report / ctx.end (la manche persiste).
+   v2.2 :
+   - micro impossible (refusé, absent, hors ligne au 1er lancement, navigateur sans reconnaissance) : écran « micro »
+     (compagnon, une phrase pour l'enfant, « Changer de jeu ➜ » = ctx.changeGame, « Aide pour l'adulte » = marche à
+     suivre adaptée à l'appli installée, puis « Réessayer 🎤 ») ; permission déjà refusée → cet écran tout de suite
+     (D1-01, D4-04). Le moteur (speech.js, course-engine.js) n'est pas touché : seul l'affichage de ses erreurs change ;
+   - attente du moteur : « Je me prépare à t'écouter… » et une jauge, plus de « Téléchargement du moteur » (D1-10) ;
+   - balade : après les résultats, « Étape suivante ▶ » lance l'étape suivante (comme le bilan des autres jeux).
    Styles : css/games/course.css (préfixe .cr-). */
 
 import { h, clear, frTypo, buzz } from '../core/util.js';
@@ -49,8 +56,23 @@ const TXT = {
   on: frTypo('Je t’écoute… lis l’histoire ! 🎧'),
   deaf: frTypo('Je ne t’entends pas 🤔 Parle plus fort, tout près du téléphone !'),
   fail: frTypo('Le micro n’a pas démarré 😕 Touche-le pour réessayer.'),
-  dl: p => frTypo('Téléchargement du moteur : ') + p + NNBSP + '%'
+  /* attente du moteur vocal (1er téléchargement, ≈ 45 Mo) : une phrase d'enfant, la jauge montre l'avancée (D1-10) */
+  dl: p => (p < 99 ? frTypo('Je me prépare à t’écouter… ') + p + NNBSP + '%' : frTypo('Presque prêt…'))
 };
+const DL_HEAD = 'Je me prépare';
+const isDlText = t => String(t).startsWith(DL_HEAD) || t === TXT.dl(100);
+/* erreurs du micro sans remède pour l'enfant : écran « micro » (le réseau seulement avant le moindre mot entendu ;
+   ensuite, comme en v11, le message s'affiche sous le micro et la reconnaissance se relance) */
+const MIC_HARD = new Set(['not-allowed', 'service-not-allowed', 'audio-capture', 'unsupported', 'language-not-supported']);
+const isHard = (code, r) => MIC_HARD.has(code) || (code === 'network' && !(r && r.st && r.st.gotAnyResult));
+/* statut du moteur (js/core/speech.js) en mots d'enfant : seulement pendant qu'il se prépare */
+function childStatus(t) {
+  const s = String(t || '');
+  const m = /(\d+)\s*%/.exec(s);
+  if (/téléchargement/i.test(s) && m) return TXT.dl(Number(m[1]));
+  if (/chargement/i.test(s)) return frTypo('Je me prépare à t’écouter…');
+  return '';
+}
 
 let inst = null;
 
@@ -71,7 +93,8 @@ export default {
 function createCourse(root, ctx) {
   let alive = true;
   let race = null;              /* course ouverte (puis question et résultats de cette course) */
-  let sheet = null;             /* feuille « le passage » ouverte */
+  let sheet = null;             /* feuille ouverte (« le passage », aide pour l'adulte) */
+  let micSaid = false;          /* l'écran « micro » a confié sa phrase à la voix (🔊 à vider ensuite) */
   const timers = new Set();     /* minuteries de l'instance (vidées au démontage) */
   const cleanups = new Set();   /* nettoyage de la vue courante (écouteurs) */
   const box = h('div', { class: 'cr' });
@@ -103,9 +126,11 @@ function createCourse(root, ctx) {
   /* Zip adaptatif : MCLM du profil, sinon cible de l'histoire ; borné par la cible de fin d'année de la classe */
   const zipFor = (s, p = prof()) => E.adaptiveZip(p && p.mclm, s.target, mclmTarget(p && p.classe));
   const zipText = z => frTypo('🦋 Zip : ') + z + ' mots/min';
+  const ico = e => h('span', { 'aria-hidden': 'true' }, e);
   const starsLabel = n => (n === 0 ? 'pas encore d’étoile' : n === 1 ? '1 étoile sur 3' : n + ' étoiles sur 3');
+  /* trois étoiles de même forme : les éteintes sont grisées en CSS (D3-18) */
   const starRow = (n, cls) => h('span', { class: cls, 'aria-hidden': 'true' },
-    [0, 1, 2].map(i => h('span', { class: i < n ? 'on' : 'off' }, i < n ? '⭐' : '☆')));
+    [0, 1, 2].map(i => h('span', { class: i < n ? 'on' : 'off' }, '⭐')));
   const worldOf = id => { const i = storyIndex(id); return WORLDS.find(w => i >= w.from && i <= w.to) || null; };
 
   function setView(kind) {
@@ -141,8 +166,9 @@ function createCourse(root, ctx) {
       h('div', { class: 'cr-intro-txt' },
         h('p', { class: 'cr-intro-title' }, frTypo('Lis une histoire à voix haute et bats Zip le papillon 🦋 !')),
         h('div', { class: 'cr-chips' },
-          h('span', { class: 'cr-chip', 'aria-label': total + (total > 1 ? ' étoiles gagnées' : ' étoile gagnée') }, '⭐ ' + total),
-          adaptive ? h('span', { class: 'cr-chip is-zip' }, zipText(zipFor(STORIES[0], p))) : null)));
+          h('span', { class: 'cr-chip', role: 'img', 'aria-label': total + (total > 1 ? ' étoiles gagnées' : ' étoile gagnée') }, '⭐ ' + total),
+          adaptive ? h('span', { class: 'cr-chip is-zip', role: 'img', 'aria-label': 'Zip le papillon court à ' + zipFor(STORIES[0], p) + ' mots par minute' },
+            zipText(zipFor(STORIES[0], p))) : null)));
 
     const navBtns = new Map();
     const nav = h('nav', { class: 'cr-nav', 'aria-label': 'Les mondes' });
@@ -157,14 +183,15 @@ function createCourse(root, ctx) {
       navBtns.set(w.id, btn);
       nav.appendChild(btn);
       const grid = h('div', { class: 'cr-cards' }, list.map(s => {
-        const c = storyCard(s, p, have);
+        const c = storyCard(s, p, have, adaptive);
         cards.set(s.id, c);
         return c;
       }));
       const sec = h('section', { class: 'cr-world', 'data-world': w.id, 'aria-label': w.name },
         h('div', { class: 'cr-world-head' },
-          h('h2', { class: 'cr-world-title' }, w.label),
-          h('span', { class: 'cr-world-stars', 'aria-label': got + ' étoiles sur ' + list.length * 3 }, '⭐ ' + got + ' / ' + list.length * 3)),
+          h('h2', { class: 'cr-world-title' }, w.name, ' ', ico(w.emoji)),
+          h('span', { class: 'cr-world-stars', role: 'img', 'aria-label': got + (got > 1 ? ' étoiles gagnées' : ' étoile gagnée') + ' sur ' + list.length * 3 },
+            '⭐ ' + got + ' / ' + list.length * 3)),
         grid);
       sections.set(w.id, sec);
       return sec;
@@ -174,8 +201,9 @@ function createCourse(root, ctx) {
     const scroller = h('div', { class: 'cr-list-scroll' }, intro, navWrap, worlds, status);
     v.appendChild(scroller);
 
-    /* statut du moteur vocal (rempli dès qu'une histoire a été ouverte) */
-    const off = safe(() => ctx.speech.onStatus(t => { status.textContent = t ? frTypo(t) : ''; }));
+    /* statut du moteur vocal en mots d'enfant, seulement pendant qu'il se prépare (rempli dès qu'une histoire a été
+       ouverte) ; l'état détaillé du moteur est dans l'espace parents */
+    const off = safe(() => ctx.speech.onStatus(t => { status.textContent = childStatus(t); }));
     if (typeof off === 'function') cleanups.add(off);
 
     /* monde courant mis en évidence dans la barre des mondes */
@@ -214,7 +242,9 @@ function createCourse(root, ctx) {
     if (focusId && cards.get(focusId)) later(() => ctx.motion.pop(cards.get(focusId), { scale: 1.04 }), 420);
   }
 
-  function storyCard(s, p, have) {
+  /* adaptive : Zip suit déjà la vitesse de l'enfant (même allure pour toutes les histoires, dite une fois en haut) →
+     la ligne Zip n'est répétée sur les cartes que tant qu'aucune lecture n'a été mesurée (D1-23) */
+  function storyCard(s, p, have, adaptive) {
     const title = fill(s.title);
     if (isUnlocked(s, p)) {
       const n = starsOf(p, s);
@@ -224,7 +254,7 @@ function createCourse(root, ctx) {
         h('span', { class: 'cr-card-emoji', 'aria-hidden': 'true' }, s.emoji),
         h('span', { class: 'cr-card-mid' },
           h('span', { class: 'cr-card-title' }, title),
-          h('span', { class: 'cr-card-sub' }, zipText(zipFor(s, p)))),
+          adaptive ? null : h('span', { class: 'cr-card-sub' }, zipText(zipFor(s, p)))),
         starRow(n, 'cr-card-stars'));
     }
     const need = Math.max(1, s.need - have);
@@ -234,7 +264,7 @@ function createCourse(root, ctx) {
       h('span', { class: 'cr-card-emoji', 'aria-hidden': 'true' }, s.emoji),
       h('span', { class: 'cr-card-mid' },
         h('span', { class: 'cr-card-title' }, title),
-        h('span', { class: 'cr-card-sub' }, 'Encore ' + need + ' ⭐ pour débloquer')),
+        h('span', { class: 'cr-card-sub' }, 'Encore ' + need + NBSP + '⭐ pour débloquer')),
       h('span', { class: 'cr-card-lock', 'aria-hidden': 'true' }, '🔒'));
     return card;
   }
@@ -249,6 +279,7 @@ function createCourse(root, ctx) {
     const st = E.createRace(text, { mountNoun: m.M.noun, oov: OOV });
     if (!st.target.length) { showList(); return; }
     const v = setView('race');
+    if (micSaid) { micSaid = false; safe(() => ctx.voice.say('')); }    /* 🔊 ne relit plus la phrase de l'écran « micro » */
     const r = race = {
       s, text, st, item: item || itemFor(s), zip: zipFor(s, p), m, size: wide() ? 72 : 46,
       timers: { race: 0, noResult: 0, finish: 0, quiz: 0 }, wake: null, starting: false, done: false,
@@ -265,16 +296,20 @@ function createCourse(root, ctx) {
     const mic = h('button', { type: 'button', class: 'cr-mic', 'aria-label': 'Micro : commencer à lire', 'aria-pressed': 'false',
       on: { click: () => micTap(r) } }, h('span', { 'aria-hidden': 'true' }, '🎤'));
     const label = h('p', { class: 'cr-mic-label' }, TXT.idle);
+    /* jauge du 1er téléchargement du moteur (D1-10) : visible seulement pendant l'attente */
+    const dlFill = h('span', { class: 'cr-dl-fill' });
+    const dlBar = h('span', { class: 'cr-dl', role: 'progressbar', 'aria-label': 'Je me prépare à t’écouter', 'aria-valuemin': '0', 'aria-valuemax': '100', hidden: true }, dlFill);
     const heard = h('p', { class: 'cr-heard', 'aria-hidden': 'true' });
     const change = ctx.mode === 'balade' ? null
       : h('button', { type: 'button', class: 'cr-change', on: { click: () => { ctx.audio.tap(); showList(s.id); } } },
         h('span', { 'aria-hidden': 'true' }, '📚'), 'Changer d’histoire');
     if (change) heard.hidden = true;
-    const bar = h('div', { class: 'cr-bar' }, mic, h('div', { class: 'cr-bar-txt' }, label, heard, change));
+    const bar = h('div', { class: 'cr-bar' }, mic, h('div', { class: 'cr-bar-txt' }, label, dlBar, heard, change));
 
     /* piste, infos, texte */
     const track = buildTrack(r);
-    const streak = h('span', { class: 'cr-streak' }, frTypo('🔥 série : 0'));
+    /* combo ⚡ (mots lus d'affilée) : 🔥 est réservé aux jours de suite (D4-12) */
+    const streak = h('span', { class: 'cr-streak', role: 'img', 'aria-label': 'Combo : 0' }, '⚡ 0');
     const timer = h('span', { class: 'cr-timer' }, '⏱ 0' + NNBSP + 's');
     const zip = h('span', { class: 'cr-zip' }, zipText(r.zip));
     const info = h('div', { class: 'cr-info' }, streak, timer, zip);
@@ -288,7 +323,7 @@ function createCourse(root, ctx) {
     const done = h('button', { type: 'button', class: 'btn cr-done', hidden: true, on: { click: () => finishRace(r) } }, 'J’ai fini ✓');
     const textWrap = h('div', { class: 'cr-textwrap' }, textEl, done);
     v.append(bar, track, info, textWrap);
-    Object.assign(r.els, { mic, label, heard, change, track, streak, timer, zip, text: textEl, done });
+    Object.assign(r.els, { mic, label, dlBar, dlFill, heard, change, track, streak, timer, zip, text: textEl, done });
 
     /* le moteur se prépare dès l'ouverture de l'histoire (v11 : openStory → ensureVosk) */
     try {
@@ -296,11 +331,16 @@ function createCourse(root, ctx) {
         if (!alive || race !== r || r.st.running) return;
         r.dlShown = true;
         setLabel(r, TXT.dl(pct));
+        showDl(r, pct);
       });
       if (pr && typeof pr.then === 'function') pr.then(() => {
-        if (alive && race === r && r.dlShown && !r.st.running && !r.starting && !r.done) setLabel(r, TXT.idle);
-      }, () => {});
+        if (!alive || race !== r) return;
+        showDl(r, null);
+        if (r.dlShown && !r.st.running && !r.starting && !r.done) setLabel(r, TXT.idle);
+      }, () => { if (alive && race === r) showDl(r, null); });
     } catch (_) {}
+    /* permission du micro déjà refusée, ou aucune reconnaissance possible ici : l'écran « micro » tout de suite */
+    precheckMic().then(code => { if (code && alive && race === r && !r.st.running && !r.starting && !r.done) showMicProblem(r, code); });
 
     renderText(r);
     scrollToCurrent(r, false);
@@ -344,6 +384,16 @@ function createCourse(root, ctx) {
     return track;
   }
 
+  /* jauge du téléchargement : pct 0-100, null = masquée */
+  function showDl(r, pct) {
+    const bar = r.els.dlBar;
+    if (!bar) return;
+    if (pct === null || r.st.running) { bar.hidden = true; return; }
+    const v = Math.max(0, Math.min(100, Math.round(Number(pct) || 0)));
+    bar.hidden = false;
+    bar.setAttribute('aria-valuenow', String(v));
+    r.els.dlFill.style.transform = 'scaleX(' + (v / 100).toFixed(3) + ')';
+  }
   function setLabel(r, t) {
     const l = r.els.label;
     if (!l) return;
@@ -419,6 +469,8 @@ function createCourse(root, ctx) {
   async function micTap(r) {
     if (!alive || race !== r || r.done || r.st.running || r.starting) return;
     r.starting = true;
+    r.micErr = '';
+    safe(() => ctx.voice.hush());                     /* le micro n'entend que l'enfant : le compagnon se tait */
     ctx.audio.beep(660, 0.06);
     setLabel(r, TXT.prep);
     r.els.mic.setAttribute('aria-busy', 'true');
@@ -429,6 +481,12 @@ function createCourse(root, ctx) {
         onText: t => ingest(r, t),
         onError: (code, msg) => {
           if (!alive || race !== r) return;
+          r.micErr = String(code || '');
+          /* micro impossible : écran « micro » (au démarrage, une fois startListening revenu) */
+          if (isHard(r.micErr, r)) {
+            if (r.st.running) { stopAll(r); showMicProblem(r, r.micErr); }
+            return;
+          }
           const t = msg ? frTypo(msg) : TXT.fail;
           if (r.els.label.textContent !== t) { setLabel(r, t); ctx.announce(t); }
         }
@@ -438,10 +496,12 @@ function createCourse(root, ctx) {
     if (!alive || race !== r) return;
     r.els.mic.removeAttribute('aria-busy');
     if (!res || !res.engine) {
+      if (r.micErr && isHard(r.micErr, r)) { showMicProblem(r, r.micErr); return; }
       const t = r.els.label.textContent;
-      if (t === TXT.prep || t === TXT.idle || /^Téléchargement/.test(t)) { setLabel(r, TXT.fail); ctx.announce(TXT.fail); }
+      if (t === TXT.prep || t === TXT.idle || isDlText(t)) { setLabel(r, TXT.fail); ctx.announce(TXT.fail); }
       return;
     }
+    showDl(r, null);
     r.st.running = true;
     setLabel(r, TXT.on);
     ctx.announce(TXT.on);
@@ -460,6 +520,72 @@ function createCourse(root, ctx) {
     r.timers.race = setInterval(() => tickZip(r), 250);
     renderText(r);
     ctx.motion.enter(r.els.done, { from: 'scale', dur: 300 });
+  }
+
+  /* ======================= MICRO IMPOSSIBLE (D1-01, D4-04) =======================
+     Refusé, absent, hors ligne au 1er lancement, navigateur sans reconnaissance : rien que l'enfant puisse réparer.
+     UN écran simple : le compagnon, une phrase (dite aux petits lecteurs), « Changer de jeu ➜ » (balade : l'étape prend
+     un autre jeu ; libre : choix d'un autre jeu), « Aide pour l'adulte » (marche à suivre, vouvoiement, puis
+     « Réessayer 🎤 »). */
+  async function precheckMic() {
+    try { if (ctx.speech && typeof ctx.speech.speechSupported === 'function' && !ctx.speech.speechSupported()) return 'unsupported'; } catch (_) {}
+    try {
+      const pm = globalThis.navigator && globalThis.navigator.permissions;
+      if (!pm || typeof pm.query !== 'function') return '';
+      const st = await pm.query({ name: 'microphone' });
+      return st && st.state === 'denied' ? 'not-allowed' : '';
+    } catch (_) { return ''; }
+  }
+  function showMicProblem(r, code) {
+    if (!alive || !r) return;
+    const s = r.s, item = r.item;
+    if (race === r) endRace();
+    const v = setView('nomic');
+    const t = ctx.mic.trouble(code);
+    ctx.setTitle(fill(s.title));
+    ctx.onJoker(() => { ctx.kit.toast(t.sub); return false; });
+    const pet = h('div', { class: 'cr-mic-pet', 'aria-hidden': 'true', html: ctx.petSVG(wide() ? 132 : 112, 'sad') });
+    const go = h('button', { type: 'button', class: 'btn play block cr-mic-go' },
+      h('span', null, 'Changer de jeu'), h('span', { class: 'btn-play-ico', 'aria-hidden': 'true' }, '➜'));
+    go.addEventListener('click', () => { ctx.audio.tap(); ctx.changeGame(); });
+    const adult = h('button', { type: 'button', class: 'btn white block cr-mic-adult' }, ico('🧑'), ' Aide pour l’adulte');
+    adult.addEventListener('click', () => {
+      ctx.audio.tap();
+      closeSheet();
+      const api = ctx.mic.help(code, {
+        onRetry: () => { if (!alive) return; openStory(s, item); if (race) micTap(race); },
+        onClose: () => { if (sheet === api) sheet = null; }
+      });
+      sheet = api;
+    });
+    const card = h('div', { class: 'cr-mic-card', role: 'group', 'aria-labelledby': 'cr-mic-title' },
+      pet,
+      h('h2', { class: 'cr-mic-title', id: 'cr-mic-title' }, t.title),
+      h('p', { class: 'cr-mic-sub' }, t.sub),
+      h('div', { class: 'cr-mic-btns' }, go, adult));
+    v.appendChild(card);
+    ctx.motion.enter(card, { from: 'scale', dur: 320 });
+    ctx.audio.soft();
+    /* dit et annoncé sans l'emoji du titre, avec un vrai point entre les deux phrases */
+    const spoken = t.title.replace(/[\s\u202f]*[\p{Extended_Pictographic}\uFE0F]+$/u, '') + '. ' + t.sub;
+    ctx.announce(spoken);
+    micSaid = true;
+    safe(() => ctx.voice.say(spoken));
+    safe(() => go.focus({ preventScroll: true }));
+    /* l'adulte autorise le micro dans les réglages : au retour, l'histoire revient toute seule, prête à lire */
+    if (code === 'not-allowed') {
+      try {
+        const pm = globalThis.navigator && globalThis.navigator.permissions;
+        if (pm && typeof pm.query === 'function') {
+          pm.query({ name: 'microphone' }).then(perm => {
+            if (!alive || !perm || box.dataset.view !== 'nomic' || typeof perm.addEventListener !== 'function') return;
+            const back = () => { if (perm.state !== 'denied' && alive && box.dataset.view === 'nomic') openStory(s, item); };
+            perm.addEventListener('change', back);
+            cleanups.add(() => { try { perm.removeEventListener('change', back); } catch (_) {} });
+          }, () => {});
+        }
+      } catch (_) {}
+    }
   }
 
   /* ---------- ce que le moteur entend (ingest v11) ---------- */
@@ -481,7 +607,8 @@ function createCourse(root, ctx) {
     for (const f of fx) {
       switch (f.t) {
         case 'streak':
-          r.els.streak.textContent = frTypo('🔥 série : ' + f.n);
+          r.els.streak.textContent = '⚡ ' + f.n;
+          r.els.streak.setAttribute('aria-label', 'Combo : ' + f.n);
           r.els.spark.style.display = f.n >= 5 ? 'block' : 'none';
           break;
         case 'move': moveActor(r, 'pony', f.pct); trot(r); break;
@@ -783,7 +910,7 @@ function createCourse(root, ctx) {
     ctx.onJoker(() => { ctx.kit.toast(frTypo('Tu as fini cette course, bravo ! 🎉')); return false; });
 
     const starsEl = h('div', { class: 'cr-res-stars', role: 'img', 'aria-label': stars + (stars > 1 ? ' étoiles' : ' étoile') + ' sur 3' },
-      [0, 1, 2].map(i => h('span', { class: i < stars ? 'on' : 'off', 'aria-hidden': 'true' }, i < stars ? '⭐' : '☆')));
+      [0, 1, 2].map(i => h('span', { class: i < stars ? 'on' : 'off', 'aria-hidden': 'true' }, '⭐')));
     const msgTxt = stars === 3 ? frTypo('🎉 Course parfaite ! ' + m.name + ' est super ' + (fem ? 'fière' : 'fier') + ' de toi !')
       : stars === 2 ? frTypo('💪 Très belle lecture ! Bats Zip pour la 3e étoile.')
         : frTypo('🌱 Bon début ! Relis cette histoire pour rattraper Zip.');
@@ -798,20 +925,21 @@ function createCourse(root, ctx) {
     const qApples = r.quiz && r.quiz.fb && Number.isFinite(r.quiz.fb.apples) ? r.quiz.fb.apples : 0;
     const gain = raceApples + qApples;
     let applesTxt = '🍎 +' + gain + (gain > 1 ? ' pommes' : ' pomme');
+    /* série : même formule que le bilan des autres jeux (« 1 j » était opaque : D1-25, D4-09) */
     const bonus = Math.max(0, Math.trunc(Number(summary.streakBonus)) || 0);
     if (bonus) {
-      applesTxt += Number.isFinite(summary.streakCount) && summary.streakCount > 0
-        ? ' · 🔥 série de ' + summary.streakCount + NBSP + 'j : +' + bonus + ' 🍎'
-        : ' · 🔥 série : +' + bonus + ' 🍎';
+      const c = Number.isFinite(summary.streakCount) ? summary.streakCount : 0;
+      applesTxt += ' · ' + (c > 1 ? '🔥 ' + c + ' jours de suite : +' : '🔥 Premier jour de ta série : +') + bonus + NBSP + '🍎';
     }
     const dayBonus = Math.max(0, Math.trunc(Number(summary.dayBonus)) || 0);
     const dayTxt = summary.dayDone ? frTypo('🗺️ Ta balade du jour est finie !' + (dayBonus ? ' +' + dayBonus + ' 🍎' : '')) : '';
     const mclmV = h('div', { class: 'cr-stat-v' }, '0');
     const stat = (val, lbl) => h('div', { class: 'cr-stat' }, val, h('div', { class: 'cr-stat-l' }, lbl));
+    /* ce qui a été réussi, jamais une note (ni pourcentage ni « 4 / 6 ») : CDC §16, D4-09 */
     const stats = h('div', { class: 'cr-stats' },
       stat(mclmV, 'mots / minute'),
-      stat(h('div', { class: 'cr-stat-v' }, res.precision + NNBSP + '%'), 'précision'),
-      stat(h('div', { class: 'cr-stat-v' }, res.evald ? res.okp + ' / ' + res.evald : '—'), 'sauts d’obstacles ⏸'));
+      res.correct > 0 ? stat(h('div', { class: 'cr-stat-v' }, String(res.correct)), res.correct > 1 ? 'mots bien lus' : 'mot bien lu') : null,
+      res.okp > 0 ? stat(h('div', { class: 'cr-stat-v' }, ico('⏸'), String(res.okp)), res.okp > 1 ? 'pauses bien placées' : 'pause bien placée') : null);
     const pauses = res.pausesMsg === 'expressive' ? frTypo('🎭 Lecture expressive, bravo !')
       : res.pausesMsg === 'astuce' ? frTypo('Astuce : respire aux virgules et aux points pour sauter les obstacles 😊') : '';
     const newly = r.newly || [];
@@ -841,8 +969,12 @@ function createCourse(root, ctx) {
       actions = [h('button', { type: 'button', class: 'btn big wide', on: { click: () => { ctx.audio.tap(); nextBaladeStory(); } } },
         frTypo('Histoire suivante ➜'))];
     } else if (balade) {
-      actions = [h('button', { type: 'button', class: 'btn big wide', on: { click: () => { ctx.audio.tap(); ctx.leave(); } } },
-        frTypo('Continuer la balade ➜'))];
+      /* comme le bilan des autres jeux : « Étape suivante ▶ » lance l'étape suivante ; balade finie → « Accueil 🏠 » */
+      const q = prof();
+      const plan = q && q.today && Array.isArray(q.today.blocks) ? q.today : null;
+      const goOn = !summary.dayDone && !!plan && !plan.done && plan.blocks.some(b => b && !b.done);
+      actions = [h('button', { type: 'button', class: 'btn play wide cr-next', on: { click: () => { ctx.audio.tap(); ctx.nextStep(); } } },
+        h('span', null, goOn ? 'Étape suivante' : 'Accueil'), h('span', { class: 'btn-play-ico', 'aria-hidden': 'true' }, goOn ? '▶' : '🏠'))];
     } else {
       const next = nextUnlocked(r.s);
       actions = [

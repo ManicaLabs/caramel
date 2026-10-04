@@ -237,8 +237,8 @@ test('vitesse du monde : zen, chrono (2 × autoMs), freinage doux, accélératio
   assert.ok(t < 3, 'zen : arrivée rapide (' + t.toFixed(2) + ' s)');
 });
 
-test('combo : « 🔥 N » à partir de 2 réussites de suite', () => {
+test('combo : « ⚡ N » à partir de 2 réussites de suite (🔥 = jours de suite)', () => {
   assert.equal(comboLabel(0), '');
   assert.equal(comboLabel(1), '');
-  assert.equal(comboLabel(3), '\u{1F525}\u{a0}3');
+  assert.equal(comboLabel(3), '\u{26A1}\u{a0}3');
 });

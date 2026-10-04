@@ -235,7 +235,7 @@ export const BATTLE = Object.freeze({
   TRACK: 150                 /* ligne d'arrivée de la piste = manches × 150 points */
 });
 export const CHALLENGES = Object.freeze([
-  { id: 'tables', icon: '✖️', title: 'Tables', blurb: 'Tables et petits calculs', axes: ['ma.faits'] },
+  { id: 'tables', icon: '🏇', title: 'Tables', blurb: 'Tables et petits calculs', axes: ['ma.faits'] },
   { id: 'calcul', icon: '⚡', title: 'Calcul éclair', blurb: 'Du calcul mental malin', axes: ['ma.procedures'] },
   { id: 'conjug', icon: '🎻', title: 'Conjugaison', blurb: 'Le bon verbe dans la phrase', axes: ['fr.conjug'] },
   { id: 'melange', icon: '🎲', title: 'Mélange', blurb: 'Un peu de tout !', axes: ['ma.faits', 'ma.procedures', 'fr.conjug'] }

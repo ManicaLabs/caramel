@@ -86,9 +86,12 @@ function initialRoute(store, hash = location.hash) {
 let pendingUpdate = null;                 /* geste à faire pour basculer sur la nouvelle version */
 let bar = null;
 
+/* jamais pendant un jeu, un défi, l'arrivée d'un enfant ni la saisie d'une fiche : le bandeau, inséré en haut de la page,
+   décalerait l'écran sous le doigt (l'espace parents le garde : c'est l'adulte qui accepte la mise à jour) */
+const BUSY_ROUTES = ['play', 'battle', 'onboarding', 'welcome', 'import'];
 function renderBar() {
   const route = router.current();
-  const show = !!pendingUpdate && !(route && (route.name === 'play' || route.name === 'battle'));   /* jamais pendant un jeu ni un défi */
+  const show = !!pendingUpdate && !(route && BUSY_ROUTES.includes(route.name));
   if (!show) { if (bar) bar.hidden = true; return; }
   if (!bar) {
     bar = document.createElement('button');

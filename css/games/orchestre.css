@@ -173,13 +173,13 @@
   display: inline-flex; align-items: baseline; gap: 6px; padding: 1px 12px 2px; border-radius: var(--r-pill);
   background: var(--pink-50); border: 2px solid var(--pink-200); color: var(--pink-800);
 }
-.orc-verb-k { font-size: .74rem; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; color: var(--ink-3); }
+.orc-verb-k { font-size: .82rem; font-weight: 600; color: var(--ink-3); }   /* minuscules (D3-12) */
 .orc-verb b { font-size: 1.12rem; font-weight: 700; }
 .orc-model {
   margin-top: 7px; padding: 5px 10px; border-radius: var(--r-s); background: var(--panel-bg);
   border: 2px dashed var(--panel-line); font-size: 1.08rem; line-height: 1.35; color: var(--ink-2);
 }
-.orc-model-k { font-family: var(--font-ui); font-weight: 700; font-size: .74rem; letter-spacing: .5px; text-transform: uppercase; color: var(--ink-3); }
+.orc-model-k { font-family: var(--font-ui); font-weight: 700; font-size: .82rem; color: var(--ink-3); }
 .orc-sentence {
   margin-top: 8px; font-size: 1.6rem; line-height: 1.5; color: var(--ink);
   overflow-wrap: break-word; text-wrap: pretty;
@@ -293,6 +293,9 @@
   .orc-staff { width: 100%; }
   .orc-stage { max-height: none; }
   .orc-sentence { font-size: 1.75rem; }
+  /* PC : la phrase, l'aide et les choix restent groupés (place de la bulle réservée : rien ne saute), D3-15 */
+  .orc-help, .orc-help:empty { display: flex; min-height: 136px; justify-content: flex-start; }
+  .orc-bottom { margin-top: 12px; }
 }
 @media (hover: hover) and (pointer: fine) {
   .orc-grid .choice:hover:not(:disabled) { border-color: var(--pink-400); }

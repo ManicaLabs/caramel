@@ -10,7 +10,7 @@
    - Rappels quotidiens (periodicsync 'caramel-daily', enregistré par js/core/notifs.js) et notificationclick. */
 
 /* ASSETS:START */
-const VERSION = '2.1.0';
+const VERSION = '2.2.0';
 const ASSETS = [
   'index.html',
   'manifest.webmanifest',
@@ -116,7 +116,8 @@ const ASSETS = [
   'js/ui/radar-detect-worker.js',
   'js/ui/radar-detect.js',
   'js/ui/radar.js',
-  'js/ui/theme-picker.js'
+  'js/ui/theme-picker.js',
+  'js/ui/voice.js'
 ];
 /* ASSETS:END */
 

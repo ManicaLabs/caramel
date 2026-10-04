@@ -6,7 +6,9 @@
    Plan : session.ensureToday via store.mutateProfile. Lancement d'une étape :
    #/play/<jeu>?mode=balade&block=<i> ; bloc récompense sans jeu → choix parmi les jeux de la classe,
    sauf celui de l'étape précédente (jamais deux fois le même jeu de suite).
-   Exporte aussi STEP_KIND et stepInfo(), utilisés par la carte de l'accueil. */
+   « Un seul gros bouton » : l'accueil (« Jouer ▶ ») et le bilan (« Étape suivante ▶ ») lancent directement l'étape
+   en cours ; cette carte du pré reste l'aperçu de la journée (pierres = icônes des jeux, sans étiquettes) avec un
+   seul bouton. Exporte STEP_KIND, stepInfo(), currentStep(), launchStep() et openGamePicker() (accueil, bilan). */
 
 import { h, clear, dayStr, frTypo, loadCSS, svg } from '../core/util.js';
 import * as store from '../core/store.js';
@@ -42,6 +44,64 @@ const POS_KEY = 'caramel-balade-pos';
 const FETE_KEY = 'caramel-balade-fete';
 const ssGet = k => { try { return sessionStorage.getItem(k); } catch (_) { return null; } };
 const ssSet = (k, v) => { try { sessionStorage.setItem(k, v); } catch (_) {} };
+
+/* étape en cours du plan du jour : indice du premier bloc non fait (-1 : balade finie ou absente) */
+export function currentStep(profile, today = dayStr()) {
+  const plan = profile && profile.today;
+  if (!plan || plan.d !== today || !Array.isArray(plan.blocks) || !plan.blocks.length || plan.done) return -1;
+  return plan.blocks.findIndex(b => !b.done);
+}
+
+/* feuille « Choisis ton jeu » : tuiles (icône + nom court), aucune description ; exclude = jeu(x) à éviter
+   (jamais deux fois le même jeu de suite ; jeu remplacé faute de micro) ; onPick(id) appelé une fois la feuille
+   refermée ; onCancel(raison) si l'enfant la referme sans choisir (croix, fond, glissé, Échap) → api de la feuille */
+export function openGamePicker({ title = 'Choisis ton jeu', exclude = null, onPick, onCancel } = {}) {
+  const q = store.getProfile();
+  if (!q) return null;
+  const skip = new Set([].concat(exclude || []).filter(Boolean));
+  const list = gamesFor(q.classe).filter(g => !skip.has(g.id));
+  const grid = h('div', { class: 'bl-pick' });
+  let s = null;
+  for (const g of list) {
+    const t = h('button', { type: 'button', class: 'bl-pick-tile', 'aria-label': fillTemplate(g.title, q) },
+      h('span', { class: 'bl-pick-ico', 'aria-hidden': 'true' }, g.icon),
+      h('span', { class: 'bl-pick-t', 'aria-hidden': 'true' }, fillTemplate(g.short || g.title, q)));
+    t.style.setProperty('--tint', 'var(--tile-' + g.id + ', ' + (g.tint || 'var(--card)') + ')');
+    t.addEventListener('click', () => {
+      audio.tap();
+      const go = () => { if (typeof onPick === 'function') onPick(g.id); };
+      if (s) s.close('action').then(go); else go();
+    });
+    grid.appendChild(t);
+  }
+  s = kit.sheet({
+    title: frTypo(title), content: grid, label: 'Choisis ton jeu',
+    onClose: reason => { if (!['action', 'nav', 'api'].includes(reason) && typeof onCancel === 'function') onCancel(reason); }
+  });
+  if (s && s.el) motion.stagger(grid.children, el => motion.enter(el, { from: 'scale', dur: 320 }), 40);
+  return s;
+}
+
+/* lance l'étape i de la balade du jour (jeu imposé, ou feuille de choix pour la récompense « au choix ») ;
+   from = écran de retour (#/home, #/balade) ; replace = remplacer l'entrée d'historique (enchaînement depuis le bilan)
+   → api de la feuille de choix, ou null */
+export function launchStep(i, { from = '#/home', replace = false, onCancel = null } = {}) {
+  const q = store.getProfile();
+  const plan = q && q.today;
+  const b = plan && Array.isArray(plan.blocks) ? plan.blocks[i] : null;
+  if (!b || b.done) return null;
+  const go = id => {
+    ssSet(FROM_KEY, from);
+    router.go('play/' + id, { query: { mode: 'balade', block: i }, replace });
+  };
+  if (!b.game) {
+    const prev = i > 0 && plan.blocks[i - 1] ? plan.blocks[i - 1].game : null;
+    return openGamePicker({ title: 'Choisis ton jeu 🎁', exclude: [prev, b.swapped], onPick: go, onCancel });
+  }
+  audio.whoosh();
+  go(b.game);
+  return null;
+}
 const depth = () => { try { return history.state && Number.isInteger(history.state.caramel) ? history.state.caramel : 0; } catch (_) { return 0; } };
 function leaveHome() {
   if (depth() > 0) router.back();
@@ -168,10 +228,10 @@ export default {
     /* ----- barre du haut ----- */
     const back = h('button', { type: 'button', class: 'back', 'aria-label': 'Retour à l’accueil' }, '←');
     back.addEventListener('click', () => { audio.tap(); leaveHome(); });
-    const min = (p.settings && p.settings.sessionMin) || 15;
+    /* un seul titre : la durée (réglage des parents) ne sert pas à l'enfant */
     const top = h('div', { class: 'topbar bl-top' }, back,
       h('h1', { class: 'topbar-title' }, 'Ma balade du jour'),
-      h('span', { class: 'chip bl-dur', 'aria-label': 'Environ ' + min + ' minutes' }, '⏱ ≈ ' + min + ' min'));
+      h('span', { class: 'bl-top-gap', 'aria-hidden': 'true' }));
 
     const screen = h('div', { class: 'screen bl' }, top);
     clear(root);
@@ -201,34 +261,32 @@ export default {
         svg('ellipse', { class: 'bl-stone-shadow', cx: 0, cy: 7, rx: 31, ry: 19 }),
         svg('ellipse', { class: 'bl-stone-top', cx: 0, cy: 0, rx: 31, ry: 21 }),
         svg('ellipse', { class: 'bl-stone-shine', cx: -9, cy: -8, rx: 10, ry: 4.5 }),
-        svg('text', { class: 'bl-stone-emo', x: 0, y: 7, 'text-anchor': 'middle' }, blocks[i].done ? '✓' : info.emoji));
+        /* icône du jeu (la même que sous le bouton de l'accueil) ; ✓ quand l'étape est faite */
+        svg('text', { class: 'bl-stone-emo', x: 0, y: 9, 'text-anchor': 'middle' }, blocks[i].done ? '✓' : info.icon));
       map.append(g);
       return g;
     });
 
-    /* étiquettes (HTML par-dessus le pré, positions en % du viewBox) */
+    /* pierres : un petit jeu au toucher (HTML transparent par-dessus le pré, positions en % du viewBox), aucune
+       étiquette à lire ; une pierre à venir ou déjà faite remue doucement, celle du jour lance l'étape comme « Jouer ▶ ».
+       Hors du clavier et des lecteurs d'écran : « Jouer ▶ » reste LA seule action de l'écran, et la liste des étapes
+       est lue une fois (stepsList, visuellement masquée) */
+    const stepText = [];
     const labels = L.pts.map((pt, i) => {
       const info = stepInfo(p, plan, i);
       const b = blocks[i];
       const state = b.done ? 'done' : (!plan.done && i === curIdx) ? 'now' : 'todo';
-      const right = pt.x < VW / 2;
-      const el = h('button', {
-        type: 'button', class: 'bl-label is-' + state + (right ? ' is-right' : ' is-left'),
-        style: {
-          top: (pt.y / VH * 100).toFixed(2) + '%',
-          [right ? 'left' : 'right']: ((right ? pt.x + 40 : VW - pt.x + 40) / VW * 100).toFixed(2) + '%'
-        },
-        'aria-label': 'Étape ' + (i + 1) + ', ' + info.label + ' : ' + (info.title || 'jeu au choix') +
-          (b.done ? ', terminée' : state === 'now' ? ', à faire maintenant' : ', plus tard')
-      },
-      h('span', { class: 'bl-k' }, h('span', { 'aria-hidden': 'true' }, info.emoji + ' '), info.label),
-      h('span', { class: 'bl-g' }, h('span', { class: 'bl-g-ico', 'aria-hidden': 'true' }, info.icon), h('span', { class: 'bl-g-t' }, info.title || 'Jeu au choix')),
-      b.done ? h('span', { class: 'bl-ok', 'aria-hidden': 'true' }, '✓') : null);
+      stepText.push('Étape ' + (i + 1) + ', ' + info.label + ' : ' + (info.title || 'jeu au choix') +
+        (b.done ? ', terminée' : state === 'now' ? ', à faire maintenant' : ', plus tard'));
+      const el = h('span', {
+        class: 'bl-hit is-' + state, 'aria-hidden': 'true',
+        style: { left: (pt.x / VW * 100).toFixed(2) + '%', top: (pt.y / VH * 100).toFixed(2) + '%' }
+      });
       if (state === 'now') el.addEventListener('click', () => start(i));
       else el.addEventListener('click', () => {
         audio.tap();
-        motion.shake(el, { dist: 3, dur: 300 });
-        kit.toast(b.done ? frTypo('Déjà fait, bravo ! ✓') : frTypo('Chaque chose en son temps : d’abord l’étape ' + (curIdx + 1) + ' !'));
+        motion.shake(b.done ? el : (labels[curIdx] || el), { dist: 3, dur: 300 });
+        if (!b.done) motion.squash(buddyPic, { amount: 0.8 });
       });
       return el;
     });
@@ -236,10 +294,11 @@ export default {
     const buddyPic = h('div', { class: 'bl-buddy-pic' });
     const buddy = h('div', { class: 'bl-buddy', 'aria-hidden': 'true' }, buddyPic);
     const scene = h('div', { class: 'bl-scene' }, map, ...labels, buddy);
+    const stepsList = h('ol', { class: 'sr-only', 'aria-label': 'Les étapes de ta balade' }, ...stepText.map(t => h('li', null, frTypo(t))));
 
     /* ----- carte d'action ----- */
     const cta = h('section', { class: 'card bl-cta', 'aria-live': 'polite' });
-    const layout = h('div', { class: 'bl-layout' }, scene, cta);
+    const layout = h('div', { class: 'bl-layout' }, scene, stepsList, cta);
     screen.appendChild(layout);
 
     const wide = () => { try { return matchMedia('(min-width: 900px)').matches; } catch (_) { return false; } };
@@ -252,6 +311,7 @@ export default {
       if (face) buddyPic.classList.toggle('is-left', face < 0);
     };
 
+    /* carte d'action : UN bouton (« Jouer ▶ ») ; balade finie : les deux récompenses, Accueil, et « encore un jeu ? » discret */
     function renderCta() {
       clear(cta);
       const q = store.getProfile() || p;
@@ -260,64 +320,32 @@ export default {
         cta.classList.add('is-done');
         cta.append(
           h('p', { class: 'bl-cta-kick' }, frTypo('Balade terminée ! 🎉')),
-          h('p', { class: 'bl-cta-title' }, frTypo(fillTemplate('{N} est trop {contentM} de sa balade avec toi !', q))),
           h('div', { class: 'bl-prizes' },
             plan.rewarded ? h('span', { class: 'bl-prize' }, h('span', { 'aria-hidden': 'true' }, '🍎'), ' +10') : null,
             streak ? h('span', { class: 'bl-prize is-fire' }, h('span', { 'aria-hidden': 'true' }, '🔥 '),
               streak > 1 ? streak + ' jours de suite' : 'Premier jour de ta série') : null),
           h('div', { class: 'bl-cta-btns' },
-            h('button', { type: 'button', class: 'btn block', 'aria-label': 'Retour à l’accueil', on: { click: () => { audio.tap(); leaveHome(); } } }, frTypo('Accueil 🏠')),
-            h('button', { type: 'button', class: 'btn pink block', on: { click: () => { audio.tap(); pickFree(null); } } }, frTypo('Encore un jeu ?'))));
+            h('button', { type: 'button', class: 'btn play block bl-home', on: { click: () => { audio.tap(); leaveHome(); } } }, h('span', null, 'Accueil'), h('span', { class: 'btn-play-ico', 'aria-hidden': 'true' }, '🏠')),
+            h('button', { type: 'button', class: 'btn ghost bl-more', on: { click: () => { audio.tap(); pickFree(); } } }, h('span', { 'aria-hidden': 'true' }, '🎲'), frTypo('Encore un jeu ?'))));
         return;
       }
-      const i = curIdx, info = stepInfo(q, plan, i);
-      const go = h('button', { type: 'button', class: 'btn big block bl-go' }, info.game ? frTypo('C’est parti !') : frTypo('Choisir mon jeu 🎁'));
-      go.addEventListener('click', () => start(i));
-      cta.append(
-        h('p', { class: 'bl-cta-kick' }, frTypo('Étape ' + (i + 1) + ' sur ' + N + ' · ' + info.label + ' ' + info.emoji)),
-        h('p', { class: 'bl-cta-title' }, h('span', { class: 'bl-cta-ico', 'aria-hidden': 'true' }, info.icon),
-          h('span', null, info.title || frTypo('Ta récompense : le jeu de ton choix !'))),
-        go);
+      const go = h('button', { type: 'button', class: 'btn play block bl-go' },
+        h('span', null, 'Jouer'), h('span', { class: 'btn-play-ico', 'aria-hidden': 'true' }, '▶'));
+      go.addEventListener('click', () => start(curIdx));
+      cta.append(go);
     }
 
-    /* lancer l'étape i */
+    /* lancer l'étape i (jeu imposé, ou feuille de choix pour la récompense « au choix ») */
     function start(i) {
       const b = blocks[i];
       if (!b || b.done) return;
       audio.tap();
-      if (!b.game) { pickFree(i); return; }
-      audio.whoosh();
-      launch(b.game, { mode: 'balade', block: i }, labels[i]);
+      const s = launchStep(i, { from: '#/balade' });
+      if (s) my.sheet = s;
     }
-    function launch(id, query, from) {
-      try {
-        const ico = from && from.querySelector('.bl-g-ico');
-        if (ico && typeof document.startViewTransition === 'function' && !motion.reduced()) ico.style.viewTransitionName = 'vt-game-icon';
-      } catch (_) {}
-      ssSet(FROM_KEY, '#/balade');
-      router.go('play/' + id, { query });
-    }
-    /* jeu libre : jeux de la classe, sauf celui de l'étape précédente ; i = null → hors balade (« encore un jeu ? ») */
-    function pickFree(i) {
-      const q = store.getProfile() || p;
-      const prev = i !== null && i > 0 && blocks[i - 1] ? blocks[i - 1].game : null;
-      const list = gamesFor(q.classe).filter(g => g.id !== prev);
-      const grid = h('div', { class: 'bl-pick' });
-      let s = null;
-      for (const g of list) {
-        const t = h('button', { type: 'button', class: 'bl-pick-tile' },
-          h('span', { class: 'bl-pick-ico', 'aria-hidden': 'true' }, g.icon),
-          h('span', { class: 'bl-pick-t' }, fillTemplate(g.title, q)));
-        if (g.tint) t.style.setProperty('--tint', g.tint);
-        t.addEventListener('click', () => {
-          audio.tap();
-          const go = () => (i === null ? launch(g.id, null, null) : launch(g.id, { mode: 'balade', block: i }, null));
-          if (s) s.close('action').then(go); else go();
-        });
-        grid.appendChild(t);
-      }
-      s = my.sheet = kit.sheet({ title: i === null ? frTypo('Encore un jeu ?') : frTypo('Choisis ton jeu 🎁'), content: grid, label: 'Choisis ton jeu' });
-      motion.stagger(grid.children, el => motion.enter(el, { from: 'scale', dur: 320 }), 40);
+    /* « encore un jeu ? » (balade finie) : partie libre, retour sur cette carte */
+    function pickFree() {
+      my.sheet = openGamePicker({ title: 'Encore un jeu ?', onPick: id => { ssSet(FROM_KEY, '#/balade'); router.go('play/' + id); } });
     }
 
     /* ----- position du compagnon, marche après un bloc terminé, fête ----- */
@@ -352,7 +380,6 @@ export default {
       if (plan.done && party) { dance(); return; }
       drawBuddy(plan.done ? 'joy' : '');
       motion.squash(buddyPic, { amount: 0.8 });
-      if (!plan.done) motion.pop(labels[curIdx], { scale: 1.05 });
     }
     function dance() {
       drawBuddy('joy dance');

@@ -20,7 +20,7 @@
    retour arrière, « Reprendre le défi » repart du tour suivant (les réponses déjà données sont enregistrées).
    Tests automatisés : window.__caramelDebug (s'il existe) reçoit { item, game: 'battle', player }. */
 
-import { h, clear, dayStr, frTypo, loadCSS, fmtNum } from '../core/util.js';
+import { h, clear, dayStr, frTypo, loadCSS, fmtNum, deNom, frList } from '../core/util.js';
 import * as store from '../core/store.js';
 import * as router from '../router.js';
 import * as motion from '../core/motion.js';
@@ -395,7 +395,9 @@ function showIntro(my, pl, round) {
   const p = store.getProfile(pl.id);
   const ch = F.CHALLENGE_BY_ID[my.cfg.type];
   const axis = F.battleAxis(my.cfg.type, round, pl.classe);
-  const what = { 'ma.faits': 'Tables ✖️', 'ma.procedures': 'Calcul éclair ⚡', 'fr.conjug': 'Conjugaison 🎻' }[axis] || ch.title;
+  /* nom et icône du type de défi, tels que le choix des réglages les montre (js/core/family.js CHALLENGES) */
+  const chIco = id => (F.CHALLENGE_BY_ID[id] && F.CHALLENGE_BY_ID[id].icon) || '';
+  const what = { 'ma.faits': 'Tables ' + chIco('tables'), 'ma.procedures': 'Calcul éclair ' + chIco('calcul'), 'fr.conjug': 'Conjugaison ' + chIco('conjug') }[axis] || ch.title;
   const pic = h('div', { class: 'bt-intro-pic', 'aria-hidden': 'true' });
   putPet(pic, p, 150, '', { expr: 'delighted', live: true });
   const alone = active(my).length === 1 && my.lastPlayer === pl.id;
@@ -647,7 +649,6 @@ function answer(my, pl, item, { correct, rightText, card, zone, after }) {
     laneLabel(pl);
   }, correct ? 650 : 900);
 }
-const deNom = name => (/^[aeiouàâäéèêëîïôöùûü]/i.test(name) ? 'd’' : 'de ') + name;
 
 /* ----- s'arrêter (un joueur) ----- */
 /* confirmation dans les couleurs du joueur dont c'est le tour (la feuille vit hors de .bt) */
@@ -726,7 +727,7 @@ function showResults(my, ranking) {
   const byId = new Map(my.players.map(p => [p.id, store.getProfile(p.id)]).filter(([, p]) => !!p));
   const plById = new Map(my.players.map(p => [p.id, p]));
   const winners = ranking.winners.map(id => plById.get(id)).filter(Boolean);
-  const names = list => list.map(p => p.name).join(list.length > 2 ? ', ' : ' et ').replace(/, ([^,]*)$/, ' et $1');
+  const names = list => frList(list.map(p => p.name));
   const headline = winners.length > 1 ? 'Ex aequo ! ' + names(winners) + ' gagnent le défi !'
     : winners.length ? names(winners) + ' gagne le défi !'
       : 'Le défi est fini : bravo d’avoir joué !';

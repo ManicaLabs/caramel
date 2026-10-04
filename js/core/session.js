@@ -8,6 +8,9 @@
                        Leitner dues (faits, conjugaison), sinon 2e poids ; ROTATION : pas l'axe révisé la veille.
                        Un axe faible pris en échauffement peut revenir ici à son vrai niveau (blocs non consécutifs) ;
      4. récompense   : la course si aucun bloc ne l'utilise, sinon jeu libre (game: null).
+   Petit lecteur de CP (isPreReader : aucune lecture mesurée à 15 mots/min ou plus) : pas de lecture à voix haute
+   dans sa balade (ni mission ni récompense) ; la course reste jouable en jeu libre (D1-03, jusqu'à la 2.3).
+   Micro impossible (refusé, absent, hors ligne au 1er lancement) : swapBlock remplace l'étape par un autre jeu (D1-01).
    Poids = (3 − θ)^1,5 × importance × fraîcheur. Jamais deux fois le même jeu de suite.
    Course : 1 histoire en échauffement/récompense, 2 en priorité/révision (3 pour une séance de 20 min).
    Axes éligibles (choix v2.0) : axes principaux des jeux ACCESSIBLES à la classe (gamesFor, minGrade),
@@ -90,6 +93,22 @@ function choose(cands, filters, cmp) {
 
 const STRONG = 2;                                      /* « vrai » point fort : au moins l'attendu de la classe */
 const COURSE_STORIES = { echauffement: 1, recompense: 1, priorite: 2, revision: 2 };
+const PRE_READER_MCLM = 15;                            /* mots/min : en dessous, un CP ne lit pas encore seul */
+
+/* taille d'un bloc : histoires pour la course, sinon items (échauffement raccourci à 70 %) */
+function blockCount(kind, game, sessionMin) {
+  if (game === REWARD_GAME) return (COURSE_STORIES[kind] || 1) + (sessionMin >= 20 && COURSE_STORIES[kind] > 1 ? 1 : 0);
+  const size = mancheSize(game, sessionMin);
+  return kind === 'echauffement' ? Math.ceil(WARM_RATIO * size) : size;
+}
+
+/* CP qui ne lit pas encore : aucune lecture mesurée à 15 mots/min ou plus (course, ni v11 importée) */
+export function isPreReader(profile) {
+  if (!profile || profile.classe !== 'CP') return false;
+  const log = Array.isArray(profile.mclm) ? profile.mclm : [];
+  if (log.some(m => Number(m && m.v) >= PRE_READER_MCLM)) return false;
+  return !(Number(profile.legacy && profile.legacy.mclm) >= PRE_READER_MCLM);
+}
 
 export function planDay(profile, today = dayStr()) {
   const sessionMin = (profile && profile.settings && profile.settings.sessionMin) || 15;
@@ -98,7 +117,9 @@ export function planDay(profile, today = dayStr()) {
   const recentWarm = prev && Array.isArray(prev.recentWarm) ? prev.recentWarm.slice(0, 2) : [];
   const prevRev = prev && typeof prev.prevRev === 'string' ? prev.prevRev
     : (prev && Array.isArray(prev.blocks) ? ((prev.blocks.find(b => b && b.kind === 'revision') || {}).axis || '') : '');
-  const cands = eligible(profile).map((c, i) => ({
+  /* petit lecteur de CP : pas de lecture à voix haute imposée (la course reste en jeu libre) */
+  const pre = isPreReader(profile);
+  const cands = eligible(profile).filter(c => !(pre && c.game === REWARD_GAME)).map((c, i) => ({
     ...c, i,
     theta: clamp(skillOf(profile, c.axis).t, 0, 3),
     w: axisWeight(profile, c.axis, today),
@@ -107,15 +128,8 @@ export function planDay(profile, today = dayStr()) {
     due: LEITNER_AXES.includes(c.axis) ? dueKeys(profile, c.axis, today, Infinity).length : 0
   }));
   const byWeight = (a, b) => desc(a.w, b.w) || asc(a.theta, b.theta) || a.i - b.i;
-  const block = (kind, c, offset = 0) => {
-    const size = c ? mancheSize(c.game, sessionMin) : null;
-    let count = null;
-    if (c) {
-      if (c.game === REWARD_GAME) count = (COURSE_STORIES[kind] || 1) + (sessionMin >= 20 && COURSE_STORIES[kind] > 1 ? 1 : 0);
-      else count = kind === 'echauffement' ? Math.ceil(WARM_RATIO * size) : size;
-    }
-    return { kind, game: c ? c.game : null, axis: c ? c.axis : null, count, offset, done: false, result: null };
-  };
+  const block = (kind, c, offset = 0) =>
+    ({ kind, game: c ? c.game : null, axis: c ? c.axis : null, count: c ? blockCount(kind, c.game, sessionMin) : null, offset, done: false, result: null });
   const any = () => true;
 
   /* 1. échauffement : parmi les 3 meilleurs θ (de préférence ≥ 2), pas un axe des 2 derniers jours ;
@@ -150,6 +164,39 @@ export function planDay(profile, today = dayStr()) {
     recentWarm: c1 ? [c1.axis, ...recentWarm].slice(0, 3) : recentWarm,
     prevRev: c3 ? c3.axis : ''
   };
+}
+
+/* étape i impossible à jouer ici (D1-01 : micro refusé ou absent, hors ligne au 1er lancement → la course) : elle prend
+   un autre jeu de la classe, jamais celui de l'étape remplacée ni des étapes voisines (jamais deux fois le même jeu de
+   suite), de préférence un axe absent du plan, au plus grand poids ; même taille que si le plan l'avait choisi, offset
+   gardé. La récompense devient « au choix ». b.swapped garde le jeu remplacé (la feuille de choix ne le propose pas).
+   Étape déjà « au choix » : failed = le jeu choisi qui n'a pas pu se lancer ; il devient b.swapped (V22A-1 : sans lui, la
+   feuille repropose la course sans fin).
+   Modifie le profil (store.mutateProfile) → id du nouveau jeu, null (récompense au choix), undefined si rien n'a changé
+   (plan d'un autre jour, étape faite, déjà au choix sans jeu en échec, aucun autre jeu possible). */
+export function swapBlock(profile, i, today = dayStr(), failed = null) {
+  const plan = profile && profile.today;
+  const blocks = plan && plan.d === today && Array.isArray(plan.blocks) ? plan.blocks : null;
+  const b = blocks && Number.isInteger(i) ? blocks[i] : null;
+  if (!b || typeof b !== 'object' || b.done) return undefined;
+  if (!b.game) {
+    if (typeof failed !== 'string' || !failed || b.swapped === failed) return undefined;
+    b.swapped = failed;
+    return null;
+  }
+  const from = b.game;
+  if (b.kind === 'recompense') {
+    Object.assign(b, { game: null, axis: null, count: null, swapped: from });
+    return null;
+  }
+  const sessionMin = (profile.settings && profile.settings.sessionMin) || 15;
+  const near = new Set([from, blocks[i - 1] && blocks[i - 1].game, blocks[i + 1] && blocks[i + 1].game].filter(Boolean));
+  const used = new Set(blocks.filter((x, k) => k !== i && x && x.axis).map(x => x.axis));
+  const cands = eligible(profile).map((c, k) => ({ ...c, i: k, w: axisWeight(profile, c.axis, today) })).filter(c => !near.has(c.game));
+  const c = choose(cands, [x => !used.has(x.axis), () => true], (a, z) => desc(a.w, z.w) || a.i - z.i);
+  if (!c) return undefined;
+  Object.assign(b, { game: c.game, axis: c.axis, count: blockCount(b.kind, c.game, sessionMin), swapped: from });
+  return c.game;
 }
 
 /* plan valide pour ce profil (jeux toujours accessibles, 4 blocs bien formés) */

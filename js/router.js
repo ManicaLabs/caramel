@@ -6,7 +6,10 @@
    Un écran = export default { mount(root, params, query), unmount() } (mount peut être asynchrone).
    Chaque écran reçoit un conteneur neuf <div class="view"> dans #app : ce qu'un ancien écran écrirait
    en retard (après une navigation) tombe dans un nœud détaché, jamais dans l'écran suivant.
-   Navigation interne par history.pushState avec un indice : back() ne fait jamais quitter l'appli. */
+   Navigation interne par history.pushState avec un indice : back() ne fait jamais quitter l'appli.
+   Écran monté (D2-11) : le <h1> de l'écran donne le titre d'onglet « Titre · Caramel » (sauf l'écran de repli et un
+   écran qui a posé son propre titre) et reçoit le focus quand celui-ci est perdu (resté sur la page) : le lecteur
+   d'écran annonce le nouvel écran. Un écran qui place lui-même le focus (onboarding, feuille) n'est pas touché. */
 
 let table = [];                 /* [{ key, segs, name, load, params }] */
 let opts = { fallback: 'home', transition: null, root: null };
@@ -172,6 +175,7 @@ async function swap(fill, r, my) {
       oops(view, r);
     }
     try { window.scrollTo(0, 0); } catch (_) {}
+    settle(view, r, my);
   }
   if (opts.transition) {
     try {
@@ -203,6 +207,32 @@ async function mountWithin(screen, view, r) {
   await Promise.race([p.catch(() => {}), new Promise(ok => setTimeout(ok, MOUNT_WAIT_MS))]);
   waiting = false;
   if (settled) await p;
+}
+
+/* titre lisible d'un <h1> : sans ses emoji décoratifs (aria-hidden) */
+function headingText(t) {
+  const c = t.cloneNode(true);
+  for (const n of c.querySelectorAll('[aria-hidden="true"]')) n.remove();
+  return c.textContent.replace(/\s+/g, ' ').trim();
+}
+function settle(view, r, my) {
+  const run = () => {
+    if (my !== token || !view.isConnected) return true;
+    const t = view.querySelector('h1');
+    if (!t) return false;
+    try {
+      const name = headingText(t);
+      if (name && r.name !== opts.fallback && document.title === 'Caramel') document.title = name + ' · Caramel';
+    } catch (_) {}
+    const a = document.activeElement;
+    if (!a || a === document.body || !a.isConnected) {
+      if (!t.hasAttribute('tabindex')) t.tabIndex = -1;
+      try { t.focus({ preventScroll: true }); } catch (_) {}
+    }
+    return true;
+  };
+  const raf = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : f => setTimeout(f, 16);
+  raf(() => { if (!run()) setTimeout(run, MOUNT_WAIT_MS); });   /* écran encore en cours de montage : un 2e essai */
 }
 
 function safeUnmount(screen) {
