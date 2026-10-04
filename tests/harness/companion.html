@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Planche contact — compagnon</title>
+<base href="../../">
+<link rel="icon" href="favicon-32.png">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/motion.css">
+<link rel="stylesheet" href="css/ui/mount.css">
+<style>
+  body { padding: 14px; }
+  h1 { font-size: 1.4rem; color: var(--title); margin: 4px 0 2px; }
+  h2 { font-size: 1.05rem; color: var(--ink-2); margin: 22px 0 8px; }
+  .lead { color: var(--ink-3); font-size: .9rem; max-width: 70ch; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 4px; }
+  .bar label { display: inline-flex; align-items: center; gap: 6px; background: var(--card); border: 2px solid var(--pink-200);
+    border-radius: var(--r-pill); padding: 6px 12px; font-size: .9rem; min-height: 40px; }
+  .grid { display: grid; gap: 6px; align-items: end; overflow-x: auto; padding-bottom: 4px; }   /* mobile : la grille défile, pas la page */
+  .cell { background: var(--card); border-radius: 14px; box-shadow: var(--shadow-1); padding: 6px 4px 4px; text-align: center; }
+  .cell svg { margin: 0 auto; }
+  .cap { font-size: .72rem; color: var(--ink-3); line-height: 1.2; margin-top: 2px; }
+  .rowh { font-size: .78rem; color: var(--ink-2); font-weight: 600; align-self: center; text-align: right; padding-right: 4px; }
+  .sil .cell svg { filter: brightness(0); }
+  .sil .cell { background: #fff; }
+  .sizes { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+  .ground { border-bottom: 3px solid #8bc58b; }
+  .static .c-rig, .static .c-rig * { animation-play-state: paused !important; }
+  .bgdark .cell { background: #3b2a20; }
+  .pre .cell { background: linear-gradient(#86efac, #4ade80); }                 /* décor naturel : pré de l'accueil */
+</style>
+</head>
+<body>
+<!-- Planche contact du compagnon (CDC §10.3) : 8 espèces × expressions (+ visage de la tristesse), portraits,
+     silhouettes noires, sur le pré, accessoires, tailles, stades et humeurs animées. Paramètres : ?only=<section>
+     (expr | face | sil | pre | acc | one | size | stage | mood | big), ?static=1 (animations figées), ?species=pony,cat
+     (filtre), ?cell=110 (taille des vignettes). -->
+<h1>Planche contact — compagnon</h1>
+<p class="lead">Huit espèces, un seul style «&#8239;kawaii flat&#8239;». Coche «&#8239;figer les animations&#8239;» pour comparer les expressions sans mouvement&#8239;; les humeurs ponctuelles (joie, danse, saut, trémoussement) se rejouent toutes les trois secondes.</p>
+<div class="bar">
+  <label><input type="checkbox" id="freeze"> figer les animations</label>
+  <label><input type="checkbox" id="soft"> animations douces</label>
+</div>
+<div id="out"></div>
+<script type="module">
+  import { mountSVG, EXPRESSIONS, MOODS } from './js/ui/mount-svg.js';
+  import { MOUNTS, SHOP } from './js/content/companion-data.js';
+
+  const q = new URLSearchParams(location.search);
+  const only = q.get('only');
+  const CELL = +q.get('cell') || 110;
+  const SPECIES = (q.get('species') || Object.keys(MOUNTS).join(',')).split(',').filter(t => MOUNTS[t]);
+  const LABEL = { neutral: 'neutre', happy: 'joyeux', delighted: 'ravi', proud: 'fier', surprised: 'surpris', sleepy: 'endormi', hungry: 'petit creux', focused: 'concentré' };
+  /* le visage de la tristesse n'est pas une expression : c'est celui de l'humeur sad (expression neutre) */
+  const face = (t, ex, size, opts = {}) => ex === 'sad' ? mountSVG(t, [], size, 'sad', opts) : mountSVG(t, [], size, '', { ...opts, expr: ex });
+  const EXPR_COLS = [...EXPRESSIONS, 'sad'];
+  LABEL.sad = 'triste (humeur)';
+  const out = document.getElementById('out');
+  const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
+  const cell = (svg, cap) => el('div', 'cell', svg + (cap ? '<div class="cap">' + cap + '</div>' : ''));
+  const section = (id, title) => { const s = el('section', 'sec-' + id); s.id = 'sec-' + id; s.append(el('h2', '', title)); out.append(s); return s; };
+  const want = id => !only || only.split(',').includes(id);
+
+  if (only === 'big') {
+    const s = section('big', 'Grand format');
+    const box = el('div', 'sizes');
+    const worn = (q.get('worn') || '').split(',').filter(Boolean);
+    for (const t of SPECIES) box.append(cell(mountSVG(t, worn, CELL, q.get('mood') || '', { expr: q.get('expr') || 'neutral', stage: +q.get('stage') || 2 }), MOUNTS[t].label));
+    s.append(box);
+  }
+  if (want('expr')) {
+    const s = section('expr', 'Espèces × expressions');
+    const g = el('div', 'grid'); g.style.gridTemplateColumns = `70px repeat(${EXPR_COLS.length}, ${CELL}px)`;
+    g.append(el('div'));
+    for (const ex of EXPR_COLS) g.append(el('div', 'cap', LABEL[ex]));
+    for (const t of SPECIES) {
+      g.append(el('div', 'rowh', MOUNTS[t].label));
+      for (const ex of EXPR_COLS) g.append(cell(face(t, ex, CELL - 8)));
+    }
+    s.append(g);
+  }
+  if (want('face')) {
+    const s = section('face', 'Portraits (cadrage « portrait » des avatars ronds) × expressions');
+    const g = el('div', 'grid'); g.style.gridTemplateColumns = `70px repeat(${EXPR_COLS.length}, ${CELL}px)`;
+    g.append(el('div'));
+    for (const ex of EXPR_COLS) g.append(el('div', 'cap', LABEL[ex]));
+    for (const t of SPECIES) {
+      g.append(el('div', 'rowh', MOUNTS[t].label));
+      for (const ex of EXPR_COLS) g.append(cell(face(t, ex, CELL - 8, { view: 'portrait' })));
+    }
+    s.append(g);
+  }
+  if (want('sil')) {
+    const s = section('sil', 'Silhouettes noires (reconnaissance)');
+    const g = el('div', 'grid sil'); g.style.gridTemplateColumns = `repeat(${SPECIES.length}, ${CELL}px)`;
+    for (const t of SPECIES) g.append(cell(mountSVG(t, [], CELL - 8, ''), MOUNTS[t].label));
+    s.append(g);
+  }
+  if (want('pre')) {
+    const s = section('pre', 'Sur le pré (contraste avec le décor de l\u2019accueil)');
+    const g = el('div', 'grid pre'); g.style.gridTemplateColumns = `repeat(${SPECIES.length}, ${CELL}px)`;
+    for (const t of SPECIES) g.append(cell(mountSVG(t, [], CELL - 8, ''), MOUNTS[t].label));
+    s.append(g);
+  }
+  if (want('acc')) {
+    const s = section('acc', 'Accessoires — tous portés');
+    const all = ['ailes', 'noeud', 'selle', 'echarpe', 'couronne', 'lunettes'];
+    const all2 = ['ailes', 'noeud', 'selle', 'foulard', 'chapeau', 'lunettes'];
+    const g = el('div', 'grid'); g.style.gridTemplateColumns = `repeat(${SPECIES.length}, ${Math.round(CELL * 1.25)}px)`;
+    for (const t of SPECIES) g.append(cell(mountSVG(t, all, Math.round(CELL * 1.25) - 8, '', {}), MOUNTS[t].label + ' · couronne, écharpe…'));
+    for (const t of SPECIES) g.append(cell(mountSVG(t, all2, Math.round(CELL * 1.25) - 8, '', {}), MOUNTS[t].label + ' · chapeau, foulard…'));
+    s.append(g);
+  }
+  if (want('one')) {
+    const s = section('one', 'Accessoires — un par un');
+    const g = el('div', 'grid'); g.style.gridTemplateColumns = `70px repeat(${SHOP.length}, ${CELL}px)`;
+    g.append(el('div'));
+    for (const it of SHOP) g.append(el('div', 'cap', it.name));
+    for (const t of SPECIES) {
+      g.append(el('div', 'rowh', MOUNTS[t].label));
+      for (const it of SHOP) g.append(cell(mountSVG(t, [it.id], CELL - 8, '')));
+    }
+    s.append(g);
+  }
+  if (want('size')) {
+    const s = section('size', 'Tailles 46 / 100 / 220 px');
+    const box = el('div', 'sizes');
+    for (const t of SPECIES) for (const z of [46, 100, 220]) box.append(cell(mountSVG(t, [], z, ''), z + ' px'));
+    s.append(box);
+  }
+  if (want('stage')) {
+    const s = section('stage', 'Stades\u202f: petit · junior · champion');
+    const g = el('div', 'grid'); g.style.gridTemplateColumns = `repeat(${Math.min(12, SPECIES.length * 3)}, ${Math.round(CELL * 0.8)}px)`;
+    for (const t of SPECIES) for (const st of [1, 2, 3]) g.append(cell(mountSVG(t, [], Math.round(CELL * 0.8) - 8, '', { stage: st }), MOUNTS[t].label + ' ' + ['petit', 'junior', 'champion'][st - 1]));
+    s.append(g);
+  }
+  if (want('mood')) {
+    const s = section('mood', 'Humeurs animées');
+    const g = el('div', 'grid'); g.style.gridTemplateColumns = `70px repeat(${MOODS.length + 1}, ${CELL}px)`;
+    g.append(el('div'));
+    for (const m of ['repos', ...MOODS]) g.append(el('div', 'cap', m));
+    for (const t of SPECIES) {
+      g.append(el('div', 'rowh', MOUNTS[t].label));
+      for (const m of ['', ...MOODS]) {
+        const c = cell(mountSVG(t, [], CELL - 8, m));
+        c.classList.add('ground');
+        g.append(c);
+      }
+    }
+    s.append(g);
+  }
+  const freeze = document.getElementById('freeze'), soft = document.getElementById('soft');
+  const apply = () => { document.body.classList.toggle('static', freeze.checked); document.documentElement.classList.toggle('motion-soft', soft.checked); };
+  freeze.checked = q.get('static') === '1'; soft.checked = q.get('soft') === '1';
+  freeze.addEventListener('change', apply); soft.addEventListener('change', apply); apply();
+  /* rejouer les humeurs ponctuelles (joy, dance, hop, wiggle) toutes les 3 s */
+  if (want('mood') && q.get('static') !== '1') setInterval(() => {
+    for (const svg of document.querySelectorAll('#sec-mood svg.joy, #sec-mood svg.dance, #sec-mood svg.hop, #sec-mood svg.wiggle')) {
+      const cls = ['joy', 'dance', 'hop', 'wiggle'].find(c => svg.classList.contains(c));
+      svg.classList.remove(cls); void svg.getBoundingClientRect(); svg.classList.add(cls);
+    }
+  }, 3000);
+  window.__ready = true;
+</script>
+</body>
+</html>

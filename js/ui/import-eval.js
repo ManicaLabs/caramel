@@ -6,11 +6,16 @@
        Une sauvegarde caramel-save choisie ici est restaurée (backup.restoreFlow).
    (b) SAISIE MANUELLE : classe + matière → radar interactif au gabarit de la FICHE (ficheTemplate)
        → ficheToAxes → applyEval.
-   (c) PHOTO (CDC §8.2) : classe → photo (<input capture>) → matière détectée par la teinte (modifiable) → photo en
-       fond semi-transparent, alignement en 2 touches (centre = cartable ; haut du cercle +++ → rayon et rotation),
-       puis gros plan sur le radar : réglages fins (rotation, ±½ pas d'axe si le gabarit n'est pas exact, rayon),
+   (c) PHOTO (CDC §8.2, §8.3) : classe → photo (<input capture>) → « Je cherche le radar… » : détection automatique
+       (js/ui/radar-detect.js, dans un worker) → si le radar est lu avec assez de confiance : gros plan REDRESSÉ du radar
+       (perspective corrigée), gabarit calé, poignées pré-placées, points incertains signalés (halo orange) ; « C’est bon ✓ »
+       → récapitulatif, ou « Réaligner à la main » (plan B). Sinon : alignement manuel en 2 touches (centre = cartable ;
+       haut du cercle +++), pré-rempli avec ce que la détection a trouvé, puis réglages fins (rotation, ±½ pas, rayon),
        poignées glissées sur les sommets (aimantées à 0,1), « absent » par axe → récapitulatif → applyEval.
-       La photo n'est JAMAIS stockée : URL d'objet révoquée dès qu'elle ne sert plus (enregistrement, sortie).
+       Le calage propose aussi « Reprendre la photo », avec un conseil de prise de vue (radar coupé, trop petit, de biais).
+       La matière vient du nombre d'axes du radar lu (sinon de la couleur de la bande des familles, modifiable) ; les points
+       à vérifier sont signalés aussi aux lecteurs d'écran (aria-description « à vérifier »).
+       La photo n'est JAMAIS stockée : URL d'objet révoquée et vue redressée effacée dès qu'elles ne servent plus.
    Les deux matières à la suite (« Ajouter la fiche de maths »).
    Toute écriture passe par store.addProfile / store.mutateProfile. */
 
@@ -41,10 +46,16 @@ const plural = (n, one, many) => fmtNum(n) + '\u00A0' + (n > 1 ? many : one);
 /* ---------- état de l'écran ---------- */
 let host = null;              /* conteneur de la vue (routeur) */
 let Q = {};                   /* paramètres de la route */
-let flow = null;              /* { targetId, classe, done: Set, values: { fr, ma }, photoSubject, align, date } */
-let photo = null;             /* { url, img, natW, natH, detected } — jamais stockée */
+let flow = null;              /* { targetId, classe, done: Set, values: { fr, ma, photo-fr, photo-ma }, photoSubject, subjectSrc,
+                                 align, date, auto: { conf, unsure: Set }, kept: { subject, unsure } (après réalignement),
+                                 prefill: { c, t }, miss (raison de l'échec), hint (conseil de prise de vue) } */
+let photo = null;             /* { url, img, natW, natH, view } — jamais stockée (view : radar redressé) */
 let live = null;              /* zone aria-live */
 let cleanups = [];
+let scanSeq = 0;              /* jeton de la détection en cours (une détection périmée est ignorée) */
+let detWorker = null;         /* worker de détection (créé à la demande, arrêté en quittant l'écran) */
+const UNSURE = 0.6;           /* en dessous : point signalé « à vérifier » */
+const INPUT_MAX = 1600;       /* côté de l'image analysée (= INPUT_MAX de radar-detect.js) */
 
 function cleanupStep() { for (const fn of cleanups.splice(0)) { try { fn(); } catch (_) {} } }
 const later = fn => { const t = setTimeout(fn, 0); cleanups.push(() => clearTimeout(t)); };
@@ -58,7 +69,14 @@ function releasePhoto() {
   if (!photo) return;
   try { photo.img.removeAttribute('src'); } catch (_) {}
   try { URL.revokeObjectURL(photo.url); } catch (_) {}
+  dropView();
   photo = null;
+}
+/* vue redressée du radar (canevas en mémoire) : effacée dès qu'elle ne sert plus */
+function dropView() {
+  if (!photo || !photo.view) return;
+  try { photo.view.img.width = 0; photo.view.img.height = 0; photo.view.img.remove(); } catch (_) {}
+  photo.view = null;
 }
 function monthLabel(ym) {
   const m = /^(\d{4})-(\d{2})/.exec(String(ym || ''));
@@ -397,36 +415,16 @@ function renderManualRadar(subject) {
 }
 
 /* ============ (c) PHOTO ============ */
-/* matière d'après la teinte moyenne des pixels colorés : turquoise / gris-vert → français ; orange → maths */
-export function detectSubject(img) {
-  try {
-    const S = 80;
-    const ratio = img.naturalWidth / Math.max(1, img.naturalHeight);
-    const c = document.createElement('canvas');
-    c.width = ratio >= 1 ? S : Math.max(8, Math.round(S * ratio));
-    c.height = ratio >= 1 ? Math.max(8, Math.round(S / ratio)) : S;
-    const x = c.getContext('2d', { willReadFrequently: true });
-    x.drawImage(img, 0, 0, c.width, c.height);
-    return subjectFromPixels(x.getImageData(0, 0, c.width, c.height).data);
-  } catch (_) { return null; }
-}
-export function subjectFromPixels(d) {
-  let fr = 0, ma = 0;
-  for (let i = 0; i + 2 < d.length; i += 4) {
-    const R = d[i] / 255, Gr = d[i + 1] / 255, B = d[i + 2] / 255;
-    const mx = Math.max(R, Gr, B), mn = Math.min(R, Gr, B), dd = mx - mn;
-    const s = mx ? dd / mx : 0;
-    if (s < 0.12 || mx < 0.3 || dd < 0.04) continue;
-    let hue = mx === R ? 60 * (((Gr - B) / dd) % 6) : mx === Gr ? 60 * ((B - R) / dd + 2) : 60 * ((R - Gr) / dd + 4);
-    if (hue < 0) hue += 360;
-    if (hue >= 8 && hue <= 50) ma += s;
-    else if (hue >= 140 && hue <= 215) fr += s;
-  }
-  if (fr + ma < 1.5) return null;
-  if (ma > fr * 1.3) return 'ma';
-  if (fr > ma * 1.3) return 'fr';
-  return null;
-}
+/* La matière n'est plus devinée d'après la teinte de la photo entière : sur les vraies photos (lumière chaude, cartable et
+   illustrations orangés, table en bois), elle désignait les maths pour les fiches de français. Elle vient du radar lu
+   (nombre d'axes) ou, s'il n'est qu'entrevu, de la couleur de la bande des familles rapportée au papier (radar-detect.js). */
+
+/* conseil de prise de vue d'après la détection (res.hint) */
+const SHOT_TIP = {
+  'hors-cadre': 'Une partie du radar sort de la photo : reculez un peu pour le photographier en entier.',
+  'trop-petit': 'Le radar est petit sur la photo : approchez le téléphone pour qu’il remplisse l’image.',
+  'de-biais': 'La photo est prise de biais : tenez le téléphone bien au-dessus de la fiche, parallèle à la table.'
+};
 
 function renderPhotoStart(err) {
   const p = target();
@@ -455,9 +453,9 @@ function renderPhotoStart(err) {
       h('div', { class: 'im-who' }, h('span', { class: 'im-who-ava', 'aria-hidden': 'true' }, avatarOf(p)),
         h('span', null, (flow.done.size && next ? 'Fiche ' + SUBJ[next].the + ' de ' : 'Fiche de ') + p.name)),
       h('ol', { class: 'im-steps' },
-        h('li', null, frTypo('Posez la fiche bien à plat, avec une bonne lumière, et photographiez tout le radar.')),
-        h('li', null, frTypo('Touchez le cartable au centre, puis le haut du grand cercle : le gabarit se cale sur la photo.')),
-        h('li', null, frTypo('Glissez chaque point sur celui de la fiche, puis vérifiez.'))),
+        h('li', null, frTypo('Posez la fiche bien à plat, avec une bonne lumière. Tenez le téléphone juste au-dessus, parallèle à la table, et photographiez tout le radar.')),
+        h('li', null, frTypo('Caramel cherche le radar et lit les points tout seul.')),
+        h('li', null, frTypo('Vérifiez les points (vous pouvez les déplacer), puis enregistrez.'))),
       classeField(p, v => { classe = v; flow.classe = v; setBtns(); }),
       h('p', { class: 'im-private' }, h('span', { 'aria-hidden': 'true' }, '🔒 '), frTypo('La photo reste sur ce téléphone : elle n’est ni enregistrée ni envoyée.'))),
     err ? notice(err) : null,
@@ -477,10 +475,15 @@ function loadPhoto(file) {
   img.draggable = false;
   img.onload = () => {
     if (!host || !img.naturalWidth) { try { URL.revokeObjectURL(url); } catch (_) {} return; }
-    photo = { url, img, natW: img.naturalWidth, natH: img.naturalHeight, detected: detectSubject(img) };
-    flow.photoSubject = photo.detected || nextSubject() || 'fr';
+    photo = { url, img, natW: img.naturalWidth, natH: img.naturalHeight, view: null };
+    flow.photoSubject = nextSubject() || 'fr';
+    flow.subjectSrc = null;
     flow.align = null;
-    renderPhotoAlign();
+    flow.auto = null;
+    flow.prefill = null;
+    flow.hint = null;
+    flow.kept = null;
+    renderPhotoScan();
   };
   img.onerror = () => {
     try { URL.revokeObjectURL(url); } catch (_) {}
@@ -489,13 +492,15 @@ function loadPhoto(file) {
   img.src = url;
 }
 
-/* scène : la photo (ou une partie : view, en pixels de l'image) affichée dans la largeur du conteneur */
-function makeStage(cls) {
+/* scène : la photo (ou une partie : view, en pixels de l'image) affichée dans la largeur du conteneur.
+   src = { img, natW, natH } : la photo elle-même, ou la vue redressée du radar (détection automatique) */
+function makeStage(cls, src0) {
   const stage = h('div', { class: 'im-stage ' + cls });
   const geo = { k: 1, ox: 0, oy: 0, W: 0, H: 0, view: { x: 0, y: 0, w: 1, h: 1 } };
   const layout = (view, { maxH = 0, square = false } = {}) => {
     const W = Math.round(stage.clientWidth || 0);
-    if (W < 60 || !photo) return false;
+    const src = src0 || photo;
+    if (W < 60 || !photo || !src) return false;
     let k = W / view.w, H = square ? W : view.h * k;
     if (!square && maxH && H > maxH) { k = maxH / view.h; H = maxH; }
     const ox = (W - view.w * k) / 2, oy = (H - view.h * k) / 2;
@@ -503,9 +508,9 @@ function makeStage(cls) {
     /* hauteur de la boîte intérieure = H exactement (la bordure s'ajoute) : repère 1:1 avec le radar superposé */
     const bh = Math.max(0, stage.offsetHeight - stage.clientHeight);
     stage.style.height = (Math.round(H) + bh) + 'px';
-    const img = photo.img;
-    img.style.width = (photo.natW * k).toFixed(2) + 'px';
-    img.style.height = (photo.natH * k).toFixed(2) + 'px';
+    const img = src.img;
+    img.style.width = (src.natW * k).toFixed(2) + 'px';
+    img.style.height = (src.natH * k).toFixed(2) + 'px';
     img.style.transform = 'translate(' + (ox - view.x * k).toFixed(2) + 'px, ' + (oy - view.y * k).toFixed(2) + 'px)';
     return true;
   };
@@ -527,16 +532,209 @@ function observe(el, fn) {
   }
 }
 
+/* ---------- détection automatique du radar (CDC §8.3, js/ui/radar-detect.js) ---------- */
+let detSeq = 0;
+/* pixels de la photo réduite à INPUT_MAX px → { width, height, data, k } (k : échelle photo → image analysée) */
+function photoPixels() {
+  const k = Math.min(1, INPUT_MAX / Math.max(photo.natW, photo.natH));
+  const w = Math.max(1, Math.round(photo.natW * k)), hh = Math.max(1, Math.round(photo.natH * k));
+  const c = document.createElement('canvas');
+  c.width = w; c.height = hh;
+  const x = c.getContext('2d', { willReadFrequently: true });
+  x.drawImage(photo.img, 0, 0, w, hh);
+  const data = x.getImageData(0, 0, w, hh).data;
+  c.width = 0; c.height = 0;
+  return { width: w, height: hh, data, k };
+}
+/* analyse dans un worker (repli : sur le fil principal, une image plus tard) → { res, view, k } ou null */
+function runDetection(opts) {
+  return new Promise(resolve => {
+    let settled = false;
+    const done = v => { if (settled) return; settled = true; clearTimeout(timer); resolve(v); };
+    const timer = setTimeout(() => done(null), 15000);
+    const fallback = () => {
+      import('./radar-detect.js').then(m => {
+        setTimeout(() => {
+          if (settled || !photo) { done(null); return; }
+          try {
+            const px = photoPixels();
+            const image = { width: px.width, height: px.height, data: px.data };
+            const res = m.detectRadar(image, opts);
+            let view = null;
+            if (res && res.homography && opts.viewSize > 0) {
+              const v = m.rectify(image, res, { size: opts.viewSize, extent: opts.viewExtent });
+              view = { width: v.width, height: v.height, R: v.R, extent: opts.viewExtent, buffer: v.data.buffer };
+            }
+            done({ res, view, k: px.k });
+          } catch (_) { done(null); }
+        }, 60);
+      }).catch(() => done(null));
+    };
+    let px = null;
+    try { px = photoPixels(); } catch (_) { done(null); return; }
+    let wk = null;
+    try {
+      if (!detWorker) detWorker = new Worker(new URL('./radar-detect-worker.js', import.meta.url), { type: 'module' });
+      wk = detWorker;
+    } catch (_) { wk = null; }
+    if (!wk) { fallback(); return; }
+    const id = ++detSeq;
+    const off = () => { try { wk.removeEventListener('message', onMsg); wk.removeEventListener('error', onErr); } catch (_) {} };
+    const onMsg = e => {
+      const d = e.data || {};
+      if (d.id !== id) return;
+      off();
+      if (d.error) { fallback(); return; }
+      done({ res: d.res, view: d.view, k: px.k });
+    };
+    const onErr = () => { off(); try { wk.terminate(); } catch (_) {} if (detWorker === wk) detWorker = null; fallback(); };
+    wk.addEventListener('message', onMsg);
+    wk.addEventListener('error', onErr);
+    try {
+      const buf = px.data.buffer;
+      wk.postMessage({ id, width: px.width, height: px.height, buffer: buf, opts }, [buf]);
+    } catch (_) { off(); fallback(); }
+  });
+}
+/* point du gabarit (u, v) → pixel de la PHOTO (repère CSS : coin du pixel), via l'homographie de l'image analysée */
+function photoPoint(out, u, v) {
+  const H = out.res.homography;
+  const w = H[6] * u + H[7] * v + H[8];
+  const x = (H[0] * u + H[1] * v + H[2]) / w, y = (H[3] * u + H[4] * v + H[5]) / w;
+  return [(x + 0.5) / out.k, (y + 0.5) / out.k];
+}
+/* repères pré-remplis de l'alignement manuel (centre, haut du cercle +++) d'après ce que la détection a trouvé */
+function prefillFrom(out) {
+  if (!out || !out.res || !out.res.homography) return null;
+  const c = photoPoint(out, 0, 0), t = photoPoint(out, 0, -1);
+  if (![...c, ...t].every(Number.isFinite)) return null;
+  return { c, t };
+}
+
+/* écran « Je cherche le radar… » : la photo, un balayage façon radar, puis le radar trouvé (ou l'alignement manuel) */
+function renderPhotoScan() {
+  if (!photo) { renderPhotoStart(); return; }
+  const token = ++scanSeq;
+  const S = makeStage('is-scan');
+  const { stage } = S;
+  stage.appendChild(photo.img);
+  const sweep = h('span', { class: 'im-sweep', 'aria-hidden': 'true' });
+  const lens = h('span', { class: 'im-lens', 'aria-hidden': 'true' }, '🔍');
+  const found = h('span', { class: 'im-found', 'aria-hidden': 'true', hidden: true });
+  stage.append(sweep, found, lens);
+  const capT = h('span', { class: 'im-scan-t' }, 'Je cherche le radar');
+  const dots = h('span', { class: 'im-dots', 'aria-hidden': 'true' }, h('i', null, '.'), h('i', null, '.'), h('i', null, '.'));
+  const cap = h('div', { class: 'im-scan-cap', 'aria-hidden': 'true' }, h('span', { class: 'im-scan-emo' }, '🔍'), h('span', { class: 'im-scan-l' }, capT, dots));
+  const manual = h('button', { type: 'button', class: 'btn ghost block', on: { click: () => {
+    audio.tap(); scanSeq++; flow.auto = null; flow.prefill = null; flow.miss = null; renderPhotoAlign();
+  } } }, 'Placer les points à la main');
+  screen('Lecture de la photo', () => { scanSeq++; releasePhoto(); renderPhotoStart(); },
+    cap, stage, h('p', { class: 'im-private' }, h('span', { 'aria-hidden': 'true' }, '🔒 '), frTypo('La photo est analysée sur ce téléphone : elle n’est ni enregistrée ni envoyée.')),
+    h('div', { class: 'im-actions' }, manual));
+  stage.setAttribute('aria-label', 'Photo de la fiche en cours d’analyse');
+  const place = () => {
+    S.layout({ x: 0, y: 0, w: photo.natW, h: photo.natH }, { maxH: Math.max(280, Math.round((G.innerHeight || 700) * 0.6)) });
+  };
+  place();
+  observe(stage, place);
+  say('Je cherche le radar sur la photo…');
+  const t0 = Date.now();
+  const dpr = Math.min(3, Math.max(1, G.devicePixelRatio || 1));
+  const viewSize = Math.round(Math.min(1100, Math.max(640, (stage.clientWidth || 360) * dpr * 1.15)));
+  const opts = { templates: { fr: ficheTemplate(flow.classe, 'fr'), ma: ficheTemplate(flow.classe, 'ma') }, viewSize, viewExtent: 1.3 };
+  runDetection(opts).then(out => {
+    if (token !== scanSeq || !host || !photo) return;
+    /* le balayage reste visible un court instant : on voit que Caramel a cherché */
+    const wait = Math.max(0, (motion.reduced() ? 200 : 1000) - (Date.now() - t0));
+    const t = setTimeout(() => {
+      if (token !== scanSeq || !host || !photo) return;
+      const res0 = out && out.res;
+      /* défense en profondeur : bande des familles franchement orange (maths) mais gabarit de français retenu →
+         lecture douteuse, on passe par le calage (pré-rempli) plutôt que d'enregistrer une fiche sous la mauvaise matière */
+      const colorClash = !!(res0 && res0.ok && res0.subject === 'fr' && res0.subjectColor === 'ma');
+      if (out && res0 && res0.ok && out.view && !colorClash) {
+        /* radar trouvé : cercle tracé sur la photo, puis gros plan redressé */
+        const [cx, cy] = photoPoint(out, 0, 0), [tx, ty] = photoPoint(out, 0, -1);
+        const [sx, sy] = S.toStage(cx, cy), [qx, qy] = S.toStage(tx, ty);
+        const r = Math.hypot(qx - sx, qy - sy);
+        Object.assign(found.style, { left: sx + 'px', top: sy + 'px', width: 2 * r + 'px', height: 2 * r + 'px' });
+        found.hidden = false;
+        stage.classList.add('is-found');
+        clear(capT); capT.textContent = 'Radar trouvé';
+        dots.replaceChildren(h('b', { class: 'im-scan-ok' }, ' ✓'));
+        audio.success(2);
+        say('Radar trouvé. Lecture des points.');
+        const t2 = setTimeout(() => { if (token === scanSeq && host && photo) enterAuto(out); }, motion.reduced() ? 120 : 700);
+        cleanups.push(() => clearTimeout(t2));
+      } else {
+        flow.auto = null;
+        flow.prefill = prefillFrom(out);
+        flow.miss = res0 ? res0.reason || 'confiance-faible' : 'erreur';
+        flow.hint = res0 && res0.hint ? res0.hint : null;
+        /* radar repéré sans lecture complète : matière et points lus avec assurance repris. La matière vient du gabarit
+           (nombre d'axes) si ses axes ont bien été retrouvés, sinon de la couleur de la bande des familles. */
+        if (flow.prefill && res0 && res0.template && Array.isArray(res0.axes) && res0.axes.length) {
+          const st = res0.debug && res0.debug.stats;
+          const axesSeen = !!(st && st.ray >= 0.6) && !colorClash;
+          const subject = axesSeen ? (res0.subject === 'ma' ? 'ma' : 'fr') : (res0.subjectColor || null);
+          if (subject) {
+            flow.photoSubject = subject;
+            flow.subjectSrc = axesSeen ? 'radar' : 'couleur';
+          }
+          /* les valeurs lues appartiennent au gabarit retenu : reprises seulement si c'est bien la matière proposée */
+          if (axesSeen) {
+            const v = res0.axes.map(a => (a.confidence >= UNSURE ? a.theta : undefined));
+            if (v.some(x => x !== undefined)) flow.values['photo-' + subject] = { classe: flow.classe, v };
+          }
+        }
+        renderPhotoAlign();
+      }
+    }, wait);
+    cleanups.push(() => clearTimeout(t));
+  });
+}
+/* radar lu : vue redressée (perspective corrigée), gabarit calé, valeurs pré-placées, points incertains signalés */
+function enterAuto(out) {
+  const { res, view } = out;
+  dropView();
+  const cv = document.createElement('canvas');
+  cv.width = view.width; cv.height = view.height;
+  cv.className = 'im-photo im-photo--view';
+  try {
+    cv.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(view.buffer), view.width, view.height), 0, 0);
+  } catch (_) {
+    flow.auto = null; flow.prefill = prefillFrom(out); flow.miss = 'erreur'; renderPhotoAlign(); return;
+  }
+  photo.view = { img: cv, natW: view.width, natH: view.height, R: view.R };
+  const subject = res.subject === 'ma' ? 'ma' : 'fr';
+  flow.photoSubject = subject;
+  flow.subjectSrc = 'radar';
+  flow.hint = res.hint || null;
+  /* centre du gabarit : pixel (taille / 2) de la vue, repère CSS (+ 0,5) */
+  const c = view.width / 2 + 0.5;
+  flow.align = { cx: c, cy: c, R: view.R, rot: 0, off: 0 };
+  flow.values['photo-' + subject] = { classe: flow.classe, v: res.axes.map(a => (a.theta === null ? null : a.theta)) };
+  flow.auto = { conf: res.confidence, unsure: new Set(res.axes.filter(a => a.confidence < UNSURE).map(a => a.index)) };
+  flow.kept = null;
+  flow.prefill = prefillFrom(out);
+  flow.miss = null;
+  renderPhotoPoints();
+}
+
 function subjectRow() {
-  const det = photo && photo.detected;
+  const src = flow.subjectSrc;
   const s = seg([['fr', SUBJ.fr.emo + ' Français'], ['ma', SUBJ.ma.emo + ' Maths']], flow.photoSubject, v => {
-    if (v !== flow.photoSubject) { flow.photoSubject = v; say('Matière : ' + (v === 'fr' ? 'français' : 'maths')); }
+    if (v !== flow.photoSubject) { flow.photoSubject = v; flow.subjectSrc = null; say('Matière : ' + (v === 'fr' ? 'français' : 'maths')); }
   }, 'Matière de la fiche', 'im-seg-subj');
-  return field('Matière', s.el, det ? 'Reconnue d’après la couleur de la fiche ; touchez l’autre matière si besoin.' : 'Choisissez la matière de cette fiche.');
+  const help = src === 'radar' ? 'Reconnue d’après le radar de la fiche ; touchez l’autre matière si besoin.'
+    : src === 'couleur' ? 'Reconnue d’après la couleur du radar ; touchez l’autre matière si besoin.'
+      : 'Choisissez la matière de cette fiche.';
+  return field('Matière', s.el, help);
 }
 
 function renderPhotoAlign() {
   if (!photo) { renderPhotoStart(); return; }
+  scanSeq++;
   const S = makeStage('is-align');
   const { stage } = S;
   stage.appendChild(photo.img);
@@ -544,15 +742,25 @@ function renderPhotoAlign() {
   const markT = h('span', { class: 'im-mark im-mark--t', 'aria-hidden': 'true', hidden: true });
   const ring = h('span', { class: 'im-ring', 'aria-hidden': 'true', hidden: true });
   stage.append(ring, markC, markT);
-  let taps = [];
+  /* repères pré-remplis par la détection (centre, haut du cercle +++) : il suffit de vérifier */
+  const pre = flow.prefill;
+  let taps = pre ? [pre.c.slice(), pre.t.slice()] : [];
+  let fromDetect = !!pre;
   const instr = h('div', { class: 'im-instr', role: 'status' });
+  const confirm = h('button', { type: 'button', class: 'btn big block im-confirm', hidden: true, on: { click: () => { audio.tap(); commit(); } } }, 'C’est bien placé ➜');
   const setInstr = () => {
     clear(instr);
     const n = taps.length;
-    instr.append(h('span', { class: 'im-instr-n' }, (n + 1) + '/2'),
-      h('span', { class: 'im-instr-t' }, n === 0
-        ? frTypo('Touchez le centre du radar : le cartable 🎒')
-        : frTypo('Touchez maintenant le haut du grand cercle (+++)')));
+    if (n === 2 && fromDetect) {
+      instr.append(h('span', { class: 'im-instr-n' }, '✓'),
+        h('span', { class: 'im-instr-t' }, frTypo('Vérifiez les deux repères : le cartable au centre et le haut du grand cercle. Touchez la photo pour les replacer.')));
+    } else {
+      instr.append(h('span', { class: 'im-instr-n' }, Math.min(2, n + 1) + '/2'),
+        h('span', { class: 'im-instr-t' }, n === 0
+          ? frTypo('Touchez le centre du radar : le cartable 🎒')
+          : frTypo('Touchez maintenant le haut du grand cercle (+++)')));
+    }
+    confirm.hidden = !(n === 2 && fromDetect);
   };
   const place = () => {
     if (!S.layout({ x: 0, y: 0, w: photo.natW, h: photo.natH }, { maxH: Math.max(280, Math.round((G.innerHeight || 700) * 0.62)) })) return;
@@ -561,14 +769,30 @@ function renderPhotoAlign() {
     markT.hidden = taps.length < 2;
     if (taps[0]) pos(markC, taps[0]);
     if (taps[1]) pos(markT, taps[1]);
+    /* cercle +++ esquissé quand les deux repères sont posés */
+    ring.hidden = taps.length < 2;
+    if (taps.length === 2) {
+      const [cx, cy] = S.toStage(taps[0][0], taps[0][1]), [tx, ty] = S.toStage(taps[1][0], taps[1][1]);
+      const r = Math.hypot(tx - cx, ty - cy);
+      Object.assign(ring.style, { width: 2 * r + 'px', height: 2 * r + 'px', transform: 'translate(' + (cx - r).toFixed(1) + 'px, ' + (cy - r).toFixed(1) + 'px)' });
+    }
+  };
+  const commit = () => {
+    const [c, t] = taps;
+    const dx = t[0] - c[0], dy = t[1] - c[1];
+    flow.align = { cx: c[0], cy: c[1], R: Math.hypot(dx, dy), rot: Math.atan2(dx, -dy) * 180 / Math.PI, off: 0 };
+    renderPhotoPoints();
   };
   const tap = (sx, sy) => {
     const [ix, iy] = S.toImage(sx, sy);
     if (ix < -20 || iy < -20 || ix > photo.natW + 20 || iy > photo.natH + 20) return;
+    /* repères proposés par la détection : une touche recommence la pose (centre d'abord) */
+    if (fromDetect) { fromDetect = false; taps = []; }
     if (taps.length === 1) {
       const d = Math.hypot(ix - taps[0][0], iy - taps[0][1]) * S.geo.k;
       if (d < 24) { say('Touchez plus loin du centre : le haut du grand cercle.'); kit.toast(frTypo('Un peu plus loin du centre : le haut du grand cercle.')); return; }
     }
+    if (taps.length >= 2) taps = [];
     taps.push([ix, iy]);
     place();
     const mk = taps.length === 1 ? markC : markT;
@@ -579,12 +803,9 @@ function renderPhotoAlign() {
       say('Centre placé. Touchez maintenant le haut du grand cercle.');
       return;
     }
-    const [c, t] = taps;
-    const dx = t[0] - c[0], dy = t[1] - c[1];
-    flow.align = { cx: c[0], cy: c[1], R: Math.hypot(dx, dy), rot: Math.atan2(dx, -dy) * 180 / Math.PI, off: 0 };
     audio.success(2);
     say('Gabarit calé sur la photo.');
-    const t2 = setTimeout(() => { if (host) renderPhotoPoints(); }, motion.reduced() ? 60 : 320);
+    const t2 = setTimeout(() => { if (host) commit(); }, motion.reduced() ? 60 : 320);
     cleanups.push(() => clearTimeout(t2));
   };
   let down = null;
@@ -599,7 +820,7 @@ function renderPhotoAlign() {
     tap(e.clientX - r.left - stage.clientLeft, e.clientY - r.top - stage.clientTop);
   });
   stage.addEventListener('pointercancel', () => { down = null; });
-  const reset = h('button', { type: 'button', class: 'btn white small', on: { click: () => { audio.tap(); taps = []; place(); setInstr(); say('Alignement remis à zéro.'); } } }, 'Recommencer');
+  const reset = h('button', { type: 'button', class: 'btn white small', on: { click: () => { audio.tap(); taps = []; fromDetect = false; place(); setInstr(); say('Alignement remis à zéro.'); } } }, 'Recommencer');
   /* repli sans toucher précis (clavier, lecteur d'écran) : gabarit centré sur la photo, à ajuster ensuite */
   const auto = h('button', { type: 'button', class: 'btn ghost small', on: { click: () => {
     audio.tap();
@@ -607,16 +828,35 @@ function renderPhotoAlign() {
     flow.align = { cx: photo.natW / 2, cy: photo.natH / 2, R: m * 0.36, rot: 0, off: 0 };
     renderPhotoPoints();
   } } }, 'Centrer sans toucher');
+  /* message bienveillant quand la détection automatique n'a pas abouti */
+  let miss = null, missText = '';
+  if (flow.miss) {
+    const msg = pre
+      ? 'J’ai repéré le radar, mais pas assez nettement pour lire tous les points. Vérifiez les deux repères, puis placez les points : c’est rapide !'
+      : 'Je n’ai pas trouvé le radar tout seul sur cette photo. Touchez le cartable au centre, puis le haut du grand cercle : on y arrive ensemble !';
+    const tip = SHOT_TIP[flow.hint] || '';
+    const extra = flow.miss === 'axes-introuvables' && !tip ? ' Vérifiez aussi que la fiche est bien une fiche de ' + flow.classe + '.' : '';
+    /* plan B, autre issue : une meilleure photo (conseil de prise de vue d'après ce que la détection a vu) */
+    const retake = h('button', { type: 'button', class: 'btn white small im-retake', on: { click: () => { audio.tap(); releasePhoto(); renderPhotoStart(); } } },
+      h('span', { 'aria-hidden': 'true' }, '📷'), 'Reprendre la photo');
+    missText = frTypo(msg + extra + (tip ? ' ' + tip : ''));
+    miss = h('div', { class: 'bubble soft im-bubble im-miss', role: 'status' },
+      h('span', { class: 'im-miss-emo', 'aria-hidden': 'true' }, '🤔'),
+      h('span', { class: 'im-miss-txt' }, h('span', null, frTypo(msg + extra)),
+        tip ? h('span', { class: 'im-miss-tip' }, frTypo(tip)) : null, retake));
+  }
   screen('Caler le gabarit', () => { releasePhoto(); renderPhotoStart(); },
-    subjectRow(), instr, stage, h('div', { class: 'im-row im-row--tools' }, reset, auto));
+    miss, subjectRow(), instr, stage, confirm, h('div', { class: 'im-row im-row--tools' }, reset, auto));
   setInstr();
   stage.setAttribute('aria-label', 'Photo de la fiche');
   place();
   observe(stage, place);
+  if (miss) say(missText);
 }
 
 function renderPhotoPoints() {
   if (!photo || !flow.align) { renderPhotoAlign(); return; }
+  scanSeq++;
   const p = target();
   const subject = flow.photoSubject;
   const tpl = ficheTemplate(flow.classe, subject);
@@ -624,17 +864,37 @@ function renderPhotoPoints() {
   const prev = flow.values['photo-' + subject];
   let values = prev && prev.classe === flow.classe && prev.v.length === tpl.axes.length ? prev.v.slice() : tpl.axes.map(() => undefined);
   const A = flow.align;
-  const S = makeStage('is-points');
+  /* lecture automatique : gros plan redressé du radar (la perspective de la photo est corrigée) ; après un réalignement à
+     la main, les points lus « à vérifier » le restent tant qu'on ne les a pas regardés */
+  const auto = !!(flow.auto && photo.view);
+  const unsure = auto ? flow.auto.unsure : flow.kept && flow.kept.subject === subject ? flow.kept.unsure : new Set();
+  const src = auto ? photo.view : photo;
+  const S = makeStage('is-points' + (auto ? ' is-view' : ''), src);
   const { stage } = S;
-  stage.appendChild(photo.img);
+  stage.appendChild(src.img);
   const editorHost = h('div', { class: 'im-editor' });
   const progress = h('p', { class: 'im-progress', 'aria-live': 'polite' });
   let r = null;
   const upd = () => {
     const left = values.filter(v => v === undefined).length;
-    progress.textContent = left ? frTypo(plural(tpl.axes.length - left, 'point placé', 'points placés') + ' sur ' + tpl.axes.length) : 'Tous les points sont placés ✓';
-    progress.classList.toggle('is-done', !left);
+    if (!left && unsure.size) {
+      progress.textContent = frTypo(unsure.size > 1 ? 'Encore ' + unsure.size + ' points à vérifier (entourés d’orange)' : 'Encore un point à vérifier (entouré d’orange)');
+      progress.className = 'im-progress is-check';
+    } else {
+      progress.textContent = left ? frTypo(plural(tpl.axes.length - left, 'point placé', 'points placés') + ' sur ' + tpl.axes.length) : 'Tous les points sont placés ✓';
+      progress.className = 'im-progress' + (left ? '' : ' is-done');
+    }
     flow.values['photo-' + subject] = { classe: flow.classe, v: values.slice() };
+  };
+  /* point signalé « à vérifier » : halo orange qui s'éteint dès qu'on l'a regardé ou déplacé */
+  const checked = i => {
+    if (!unsure.has(i)) return;
+    unsure.delete(i);
+    try {
+      const g = r && r.el.querySelector('.radar-handle[data-i="' + i + '"]');
+      if (g) { g.classList.remove('is-unsure'); g.removeAttribute('aria-description'); }
+    } catch (_) {}
+    upd();
   };
   const apply = () => {
     const half = A.R * 1.24;
@@ -643,7 +903,7 @@ function renderPhotoPoints() {
     r.setTransform({ cx, cy, R: A.R * S.geo.k, rotation: A.rot + A.off, width: S.geo.W, height: S.geo.H });
   };
   const tool = (label, aria, fn) => h('button', { type: 'button', class: 'im-tool', 'aria-label': aria, on: { click: () => { audio.tap(); fn(); apply(); } } }, label);
-  const tools = h('div', { class: 'im-tools', role: 'group', 'aria-label': 'Ajuster le gabarit' },
+  const tools = auto ? null : h('div', { class: 'im-tools', role: 'group', 'aria-label': 'Ajuster le gabarit' },
     h('div', { class: 'im-tool-g' }, h('span', { class: 'im-tool-l' }, 'Tourner'),
       tool('↺', 'Tourner le gabarit d’un degré vers la gauche', () => { A.rot -= 1; }),
       tool('↻', 'Tourner le gabarit d’un degré vers la droite', () => { A.rot += 1; })),
@@ -666,24 +926,64 @@ function renderPhotoPoints() {
     audio.tap();
     renderRecap('photo', subject, tpl, values);
   };
-  screen('Placer les points', () => renderPhotoAlign(),
-    h('p', { class: 'im-note im-howto' }, frTypo('Glissez chaque poignée sur la pastille blanche du radar de la fiche (son axe s’allume). Réglez avec − et +, ou « Absent » si l’enfant n’a pas été positionné.')),
-    stage, tools, editorHost, progress,
-    h('div', { class: 'im-actions' },
+  /* retour au calage manuel (plan B) : la vue redressée ne sert plus, les valeurs lues restent */
+  const manual = () => {
+    audio.tap();
+    flow.kept = { subject, unsure };
+    flow.auto = null;
+    flow.miss = null;
+    dropView();
+    renderPhotoAlign();
+  };
+  /* message selon la part de points incertains (lus difficilement sur cette photo) */
+  const many = unsure.size * 2 > tpl.axes.length, all = unsure.size === tpl.axes.length;
+  const tip = SHOT_TIP[flow.hint] ? ' ' + SHOT_TIP[flow.hint] : '';
+  const head = auto
+    ? h('div', { class: 'bubble good im-bubble im-auto', role: 'status' },
+      h('span', { class: 'im-auto-ico', 'aria-hidden': 'true' }, '✓'),
+      h('span', { class: 'im-auto-txt' },
+        h('b', null, frTypo(many ? 'J’ai trouvé le radar ✓' : 'J’ai trouvé le radar et lu les points ✓')), ' ',
+        frTypo(all ? 'Les points sont difficiles à lire sur cette photo : vérifiez-les un à un (entourés d’orange), vous pouvez les déplacer.' + tip
+          : many ? 'Certains points sont difficiles à lire sur cette photo : vérifiez ceux entourés d’orange, vous pouvez les déplacer.' + tip
+            : unsure.size ? 'Vérifiez-les : vous pouvez les déplacer. Les points entourés d’orange sont à regarder de près.'
+              : 'Vérifiez-les : vous pouvez les déplacer.')))
+    : h('p', { class: 'im-note im-howto' }, frTypo('Glissez chaque poignée sur la pastille blanche du radar de la fiche (son axe s’allume). Réglez avec − et +, ou « Absent » si l’enfant n’a pas été positionné.'));
+  const actions = auto
+    ? h('div', { class: 'im-actions' },
+      h('button', { type: 'button', class: 'btn big block im-ok', on: { click: check } }, 'C’est bon ✓'),
+      h('button', { type: 'button', class: 'btn white block im-realign', on: { click: manual } }, h('span', { 'aria-hidden': 'true' }, '✋'), 'Réaligner à la main'))
+    : h('div', { class: 'im-actions' },
       h('button', { type: 'button', class: 'btn big block', on: { click: check } }, 'Vérifier ➜'),
-      h('button', { type: 'button', class: 'btn ghost block', on: { click: () => { audio.tap(); renderPhotoAlign(); } } }, 'Recaler le gabarit')));
+      h('button', { type: 'button', class: 'btn ghost block', on: { click: () => { audio.tap(); renderPhotoAlign(); } } }, 'Recaler le gabarit'));
+  screen(auto ? 'Vérifier les points' : 'Placer les points', auto ? () => { releasePhoto(); renderPhotoStart(); } : () => renderPhotoAlign(),
+    head, stage, tools, editorHost, progress, actions);
   upd();
-  stage.setAttribute('aria-label', 'Photo de la fiche ' + SUBJ[subject].the + ' avec le gabarit');
+  stage.setAttribute('aria-label', (auto ? 'Radar de la fiche ' : 'Photo de la fiche ') + SUBJ[subject].the + ' avec le gabarit');
   later(() => {
     if (!stage.isConnected) return;
     r = renderRadar(stage, {
       template: tpl, values, subject, labels: 'none', animate: false,
       title: 'Gabarit de la fiche ' + SUBJ[subject].the + ' de ' + p.name,
-      interactive: { snap: 0.1, absent: true, editor: editorHost, onChange: (i, v, all) => { values = all; upd(); } }
+      interactive: { snap: 0.1, absent: true, editor: editorHost,
+        onChange: (i, v, all) => { values = all; checked(i); upd(); },
+        onSelect: i => checked(i) }
     });
     cleanups.push(() => r.destroy());
+    /* points à vérifier : halo orange, et signalés aux lecteurs d'écran (pas seulement par la couleur) */
+    for (const i of unsure) {
+      const g = r.el.querySelector('.radar-handle[data-i="' + i + '"]');
+      if (g) { g.classList.add('is-unsure'); g.setAttribute('aria-description', 'à vérifier'); }
+    }
     apply();
     observe(stage, apply);
+    if (auto) {
+      const names = [...unsure].sort((a, b) => a - b).map(i => tpl.axes[i] && tpl.axes[i].label).filter(Boolean);
+      say('Radar lu. ' + (unsure.size ? frTypo(plural(unsure.size, 'point est', 'points sont') + ' à vérifier : ' + names.join(', ') + '.') : 'Vérifiez les points.'));
+      if (!motion.reduced()) {
+        /* les poignées apparaissent une à une, comme si Caramel les posait */
+        motion.stagger([...r.el.querySelectorAll('.radar-handle')], g => motion.enter(g, { from: 'scale', dur: 280 }), 55);
+      }
+    }
   });
 }
 
@@ -708,7 +1008,7 @@ function renderRecap(kind, subject, tpl, values) {
     const evaluation = {
       source: 'Repères', date, classe: flow.classe,
       fr: subject === 'fr' ? vals : {}, ma: subject === 'ma' ? vals : {},
-      precision: kind === 'photo' ? 'lecture sur photo' : 'saisie manuelle'
+      precision: kind === 'photo' ? (flow.auto ? 'lecture automatique de la photo, vérifiée' : 'lecture sur photo') : 'saisie manuelle'
     };
     let res = null;
     store.mutateProfile(q => {
@@ -788,7 +1088,7 @@ export default {
     Q = { ...(query || {}) };
     const data = store.getData();
     const wanted = Q.profile && store.getProfile(Q.profile) ? Q.profile : (data.active && store.getProfile(data.active) ? data.active : null);
-    flow = { targetId: wanted, classe: null, done: new Set(), values: {}, photoSubject: 'fr', align: null, date: '' };
+    flow = { targetId: wanted, classe: null, done: new Set(), values: {}, photoSubject: 'fr', subjectSrc: null, align: null, date: '', auto: null, kept: null, prefill: null, miss: null, hint: null };
     await Promise.race([Promise.all([loadCSS('css/ui/import.css'), radarReady()]), new Promise(r => setTimeout(r, 1200))]);
     if (host !== root) return;
     try { document.title = 'Fiche d’évaluation · Caramel'; } catch (_) {}
@@ -797,8 +1097,11 @@ export default {
     else renderChoose();
   },
   unmount() {
+    scanSeq++;
     cleanupStep();
     releasePhoto();
+    try { if (detWorker) detWorker.terminate(); } catch (_) {}
+    detWorker = null;
     host = null;
     live = null;
     flow = null;

@@ -5,7 +5,10 @@
    - joker 💡 : le bouton d'en-tête appelle le gestionnaire du jeu (ctx.onJoker) puis débite la manche ;
    - cycle de vie : end(extra) termine la manche (bilan par la coquille, sauf extra.stay / extra.skipSummary),
      again() ouvre une nouvelle manche sans démonter le jeu (ex. « Revanche » de la course),
-     leave() sort sans bilan, quit() abandonne (progrès gardés, aucun reproche). */
+     leave() sort sans bilan, quit() abandonne (progrès gardés, aucun reproche).
+   - compagnon (v2.1) : ctx.pet, ctx.petSVG(), ctx.petAnchors() le dessinent comme partout ailleurs, avec son espèce,
+     ses accessoires portés ET son stade (petit / junior / champion selon companion.minutes : stageOf de
+     js/ui/companion.js, seuils dans js/ui/companion-life.js). */
 import * as motion from '../core/motion.js';
 import * as audio from '../core/audio.js';
 import * as tts from '../core/tts.js';
@@ -13,6 +16,21 @@ import * as speech from '../core/speech.js';
 import * as kit from './kit.js';
 import { getProfile } from '../core/store.js';
 import { fillTemplate } from '../core/profiles.js';
+import { MOUNTS } from '../content/companion-data.js';
+import { mountSVG, mountAnchors } from './mount-svg.js';
+import { stageOf } from './companion.js';
+
+/* compagnon d'un profil → { type, worn, stage, name } (espèce inconnue → poney ; un seul objet par emplacement :
+   mountSVG s'en charge) */
+function petOf(p) {
+  const c = (p && p.companion) || {};
+  return {
+    type: MOUNTS[c.type] ? c.type : 'pony',
+    worn: c.equip && Array.isArray(c.equip.worn) ? c.equip.worn.slice() : [],
+    stage: stageOf(p),
+    name: typeof c.name === 'string' && c.name ? c.name : 'Caramel'
+  };
+}
 
 /* makeManche() → nouvelle manche ; onEnd(summary, extra) ; onQuit(summary|null) ; onLeave(summary|null) */
 export function buildCtx({ game, makeManche, manche: first, mode = 'libre', header, onEnd, onQuit, onLeave }) {
@@ -34,6 +52,20 @@ export function buildCtx({ game, makeManche, manche: first, mode = 'libre', head
     get classe() { const p = getProfile(); return p ? p.classe : null; },
     get settings() { const p = getProfile(); return (p && p.settings) || {}; },
     fill: str => fillTemplate(str, getProfile()),
+    /* compagnon du profil actif : { type, worn, stage, name } (relu à chaque appel : stade et accessoires à jour) */
+    get pet() { return petOf(getProfile()); },
+    /* SVG du compagnon (mountSVG) avec ses accessoires et son stade ; opts de mountSVG : expr, shadow (false quand le
+       jeu pose sa propre ombre au sol), phase, view ; stage peut être forcé */
+    petSVG(size, mood = '', opts = {}) {
+      const m = petOf(getProfile());
+      return mountSVG(m.type, m.worn, size, mood, Object.assign({ stage: m.stage }, opts && typeof opts === 'object' ? opts : {}));
+    },
+    /* ancres du compagnon au repos, à son stade (mountAnchors : bouche, yeux, sommet de tête… en unités du viewBox
+       100 × 84 ; × taille / 100 pour des px) — pour viser la bouche, poser un objet sur lui */
+    petAnchors(opts = {}) {
+      const m = petOf(getProfile());
+      return mountAnchors(m.type, Object.assign({ stage: m.stage }, opts && typeof opts === 'object' ? opts : {}));
+    },
     get axis() { return manche.axis; },
     get count() { return manche.count; },
     get rng() { return manche.rng; },

@@ -13,9 +13,13 @@
      filename : 'caramel-<prénom>-AAAA-MM-JJ.json' | 'caramel-tous-AAAA-MM-JJ.json'
    parseBackup(text) → { kind: 'profile' | 'all' | 'eval' | null, payload, errors: [], warnings: [], meta }
    mergeProfile(data, profile, 'add' | 'replace', targetId?) → { id, mode }   (modifie data : à appeler dans store.mutate)
-   replaceAll(data) → données caramel-v3 normalisées (pour store.replaceData) ou null */
+   replaceAll(data) → données caramel-v3 normalisées (pour store.replaceData) ou null
+   noteSaved(profils) / lastSaved(profil) / forgetSaved(ids | null) : date de la dernière sauvegarde téléchargée d'ici
+     (réglage d'appareil, lu et écrit à l'appel seulement ; voir plus bas)
+   Vocabulaire constant (espace parents et feuilles) : « Télécharger » une sauvegarde, « Restaurer » une sauvegarde ;
+   tout remplacement dit qu'il est définitif et propose de télécharger d'abord ce qui sera remplacé. */
 
-import { dayStr, slug, deepClone, fmtNum, frTypo, download as utilDownload, h } from '../core/util.js';
+import { dayStr, slug, deepClone, fmtNum, frTypo, frList, download as utilDownload, h } from '../core/util.js';
 import { normalizeProfile, sanitizeName, newProfileId } from '../core/profiles.js';
 import { normalizeData } from '../core/migrate.js';
 import { AXES, CLASSES } from '../core/axes.js';
@@ -230,6 +234,54 @@ export function replaceAll(newData, today = dayStr()) {
   return Object.keys(d.profiles).length ? d : null;
 }
 
+/* ============ date de la dernière sauvegarde téléchargée d'ici (réglage d'APPAREIL, jamais exporté) ============
+   Rangée dans la clé de l'espace parents ('caramel-parent', champ saved : { [idProfil]: { at: ISO, name } }) ;
+   ces fonctions ne touchent qu'à ce champ. Un identifiant de profil peut resservir à un autre enfant (profil supprimé
+   puis nouveau profil, restauration) : une restauration qui écrit un profil oublie sa date, « Tout remplacer » les
+   oublie toutes, la suppression d'un profil aussi (parents.js) ; et la date n'est montrée que si le prénom
+   enregistré avec elle correspond encore (sameName). st : stockage (localStorage par défaut). */
+export const SAVED_KEY = 'caramel-parent';
+const localStore = () => { try { return globalThis.localStorage || null; } catch (_) { return null; } };
+/* fn(saved) → true s'il a changé quelque chose (seulement alors on écrit) ; → true si tout s'est bien passé */
+function editSaved(fn, st) {
+  try {
+    if (!st) return false;
+    let o = null;
+    try { o = JSON.parse(st.getItem(SAVED_KEY) || 'null'); } catch (_) { o = null; }
+    if (!isObj(o)) o = {};
+    if (!isObj(o.saved)) o.saved = {};
+    if (fn(o.saved)) st.setItem(SAVED_KEY, JSON.stringify(o));
+    return true;
+  } catch (_) { return false; }
+}
+/* profils = [{ id, name }] qui viennent d'être téléchargés (ou partagés) d'ici */
+export function noteSaved(profiles, { st = localStore(), now = new Date() } = {}) {
+  const at = (now instanceof Date && !isNaN(now) ? now : new Date()).toISOString();
+  const list = (Array.isArray(profiles) ? profiles : []).filter(p => isObj(p) && typeof p.id === 'string' && p.id);
+  return editSaved(saved => {
+    for (const p of list) saved[p.id] = { at, name: typeof p.name === 'string' ? p.name : '' };
+    return list.length > 0;
+  }, st);
+}
+/* ids = liste d'identifiants, ou null pour tout oublier */
+export function forgetSaved(ids, { st = localStore() } = {}) {
+  return editSaved(saved => {
+    const keys = ids === null ? Object.keys(saved) : (Array.isArray(ids) ? ids : []).filter(id => has(saved, id));
+    for (const k of keys) delete saved[k];
+    return keys.length > 0;
+  }, st);
+}
+/* → ISO de la dernière sauvegarde de ce profil téléchargée d'ici, ou '' (jamais, ou date d'un autre enfant) */
+export function lastSaved(profile, { st = localStore() } = {}) {
+  if (!isObj(profile) || typeof profile.id !== 'string' || !st) return '';
+  try {
+    const o = JSON.parse(st.getItem(SAVED_KEY) || 'null');
+    const e = isObj(o) && isObj(o.saved) && has(o.saved, profile.id) ? o.saved[profile.id] : null;
+    if (!isObj(e) || typeof e.at !== 'string' || isNaN(new Date(e.at))) return '';
+    return sameName(e.name, profile.name) ? e.at : '';
+  } catch (_) { return ''; }
+}
+
 /* ============ passage d'un fichier d'évaluation d'un écran à l'autre (parents → import) ============ */
 let stash = null;
 export function stashEval(parsed) { stash = parsed || null; }
@@ -299,13 +351,16 @@ export function pickFile({ accept = '.json,.txt,application/json,text/plain' } =
 }
 
 /* ============ feuille « restaurer une sauvegarde » (parents et import) ============
-   parsed : résultat de parseBackup (kind 'profile' ou 'all') ; deps = { store, kit } (modules) ;
+   parsed : résultat de parseBackup (kind 'profile' ou 'all') ; deps = { store, kit, storage? } (modules ; storage :
+   stockage des dates de sauvegarde, localStorage par défaut). Les dates sont tenues ici, quel que soit l'écran
+   appelant : « Télécharger d'abord » note la date de ce qui va être remplacé ; un profil ajouté ou remplacé oublie
+   la sienne (son identifiant a pu servir à un autre enfant), « Tout remplacer » les oublie toutes.
    → Promise<{ mode: 'add' | 'replace' | 'all', ids } | null> (null = annulé) */
 const dateFr = iso => {
   try {
     const d = new Date(iso);
     if (isNaN(d)) return '';
-    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }).replace(/\s/g, '\u00A0');   /* « 3 octobre 2026 » d'un seul bloc */
   } catch (_) { return ''; }
 };
 function profileLine(p) {
@@ -331,12 +386,38 @@ function ensureCSS() {
   } catch (_) {}
 }
 
-export function restoreFlow(parsed, { store, kit } = {}) {
+/* confirmation d'un remplacement : dit que c'est définitif, propose « Télécharger d'abord » (retour sur le bouton
+   lui-même : un toast cacherait les boutons de la feuille) → Promise<boolean> */
+function confirmReplace(kit, { title, text, ok, backup }) {
+  return new Promise(resolve => {
+    let done = false;
+    const fin = v => { if (!done) { done = true; resolve(v); } };
+    let first = null;
+    if (typeof backup === 'function') {
+      first = h('button', { type: 'button', class: 'btn white small bk-first' }, h('span', { 'aria-hidden': 'true' }, '⬇️'), 'Télécharger d’abord');
+      first.addEventListener('click', () => {
+        let ok2 = false;
+        try { ok2 = !!backup(); } catch (_) { ok2 = false; }
+        first.textContent = ok2 ? frTypo('Sauvegarde téléchargée ✓') : frTypo('Le téléchargement n’a pas pu démarrer.');
+        if (ok2) first.setAttribute('aria-disabled', 'true');
+      });
+    }
+    const s = kit.sheet({
+      title, content: h('div', { class: 'bk-sheet' }, h('p', { class: 'bk-help' }, text), first),
+      actions: [{ label: 'Annuler', kind: 'white', onClick: () => fin(false) }, { label: ok, kind: 'pink', onClick: () => fin(true) }],
+      onClose: () => fin(false)
+    });
+    if (!s || !s.el) fin(false);
+  });
+}
+
+export function restoreFlow(parsed, { store, kit, storage = localStore() } = {}) {
   ensureCSS();
   return new Promise(resolve => {
     if (!parsed || !store || !kit || (parsed.kind !== 'profile' && parsed.kind !== 'all')) { resolve(null); return; }
     let settled = false;
     const fin = v => { if (!settled) { settled = true; resolve(v); } };
+    const st = storage;
     const when = parsed.meta && parsed.meta.exported ? dateFr(parsed.meta.exported) : '';
     const data = store.getData();
     const toast = msg => { try { kit.toast(msg); } catch (_) {} };
@@ -356,15 +437,26 @@ export function restoreFlow(parsed, { store, kit } = {}) {
       const add = () => {
         let res = null;
         store.mutate(d => { res = mergeProfile(d, p, 'add'); });
+        forgetSaved([res.id], { st });
         toast(frTypo('Profil « ' + p.name + ' » ajouté ✓'));
         fin({ mode: 'add', ids: [res.id] });
       };
       const replace = async id => {
         const target = store.getProfile(id);
-        const ok = await kit.confirmSheet(frTypo('Remplacer les progrès de « ' + (target ? target.name : '') + ' » sur cet appareil par ceux de la sauvegarde ?'),
-          { ok: 'Remplacer', cancel: 'Annuler', icon: '♻️' });
+        const ok = await confirmReplace(kit, {
+          title: frTypo('Remplacer « ' + (target ? target.name : '') + ' » ?'),
+          text: frTypo('Les progrès de « ' + (target ? target.name : '') + ' » sur cet appareil seront remplacés par ceux de la sauvegarde' +
+            (when ? ' du ' + when : '') + '. C’est définitif.'),
+          ok: 'Remplacer',
+          backup: target ? () => {
+            const done = downloadExport(exportProfile(target));
+            if (done) noteSaved([target], { st });
+            return done;
+          } : null
+        });
         if (!ok) { fin(null); return; }
         store.mutate(d => { mergeProfile(d, p, 'replace', id); });
+        forgetSaved([id], { st });
         toast(frTypo('Profil « ' + p.name + ' » restauré ✓'));
         fin({ mode: 'replace', ids: [id] });
       };
@@ -378,7 +470,7 @@ export function restoreFlow(parsed, { store, kit } = {}) {
           const s2 = kit.sheet({ title: frTypo('Quel profil remplacer ?'), content: list, onClose: r => { if (r !== 'action') fin(null); } });
         } });
       }
-      kit.sheet({ title: 'Importer une sauvegarde', content, actions, onClose: r => { if (r !== 'action') fin(null); } });
+      kit.sheet({ title: 'Restaurer une sauvegarde', content, actions, onClose: r => { if (r !== 'action') fin(null); } });
       return;
     }
 
@@ -388,30 +480,41 @@ export function restoreFlow(parsed, { store, kit } = {}) {
     const content = h('div', { class: 'bk-sheet' },
       h('div', { class: 'bk-card' },
         h('div', { class: 'bk-name' }, plural(names.length, 'profil', 'profils')),
-        h('div', { class: 'bk-meta' }, names.join(', ')),
+        h('div', { class: 'bk-meta' }, frList(names)),
         when ? h('div', { class: 'bk-meta' }, 'Sauvegarde du ' + when) : null),
       h('p', { class: 'bk-help' }, 'Vous pouvez remplacer toutes les données de cet appareil par cette sauvegarde, ou simplement ajouter ces profils à ceux qui existent.'));
     const addAll = () => {
       const ids = [];
       store.mutate(d => { for (const p of Object.values(all.profiles)) ids.push(mergeProfile(d, p, 'add').id); });
+      forgetSaved(ids, { st });
       toast(plural(ids.length, 'profil ajouté ✓', 'profils ajoutés ✓'));
       fin({ mode: 'add', ids });
     };
     const replaceEverything = async () => {
-      const hasData = store.listProfiles().length > 0;
-      if (hasData) {
-        const ok = await kit.confirmSheet(frTypo('Remplacer TOUTES les données de cet appareil par cette sauvegarde ? Les profils actuels seront remplacés.'),
-          { ok: 'Tout remplacer', cancel: 'Annuler', icon: '♻️' });
+      const current = store.listProfiles();
+      if (current.length) {
+        const ok = await confirmReplace(kit, {
+          title: 'Tout remplacer ?',
+          text: frTypo('Les profils de cet appareil (' + frList(current.map(p => p.name)) + ') seront remplacés par ceux de la sauvegarde' +
+            (when ? ' du ' + when : '') + '. C’est définitif.'),
+          ok: 'Tout remplacer',
+          backup: () => {
+            const done = downloadExport(exportAll(store.getData()));
+            if (done) noteSaved(current, { st });
+            return done;
+          }
+        });
         if (!ok) { fin(null); return; }
       }
       const d = replaceAll(all);
-      if (!d || !store.replaceData(d)) { toast('Cette sauvegarde n’a pas pu être importée.'); fin(null); return; }
+      if (!d || !store.replaceData(d)) { toast('Cette sauvegarde n’a pas pu être restaurée.'); fin(null); return; }
+      forgetSaved(null, { st });
       toast('Sauvegarde restaurée ✓');
       fin({ mode: 'all', ids: Object.keys(d.profiles) });
     };
     const actions = store.listProfiles().length
       ? [{ label: 'Ajouter ces profils', onClick: addAll }, { label: 'Tout remplacer', kind: 'white', onClick: () => { replaceEverything(); } }]
       : [{ label: 'Restaurer la sauvegarde', onClick: () => { replaceEverything(); } }];
-    kit.sheet({ title: 'Importer une sauvegarde', content, actions, onClose: r => { if (r !== 'action') fin(null); } });
+    kit.sheet({ title: 'Restaurer une sauvegarde', content, actions, onClose: r => { if (r !== 'action') fin(null); } });
   });
 }

@@ -37,11 +37,11 @@
 }
 .kit-bubble-ava {
   flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
-  font-size: 1.45rem; line-height: 1; background: #fff; border: 2px solid var(--pink-200); box-shadow: var(--shadow-1);
+  font-size: 1.45rem; line-height: 1; background: var(--card); border: 2px solid var(--pink-200); box-shadow: var(--shadow-1);
 }
 .kit-bubble--hint .kit-bubble-ava { background: var(--amber-100); border-color: var(--amber-300); }
 .kit-bubble--soft .kit-bubble-ava { background: var(--orange-50); border-color: var(--orange-300); }
-.kit-bubble--good .kit-bubble-ava { background: #f0fdf4; border-color: #86efac; }
+.kit-bubble--good .kit-bubble-ava { background: var(--ok-50); border-color: var(--ok-300); }
 .kit-bubble-body {
   flex: 1; min-width: 0; white-space: pre-line; font-size: 1.02rem; line-height: 1.4;
   border-bottom-left-radius: 6px; overflow-wrap: break-word;
@@ -65,7 +65,7 @@ html.kit-lock { overflow: hidden; }
 .kit-sheet { position: relative; }
 .kit-sheet:focus { outline: none; }
 .kit-sheet-head {                            /* collé en haut de la feuille quand le contenu défile */
-  position: sticky; top: -22px; z-index: 2; background: #fff;   /* -22px = marge haute de .sheet (le collage se mesure depuis le bord du contenu) */
+  position: sticky; top: -22px; z-index: 2; background: var(--card);   /* -22px = marge haute de .sheet (le collage se mesure depuis le bord du contenu) */
   margin: -22px -18px 0; padding: 8px 18px 4px; border-radius: 28px 28px 0 0;
 }
 .kit-sheet-head.no-grab { padding-top: 18px; }

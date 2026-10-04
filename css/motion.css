@@ -46,10 +46,10 @@
   0%        { transform: translateX(-110%); }
   60%, 100% { transform: translateX(110%); }
 }
-@keyframes halo {                          /* halo qui pulse autour d'un badge */
-  0%   { box-shadow: 0 0 0 0 rgba(251, 191, 36, .55); }
-  70%  { box-shadow: 0 0 0 16px rgba(251, 191, 36, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
+@keyframes halo {                          /* halo qui pulse autour d'un badge (famille principale du thème) */
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--amber-400) 55%, transparent); }
+  70%  { box-shadow: 0 0 0 16px color-mix(in srgb, var(--amber-400) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--amber-400) 0%, transparent); }
 }
 @keyframes spin-in {                       /* révélation rotative (badge, récompense) */
   0%   { opacity: 0; transform: rotate(-200deg) scale(.3); }

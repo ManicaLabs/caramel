@@ -2,7 +2,7 @@
    Contrat : docs/ARCHITECTURE.md §7 (interface, ctx, déroulé d'un item §7.3).
    Décor : petite scène SVG (rideaux, projecteurs, plancher) et quatre musiciens en aplats — ours au tambour,
    lapin au violon, grenouille à la trompette, renard au piano — qui se balancent sur le temps ; le compagnon
-   (mountSVG) dirige à la baguette ; la lumière pulse sur le temps fort.
+   (ctx.petSVG : espèce, accessoires, stade) dirige à la baguette ; la lumière pulse sur le temps fort.
    Métronome : audio.metronome({ bpm: 72, beatsPerBar: 4, onBeat, click: false }) lancé par « C’est parti ! » ;
    les temps sont JOUÉS par l'orchestre depuis onBeat (tambour de l'ours sur le temps fort, petit « tic » sinon),
    comme les notes des musiciens : tout part du même instant, sans décalage entre clic et mélodie.
@@ -16,7 +16,6 @@
    Logique pure : js/games/orchestre-logic.js (tests/orchestre.test.mjs). */
 
 import { h, clear, frTypo } from '../core/util.js';
-import { mountSVG } from '../ui/mount-svg.js';
 import * as L from './orchestre-logic.js';
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -66,14 +65,12 @@ function createGame(root, ctx) {
     return id;
   };
   const cancel = id => { if (id) { clearTimeout(id); my.timers.delete(id); } };
-  const profile = ctx.profile || {};
-  const comp = profile.companion || {};
   const slots = Math.max(4, Math.min(16, ctx.count || 10));
   my.score = L.makeScore(ctx.rng, slots);
 
   /* ---------- squelette ---------- */
   const staff = buildStaff(slots);
-  const stage = buildStage(comp);
+  const stage = buildStage(ctx.petSVG(92, ''));
   const tempoChip = h('div', { class: 'orc-tempo', 'aria-hidden': 'true' },
     h('span', { class: 'orc-tempo-ico', html: '<svg viewBox="0 0 10 16" width="8" height="13"><ellipse cx="4" cy="12.6" rx="3.6" ry="2.7" transform="rotate(-20 4 12.6)"/><rect x="6.6" y="1" width="1.5" height="11.6" rx=".7"/></svg>' }),
     h('span', { class: 'orc-tempo-n' }, '= ' + my.bpm));
@@ -412,7 +409,13 @@ function createGame(root, ctx) {
       { rotate: to + 'deg', offset: 0.32, easing: 'ease-out' },
       { rotate: (to * 0.82 + L.batonAngle(pos + 1) * 0.18) + 'deg' }
     ], { duration: d, fill: 'forwards' });
-    if (pos === 0) anim(stage.cond, 'bob', [{ translate: '0 0' }, { translate: '0 -2px', offset: 0.25 }, { translate: '0 0' }], { duration: Math.min(420, d * 0.6), easing: 'ease-out' });
+    /* temps fort : c'est le CORPS du chef qui marque le temps (.c-all du rig, composition « add » sur son attente,
+       2 unités de la scène converties en unités du viewBox du rig) ; son ombre et la vague du dauphin restent sur
+       l'estrade (ARCHITECTURE §8.6) */
+    if (pos === 0) {
+      anim(stage.body, 'bob', [{ transform: 'translateY(0px)' }, { transform: 'translateY(' + (-stage.bobH).toFixed(2) + 'px)', offset: 0.25 }, { transform: 'translateY(0px)' }],
+        { duration: Math.min(420, d * 0.6), easing: 'ease-out', composite: 'add' });
+    }
   }
   function swayAll(strong) {
     if (reduced()) return;
@@ -659,7 +662,7 @@ function buildStaff(slots) {
 
 /* ---------- scène : rideaux, projecteurs, estrade, chef et musiciens (deux rangs) ---------- */
 const SCENE_W = 360, SCENE_H = 214;
-function buildStage(comp) {
+function buildStage(petSvg) {
   const el = document.createElementNS(NS, 'svg');
   el.setAttribute('viewBox', '0 0 ' + SCENE_W + ' ' + SCENE_H);
   el.setAttribute('preserveAspectRatio', 'xMidYMid meet');
@@ -719,12 +722,19 @@ function buildStage(comp) {
   s += '<g class="st-fxl"></g></g>';
   el.innerHTML = s;
 
-  /* compagnon (SVG v11) posé sur l'estrade, tourné vers les musiciens */
+  /* compagnon (ctx.petSVG : espèce, accessoires, stade) posé sur l'estrade, tourné vers les musiciens */
   const condSlot = el.querySelector('.st-cond-svg');
+  let body = null, bobH = 2;
   try {
-    condSlot.innerHTML = mountSVG(comp.type || 'pony', (comp.equip && comp.equip.worn) || [], 92, '');
+    condSlot.innerHTML = petSvg;
     const m = condSlot.querySelector('svg');
-    if (m) { m.setAttribute('x', '8'); m.setAttribute('y', '108'); m.setAttribute('aria-hidden', 'true'); }
+    if (m) {
+      m.setAttribute('x', '8'); m.setAttribute('y', '108'); m.setAttribute('aria-hidden', 'true');
+      body = m.querySelector('.c-all');
+      /* bob du temps fort : 2 unités de la scène = 2 / échelle du rig (viewBox 100 × 84 cadré dans width × height) */
+      const k = Math.min((parseFloat(m.getAttribute('width')) || 100) / 100, (parseFloat(m.getAttribute('height')) || 84) / 84);
+      if (k > 0) bobH = 2 / k;
+    }
   } catch (_) {}
 
   const mus = MUSICIANS.map(m => {
@@ -734,7 +744,7 @@ function buildStage(comp) {
   return {
     el, mus,
     baton: el.querySelector('.st-baton'),
-    cond: el.querySelector('.st-cond-svg'),
+    body, bobH,
     lights: el.querySelector('.st-lights'),
     stick: el.querySelector('.bear-stick-r'),
     skin: el.querySelector('.drum-skin'),

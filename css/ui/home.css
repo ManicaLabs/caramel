@@ -7,33 +7,100 @@
 /* ---------- en-tête ---------- */
 .hm-head { display: flex; flex-direction: column; gap: 10px; padding-top: 2px; }
 .hm-head-row { display: flex; align-items: center; gap: 12px; }
-.hm-ava {
-  flex: none; width: 60px; height: 60px; border-radius: 50%; overflow: hidden; display: grid; place-items: end center;
-  background: linear-gradient(180deg, #e0f2fe 0 56%, #86efac 56% 100%);
-  border: 3px solid #fff; box-shadow: 0 0 0 2px var(--pink-200), var(--shadow-1);
+/* avatar : petit pré (décor naturel, fixe) ; anneau décoratif du thème (--ava-ring, aucun dans Caramel)
+   et pastille du thème (🦖, 👑…) en bas à GAUCHE : le portrait regarde à droite, son museau reste visible */
+.hm-ava-wrap { position: relative; flex: none; display: block; width: 60px; height: 60px; }
+.hm-ava-wrap::before {
+  content: ''; position: absolute; inset: -5px; border-radius: 50%; background: var(--ava-ring, none);
 }
-.hm-ava svg { width: 52px; height: auto; margin-bottom: 2px; }
+.hm-ava {
+  position: relative; width: 60px; height: 60px; border-radius: 50%; overflow: hidden; display: grid; place-items: end center;
+  background: linear-gradient(180deg, #e0f2fe 0 56%, #86efac 56% 100%);
+  border: 3px solid var(--card); box-shadow: 0 0 0 2px var(--pink-200), var(--shadow-1);
+}
+.hm-sticker {
+  position: absolute; left: -8px; bottom: -6px; z-index: 1; width: 28px; height: 28px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 16px; line-height: 1;
+  background: var(--card); box-shadow: 0 0 0 2px var(--pink-200), var(--shadow-1);
+}
+.hm-sticker[hidden] { display: none; }
+.hm-ava svg { width: 100%; height: 100%; }                      /* portrait (cadrage tête) qui remplit le rond */
+/* l'avatar est un bouton : « Qui joue ? » */
+.hm-ava-btn { padding: 0; border-radius: 50%; transition: transform var(--dur-1) var(--ease-out); }
+.hm-ava-btn:active { transform: scale(.92); }
+.hm-ava-btn:focus-visible { outline-offset: 6px; border-radius: 50%; }
+
+/* ---------- feuille « Qui joue ? » : une vignette par enfant, aux couleurs de SON thème (data-theme) ---------- */
+.hw { display: flex; flex-direction: column; gap: 12px; }
+.hw-sub { color: var(--ink-2); font-size: 1rem; line-height: 1.4; text-wrap: pretty; }
+.hw-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.hw-grid.is-one { grid-template-columns: minmax(0, 220px); justify-content: center; }
+.hw-card {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; padding: 6px 6px 10px;
+  border-radius: var(--r-l); background: var(--card); border: 3px solid var(--pink-200); box-shadow: var(--shadow-1); color: var(--ink);
+  transition: transform var(--dur-1) var(--ease-out), opacity var(--dur-2), box-shadow var(--dur-2), border-color var(--dur-2);
+}
+.hw-card:active { transform: scale(.96); }
+.hw-card.is-current { border-color: var(--title); box-shadow: 0 0 0 3px color-mix(in srgb, var(--title) 22%, transparent), var(--shadow-2); }
+.hw-card.is-dim { opacity: .45; }
+.hw-stage {
+  position: relative; width: 100%; height: 106px; border-radius: var(--r-m); overflow: hidden; display: grid; place-items: end center;
+  background: var(--bg-pattern) 0 0 / 104px auto, linear-gradient(160deg, var(--bg-1) 0%, var(--bg-2) 62%, var(--bg-3) 100%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pink-200) 70%, transparent);
+}
+.hw-stage::before {                         /* petite tache de lumière sous le compagnon */
+  content: ''; position: absolute; left: 50%; bottom: 4px; width: 76%; height: 26px; transform: translateX(-50%); border-radius: 50%;
+  background: color-mix(in srgb, var(--card) 70%, transparent);
+}
+.hw-pic { position: relative; z-index: 1; line-height: 0; margin-bottom: 6px; }
+.hw-pic svg { overflow: visible; }
+.hw-sticker {
+  position: absolute; top: 6px; left: 6px; z-index: 2; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 1rem; line-height: 1; background: var(--card); box-shadow: 0 0 0 2px var(--pink-200);
+}
+.hw-now {                                   /* sur le bord haut de la carte (hors de la scène : rien du compagnon dessous) */
+  position: absolute; top: -12px; right: 10px; z-index: 2; padding: 2px 9px; border-radius: var(--r-pill);
+  background: var(--title); color: var(--card); font-size: .78rem; font-weight: 700; line-height: 1.4;
+}
+.hw-name { margin-top: 4px; max-width: 100%; font-size: 1.25rem; font-weight: 700; color: var(--title); line-height: 1.15; text-align: center; overflow-wrap: anywhere; }
+.hw-stats { display: flex; gap: 12px; font-size: .92rem; font-weight: 600; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.hw-actions { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.hw-actions .btn { gap: 8px; padding-left: 12px; padding-right: 12px; }
+@media (min-width: 480px) {
+  .hw-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (hover: hover) and (pointer: fine) {
+  .hw-card:hover { border-color: var(--pink-400); box-shadow: var(--shadow-2); }
+  .hw-card.is-current:hover { border-color: var(--title); }
+}
+/* bascule d'enfant : fondu des couleurs, la vignette choisie vole jusqu'à l'avatar de l'en-tête */
+html.who-swap::view-transition-old(root) { animation: 240ms ease-in both hw-out; }
+html.who-swap::view-transition-new(root) { animation: 420ms var(--ease-out) both hw-in; }
+html.who-swap::view-transition-group(hm-who-ava) { animation-duration: 560ms; animation-timing-function: cubic-bezier(.34, 1.3, .64, 1); }
+@keyframes hw-out { to { opacity: 0; } }
+@keyframes hw-in { from { opacity: 0; transform: scale(1.015); } }
 .hm-head-txt { flex: 1; min-width: 0; }
 .hm-hello { font-size: 1.55rem; font-weight: 700; color: var(--title); line-height: 1.1; overflow-wrap: anywhere; }
 .hm-sub { font-size: .95rem; color: var(--ink-2); margin-top: 3px; line-height: 1.25; text-wrap: balance; }
-.hm-switch { flex: none; align-self: flex-start; min-height: 48px; padding: 6px 12px; font-size: .84rem; gap: 5px; color: var(--pink-800); }
+.hm-head-btns { flex: none; align-self: flex-start; display: flex; gap: 6px; }
+.hm-switch, .hm-theme { flex: none; min-height: 48px; padding: 6px 12px; font-size: .84rem; gap: 5px; color: var(--pink-800); }
 .hm-switch[hidden] { display: none; }
-.hm-switch-ico { font-size: 1.15rem; line-height: 1; }
-@media (max-width: 479px) {             /* téléphone : pastille ronde, le prénom garde toute la place */
-  .hm-switch { width: 48px; height: 48px; padding: 0; justify-content: center; border-radius: 50%; }
-  .hm-switch-txt { display: none; }
+.hm-switch-ico, .hm-theme-ico { font-size: 1.15rem; line-height: 1; }
+@media (max-width: 479px) {             /* téléphone : pastilles rondes, le prénom garde toute la place */
+  .hm-switch, .hm-theme { width: 48px; height: 48px; padding: 0; justify-content: center; border-radius: 50%; }
+  .hm-switch-txt, .hm-theme-txt { display: none; }
 }
 .hm-purse { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
 .hm-coin {
   display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 5px 14px; border-radius: var(--r-pill);
-  background: #fff; border: 2px solid var(--pink-200); box-shadow: var(--shadow-1); font-size: 1.08rem; color: var(--title);
+  background: var(--card); border: 2px solid var(--pink-200); box-shadow: var(--shadow-1); font-size: 1.08rem; color: var(--title);
 }
 .hm-coin-ico { font-size: 1.05rem; line-height: 1; }
 .hm-coin-n { font-weight: 700; font-variant-numeric: tabular-nums; }
 
 /* ---------- bandeau « Je passe en … ! » ---------- */
 .hm-next-slot:empty, .hm-notif-slot:empty { display: none; }
-.hm-next { background: linear-gradient(135deg, var(--amber-100) 0%, #fff 70%); gap: 10px; flex-wrap: nowrap; }
+.hm-next { background: linear-gradient(135deg, var(--amber-100) 0%, var(--card) 70%); gap: 10px; flex-wrap: nowrap; }
 .hm-next-ico { font-size: 1.7rem; line-height: 1; flex: none; }
 .hm-next-txt { flex: 1; min-width: 0; font-weight: 600; color: var(--ink); }
 .hm-next-btn { flex: none; }
@@ -46,7 +113,7 @@
 .hm-b-badge { font-size: 1.45rem; line-height: 1; }
 .hm-b-title { flex: 1; min-width: 0; font-size: 1.3rem; font-weight: 700; color: var(--title); line-height: 1.15; }
 .hm-b-dur {
-  flex: none; font-size: .84rem; font-weight: 600; color: var(--ink-2); background: #fff;
+  flex: none; font-size: .84rem; font-weight: 600; color: var(--ink-2); background: var(--card);
   border: 2px solid var(--amber-200); border-radius: var(--r-pill); padding: 3px 10px; white-space: nowrap;
 }
 .hm-b-sub { color: var(--ink-2); font-size: 1rem; line-height: 1.3; }
@@ -57,7 +124,7 @@
 .hm-step { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; }
 .hm-step-ico {
   position: relative; width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; font-size: 1.7rem; line-height: 1;
-  background: #fff; border: 3px solid var(--pink-200); box-shadow: var(--shadow-1);
+  background: var(--card); border: 3px solid var(--pink-200); box-shadow: var(--shadow-1);
 }
 .hm-step.is-done .hm-step-ico { background: var(--ok-bg); border-color: var(--ok); }
 .hm-step.is-now .hm-step-ico { background: var(--amber-100); border-color: var(--amber-500); animation: halo 2.2s ease-out infinite; }
@@ -69,7 +136,7 @@
 .hm-step.is-now .hm-step-k { color: var(--title); }
 .hm-b-go { margin-top: 2px; }
 .hm-b-go.is-long { font-size: 1.08rem; min-height: 58px; padding-left: 16px; padding-right: 16px; }
-.hm-balade.is-done { border-color: #86efac; background: linear-gradient(160deg, #f0fdf4 0%, #fff 60%, var(--pink-50) 100%); }
+.hm-balade.is-done { border-color: var(--ok-300); background: linear-gradient(160deg, var(--ok-50) 0%, var(--card) 60%, var(--pink-50) 100%); }
 
 /* ---------- mes jeux ---------- */
 .hm-games-title { margin: 8px 4px -2px; }
@@ -77,7 +144,7 @@
 .hm-game {
   position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
   min-height: 156px; padding: 14px 14px 16px; text-align: left; border-radius: var(--r-l);
-  background: var(--tint, #fff); border: 3px solid #fff; box-shadow: var(--shadow-1);
+  background: var(--tint, var(--card)); border: 3px solid var(--card); box-shadow: var(--shadow-1);
   transition: transform var(--dur-1) var(--ease-out), box-shadow var(--dur-2);
 }
 .hm-game::after {                        /* rond décoratif, comme une bulle de lumière */
@@ -87,13 +154,16 @@
 .hm-game:active { transform: scale(.97); }
 .hm-game-ico {
   width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center; font-size: 1.85rem; line-height: 1;
-  background: #fff; box-shadow: var(--shadow-1);
+  background: var(--card); box-shadow: var(--shadow-1);
 }
 .hm-game-title { position: relative; z-index: 1; font-weight: 700; font-size: 1.05rem; color: var(--ink); line-height: 1.2; }
 .hm-game-blurb { position: relative; z-index: 1; font-size: .84rem; color: var(--ink-2); line-height: 1.3; }
 
-/* ---------- progrès, rappels, pied ---------- */
-.hm-progress { gap: 10px; margin-top: 4px; }
+/* ---------- progrès, en famille, rappels, pied ---------- */
+.hm-more { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.hm-more.is-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.hm-progress, .hm-family { gap: 10px; padding-left: 14px; padding-right: 14px; }
+.hm-family[hidden] { display: none; }
 .hm-notif { justify-content: space-between; gap: 8px 10px; }
 .hm-notif-txt { flex: 1 1 180px; font-weight: 600; color: var(--ink); }
 .hm-notif-btns { display: flex; align-items: center; gap: 4px; }
@@ -106,7 +176,7 @@
 /* ---------- survol (souris uniquement) ---------- */
 @media (hover: hover) and (pointer: fine) {
   .hm-game:hover { box-shadow: var(--shadow-2); transform: translateY(-2px); }
-  .hm-switch:hover { border-color: var(--pink-400); }
+  .hm-switch:hover, .hm-theme:hover { border-color: var(--pink-400); }
 }
 
 /* ---------- grand écran ---------- */
@@ -127,7 +197,9 @@
   .hm-step-ico { width: 72px; height: 72px; font-size: 2.2rem; }
   .hm-step-k { font-size: .85rem; }
   .hm-games { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-  .hm-progress { align-self: center; min-width: 360px; }
+  .hm-more { align-self: center; min-width: 360px; }
+  .hm-more.is-pair { min-width: 560px; }
+  .hw-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 }
 @media (max-width: 359px) {
   .hm-step-ico { width: 50px; height: 50px; font-size: 1.5rem; }

@@ -1,12 +1,15 @@
-/* ============ FEUILLE « IMPORTER UNE SAUVEGARDE » (js/ui/backup.js, restoreFlow) ============
+/* ============ FEUILLES « RESTAURER UNE SAUVEGARDE » ET « TOUT REMPLACER ? » (js/ui/backup.js, restoreFlow) ============
    Chargée par backup.js à l'ouverture de la feuille (espace parents et écran d'import). */
 
 .bk-sheet { display: grid; gap: 12px; }
 .bk-card {
   padding: 12px 14px; border-radius: var(--r-m);
-  background: linear-gradient(160deg, #fffbeb 0%, #fff 70%); border: 2px solid var(--amber-200);
+  background: linear-gradient(160deg, var(--amber-50) 0%, var(--card) 70%); border: 2px solid var(--amber-200);
 }
 .bk-name { font-size: 1.15rem; font-weight: 700; color: var(--title); line-height: 1.2; overflow-wrap: anywhere; }
 .bk-meta { font-size: .92rem; color: var(--ink-2); margin-top: 2px; overflow-wrap: anywhere; }
 .bk-help { color: var(--ink-2); font-size: .98rem; line-height: 1.45; }
 .bk-list { display: grid; gap: 10px; }
+.bk-first { justify-self: start; min-height: 48px; }
+/* « Sauvegarde téléchargée ✓ » : fait, donc inactif, mais lisible (pas le gris d'un bouton indisponible) */
+.bk-first[aria-disabled="true"] { opacity: 1; filter: none; color: var(--ok-ink); box-shadow: none; }

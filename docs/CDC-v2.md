@@ -3,7 +3,7 @@
 > Spec de référence de la refonte « v2 » (produit). Rédigée le 02/10/2026.
 > Remplace `docs/CDC-v11.md` comme source de vérité (à archiver dans `docs/archive/`).
 > Code de départ : `main` @ `c5bd8d1` (v11.3). Versions suivantes : `v2.0`, `v2.1`… (un commit = une version).
-> **État au 03/10/2026 : v2.0 livrée** (périmètre et écarts : §18). Prochaine version : 2.1 (§15, §17).
+> **État au 03/10/2026 : v2.0 livrée** (périmètre et écarts : §18). En cours : 2.1 = compagnon vivant, radar automatique, thèmes (§15).
 
 ## 0. Vision
 
@@ -24,6 +24,7 @@ Transformer « La course de Caramel » (fluence seule) en **compagnon d'accompag
 4. **Séance courte** : 10-20 min/jour, 3-5 jours/semaine, alternance langage / rythme, bilan du jour (format inspiré de Poppins) — **sans prétention thérapeutique ni diagnostique**.
 5. **Alignement officiel** : contenus calés sur les programmes 2024-2025 et sur les **formats d'exercices des Repères** (transfert maximal vers l'école).
 6. **Aucune donnée nominative d'enfant** dans le repo public (prénoms, résultats, photos).
+7. **Simple, étape par étape** (consigne du parent, 03/10/2026) : c'est pour des enfants — ne pas surcharger l'écran. Côté enfant : **une seule action principale par écran**, une question ou un choix à la fois (divulgation progressive, pastilles d'étapes), une phrase courte plutôt qu'un paragraphe, icônes et voix plutôt que lecture ; on retire avant d'ajouter. L'espace parents peut être plus dense, mais chaque section reste claire.
 
 ## 2. Point de départ (v11.3 en prod)
 
@@ -107,7 +108,7 @@ Maths, 7 axes, pas de 360/7 :
 
 Couleurs : français gris-vert (trait `#7f9c97`, aplat `#e3ebe9`) ; maths orange (trait `#e8945a`, aplat `#fbe1cc`). Repères visuels : cartable au centre, pastilles blanches cerclées aux sommets.
 
-**CP, CE1, CE2, CM1** : axes des fiches 2026 relevés dans les guides et maquettes DEPP (CM1 : 11 + 7 axes ; CE2 : 11 + 9 ; CE1 : 8 + 7 ; CP : 7 + 6), codés dans `js/core/axes.js` (`ficheTemplate`). Plusieurs axes officiels peuvent correspondre au même axe interne (ex. CM1 « synonymes » + « mots de la même famille » → `fr.vocab`) : l'import en fait la moyenne. Angles exacts connus seulement pour le CM2 ; ailleurs l'écran d'import permet de tourner le gabarit. Le radar « Mes progrès » utilise les axes internes de la classe (`CLASS_AXES`).
+**CP, CE1, CE2, CM1** : axes des fiches 2026 relevés dans les guides et maquettes DEPP (CM1 : 11 + 7 axes ; CE2 : 11 + 9 ; CE1 : 8 + 7 ; CP : 7 + 6), codés dans `js/core/axes.js` (`ficheTemplate`). Plusieurs axes officiels peuvent correspondre au même axe interne (ex. CM1 « synonymes » + « mots de la même famille » → `fr.vocab`) : l'import en fait la moyenne. Angles relevés sur des fiches réelles au CM2 ; du CP au CM1, axes répartis régulièrement, le haut entre deux axes (1er axe de la liste à −pas/2), ordre lu sur les maquettes DEPP 2026 et les mini-radars des fiches descriptives pour les parents (ARCHITECTURE §8.7, `tests/fiches.test.mjs`). Le radar « Mes progrès » utilise les axes internes de la classe (`CLASS_AXES`).
 Sur la fiche, l'échelle est notée « + / ++ / +++ » (trois groupes : à besoins, fragile, satisfaisant) ; absence = « Pas de positionnement », point au centre. Couleurs des PDF officiels : français turquoise ≈ `#92D1D7`, maths orange pêche ≈ `#F8B886` (les teintes photographiées diffèrent : la détection se fait par la teinte).
 
 ## 5. Progression des contenus par niveau
@@ -227,8 +228,8 @@ Onboarding ou espace parents → « J'ai ma fiche Repères » → choix classe +
 
 Sans photo : même gabarit, réglage axe par axe.
 
-### 8.3 v2.4 — détection assistée
-Après alignement, l'image est échantillonnée le long de chaque rayon. On détecte la pastille blanche cerclée ou, à défaut, la dernière transition polygone teinté → fond clair. Les poignées sont pré-placées et l'utilisateur valide. Tout se fait en canvas local ; la photo est jetée après l'import, sauf choix explicite de la conserver en IndexedDB.
+### 8.3 v2.1 — détection automatique (avancée de la 2.4, demandée après l'essai de la 2.0)
+Dès que la photo est choisie, la fiche est lue **automatiquement, sur l'appareil** (Web Worker) : les trois cercles ⊕ / ⊕⊕ / ⊕⊕⊕ donnent le centre, l'échelle et la perspective (photo de biais, papier ondulé) ; le nombre d'axes distingue le français des mathématiques ; chaque axe est lu par la pastille blanche cerclée, le contour du polygone et la teinte ; la mention « Pas de positionnement : absence » rend l'axe absent. Les points arrivent pré-placés et le parent valide le récapitulatif. **Plan B toujours disponible** : corriger un point ou réaligner le gabarit à la main (saisie guidée v2.0) ; échec ou confiance faible → message clair, conseil de prise de vue (« reculez un peu », « posez la fiche bien à plat »…), « 📷 Reprendre la photo » et saisie guidée. La photo n'est jamais conservée.
 
 ### 8.4 Import par fichier
 Format `caramel-eval` (annexe A). Les profils réels lus sur les fiches de septembre 2026 sont les fichiers `profil-*.json` locaux de Cédric, **jamais committés**.
@@ -241,7 +242,7 @@ Format `caramel-eval` (annexe A). Les profils réels lus sur les fiches de septe
 ## 9. Vue radar & progression
 
 - **« Mes progrès »** (enfant) : deux radars (français, maths) au gabarit de sa classe. Polygone actuel plein, évaluation officielle en pointillés, étoiles qui scintillent sur les axes en progrès, libellés enfant (« Lire à voix haute 🎤 »).
-- **Espace parents** (porte calcul mental) :
+- **Espace parents** (porte des adultes : code à 4 chiffres facultatif choisi par le parent, haché sur l'appareil ; sinon une racine carrée hors de portée d'un enfant ; « Code oublié ? » ; elle se referme dès qu'on revient côté enfant) — en tête, **« En bref »** (la semaine, ce qui progresse, ce qui est à travailler par rapport à l'attendu de la classe ⊕⊕, « À revoir ensemble ») ; détail par compétence replié par défaut :
   - mêmes radars avec curseur temporel (snapshots hebdomadaires) et morphing animé ;
   - détail par axe : θ, tendance, items, temps ;
   - courbe MCLM vs attendu de la classe ;
@@ -254,6 +255,7 @@ Format `caramel-eval` (annexe A). Les profils réels lus sur les fiches de septe
 - Sélecteur au lancement (avatars = compagnons) + bouton « Ajouter un enfant ».
 - Chaque profil : prénom, genre (accords), classe, compagnon, progression.
 - Bouton « Je passe en … ! » pendant l'été et à la rentrée.
+- v2.1 : l'avatar de l'accueil ouvre « Qui joue ? » : changer d'enfant en un geste (sans rien perdre : chacun sa progression, son compagnon, son thème), ajouter un enfant, aller « En famille » (§10.4).
 
 ### 10.2 Économie
 - ⭐ (courses Caramel, inchangé) et 🍎.
@@ -266,9 +268,19 @@ Format `caramel-eval` (annexe A). Les profils réels lus sur les fiches de septe
 - **Expressions** (échange des calques yeux/bouche) : neutre, content, ravi, fier, surpris, endormi, petit creux, concentré (pendant les jeux).
 - **Idle** : respiration 3,5 s, clignement aléatoire toutes les 3-6 s, oreilles et queue en follow-through (décalage 120 ms), regard qui suit le doigt.
 - **Réactions** : manger (mâche + miettes), brossage (paillettes), promenade (cycle de marche), célébration (saut + vrille), câlin sur appui long.
-- **Diorama** : enclos avec cycle jour/nuit réel, météo cosmétique, décor achetable.
-- **Évolution en 3 stades** (petit → junior → champion) selon les minutes d'apprentissage cumulées, pas selon le score.
-- **Validation** : planche contact PNG (cairosvg) espèces × expressions × accessoires avant chaque push.
+- **Vie** (v2.1, `js/ui/companion-life.js`) : actions spontanées propres à chaque espèce toutes les 8-20 s (le chat joue avec un papillon, le dauphin saute hors du lac, le dragon bat des ailes…), regard qui suit le doigt, humeur liée aux jauges (petit creux, bâillements), sommeil de 22 h à 7 h, réactions aux soins (la nourriture vole jusqu'à sa bouche, la brosse passe sur son dos, il sort se promener et revient), câlin sur appui long ; vie légère sur tous les avatars ; tout s'arrête hors de l'écran et en mouvement réduit.
+- **Diorama** : ciel selon l'heure réelle (lever et coucher du soleil en France, aube, crépuscule, nuit étoilée), saisons (feuilles, flocons, pétales, lucioles) ; météo et décor achetable : 2.4.
+- **Évolution en 3 stades** (petit → junior → champion, à 60 puis 300 min) selon les minutes d'apprentissage cumulées, pas selon le score ; chaque évolution est fêtée une seule fois.
+- **Validation** : planche contact (`tests/harness/companion.html` en Chrome headless : espèces × expressions × humeurs × stades, rangée de silhouettes noires) relue avant chaque push ; chaque espèce doit être reconnaissable en silhouette.
+
+### 10.4 En famille (v2.1, demande du parent)
+Un seul téléphone ou une seule tablette pour plusieurs enfants : chacun garde sa progression, et la famille joue ensemble.
+- **Classements de la semaine** (remis à zéro le lundi) : ⏱️ minutes d'entraînement, 🍎 pommes gagnées, 🔥 série en cours, ⭐ étoiles de lecture, 🏅 défis gagnés. On ne classe **que l'effort**, **jamais le niveau** ; podiums et « Bravo à tous ! », ex aequo partout, jamais de « dernier ».
+- **Concours de compagnons** : trois juges notent la croissance (stade et minutes d'apprentissage), les soins (jauges) et l'élégance (accessoires, montures) ; chaque compagnon reçoit un ruban ; le gagnant de la semaine reçoit un trophée.
+- **Défi en famille** (2 à 4 joueurs, 3 ou 5 manches, à tour de rôle sur le même appareil) : tables, calcul éclair, conjugaison ou mélange ; chacun reçoit des questions **à son niveau** (tout le monde peut gagner) ; + 100 par bonne réponse, bonus de rapidité relatif au seuil de la question et de série, jamais de points retirés ; 5 🍎 de participation, + 10 🍎 et un trophée pour le gagnant ; revanche (un autre enfant commence) ; chaque réponse fait progresser l'enfant comme dans ses jeux.
+
+### 10.5 Thèmes visuels (v2.1, demande du parent)
+8 univers au choix : Caramel (l'original), Licorne, Princesse, Super-héros (générique, aucune marque), Dinosaures, Bolides, Espace, Océan. Présélection à la création du profil (Dinosaures pour un garçon, Caramel pour une fille), modifiable par l'enfant (« 🎨 Mon thème » sur l'accueil) et dans l'espace parents ; un thème par profil, appliqué dès l'ouverture. Les couleurs de réussite (vert), d'erreur douce (orange), des radars officiels et des décors naturels des jeux ne changent pas ; contrastes de texte ≥ 4,5:1 dans tous les thèmes.
 
 ## 11. Motion design & sound design
 
@@ -366,23 +378,24 @@ docs/CDC-v2.md
   - planche contact SVG ;
   - templating vérifié sur toutes les combinaisons (genre du héros × 8 montures) ;
   - migration vérifiée sur les fixtures du §13.3.
-- **Perf** : précache des modules (< 1,5 Mo hors modèle), chargement paresseux par jeu.
+- **Perf** : précache des modules (v2.1 : ≈ 2,1 Mo non minifié, ≈ 0,75 Mo compressé, hors modèle ; alerte de `tools/precache.mjs` au-delà de 2,5 Mo), chargement paresseux par jeu.
 
 ## 15. Plan de livraison
 
 | Version | Contenu | Acceptation |
 |---|---|---|
 | **2.0 — Socle + priorités CM2** ✅ livrée le 03/10/2026 (§18) | store v3, migration, multi-profils, onboarding (classe), référentiel + gabarits CM2, saisie guidée + import JSON, moteur adaptatif + balade du jour, vue radar, export/import de sauvegarde, `motion.js` ; jeux : Caramel (Zip adaptatif + 10 textes CM2), Chemin de la clôture, Galop des tables, Pommes express, Chef d'orchestre, Atelier des opérations | les profils s'importent ; une balade de 15 min ciblée fonctionne ; les données v11 sont intactes |
-| 2.1 — Tout le cycle 3 | Détective, Radio Ferme, Lettres envolées, Jardin des mots, Marché aux mots, Train de la phrase, Caméléon, Boîte aux nombres, Formes du nombre, Missions du ranch ; Grand check-up ; rapports PDF/PNG ; bilan hebdo ; snapshots + morphing | 9 axes français + 7 axes maths du CM2 jouables, ≥ 200 items par axe |
-| 2.2 — Compagnon v2 | refonte des 8 espèces, expressions, rig + ancres, diorama, 3 stades, sound design | planche contact validée sur téléphone |
-| 2.3 — Cycle 2 | contenus CP→CE2 pour tous les jeux ; Syllabes qui dansent, Atelier des lettres ; Caramel CP (syllabes/mots) ; gabarits CP→CM1 | un profil CP jouable de bout en bout |
-| 2.4 — Assistant photo & polish | détection automatique du radar, badges, carte des mondes, accessibilité (police aérée, contrastes), nettoyage des anciennes clés | — |
+| **2.1 — Compagnon vivant, radar automatique, thèmes, En famille** ✅ prête le 04/10/2026 (§18) (priorités du parent après l'essai de la 2.0) | refonte des 8 espèces (kawaii, rig commun, expressions, accessoires vectoriels, stades), moteur de vie (attente, regard, sommeil la nuit, réactions aux soins), diorama jour/nuit ; détection automatique du radar photographié (plan B : réglage manuel) ; 8 thèmes visuels au choix (présélection à la création du profil) ; En famille (Qui joue ?, classements, concours, défi) ; audit design et espace parents revu | chaque espèce reconnaissable en silhouette ; une photo de fiche se lit sans réglage dans la plupart des cas ; aucun thème illisible ; plusieurs enfants sur un appareil sans rien perdre |
+| 2.2 — Simple, étape par étape (consigne du parent, §1 principe 7 ; proposition validée par le parent le 04/10/2026 : jury de 3 pistes, synthèse « un seul gros bouton » + voix ; voix automatique en CP-CE1, liens LinkedIn dans l'espace parents, essayage avant achat pour tous les objets de la boutique) | accueil « un seul gros bouton » (compagnon en grand, soins en icônes-jauges, « Jouer ▶ » qui lance l'étape du jour), balade enchaînée depuis le bilan, en-tête de jeu sur une ligne, bilans et Mes progrès allégés ; lecture à voix haute en CP-CE1 (consignes, indices, bilans) ; balade jamais bloquée (sans micro : autre jeu) ; pavé en paysage ; constats d'audit restants (`docs/AUDIT-DESIGN.md`) | un CP sait quoi toucher sans lire ; l'accueil tient dans un écran de téléphone ; aucune fonctionnalité perdue |
+| 2.3 — Tout le cycle 3 | Détective, Radio Ferme, Lettres envolées, Jardin des mots, Marché aux mots, Train de la phrase, Caméléon, Boîte aux nombres, Formes du nombre, Missions du ranch ; Grand check-up ; rapports PDF/PNG ; bilan hebdo ; snapshots + morphing | 9 axes français + 7 axes maths du CM2 jouables, ≥ 200 items par axe |
+| 2.4 — Cycle 2 | contenus CP→CE2 pour tous les jeux ; Syllabes qui dansent, Atelier des lettres ; Caramel CP (syllabes/mots) | un profil CP jouable de bout en bout |
+| 2.5 — Polish | badges, carte des mondes, décor achetable du diorama, accessibilité (police aérée, contrastes), nettoyage des anciennes clés | — |
 
 ## 16. Pièges & conventions
 
 - Reprendre le CDC v11 §4 (moteur vocal, ne pas régresser) et §8 (pièges).
 - Aucune donnée nominative d'enfant dans le repo ; aucun texte copié des évaluations ou des manuels.
-- L'enfant ne voit jamais un niveau inférieur, une note ou un classement.
+- L'enfant ne voit jamais un niveau inférieur, une note ou un classement de niveau. Les classements « En famille » (v2.1, §10.4) ne portent que sur l'effort et l'engagement, et le défi pose à chacun des questions à son niveau.
 - TTS Android : certaines voix demandent le réseau → toujours afficher le texte en secours.
 - Une version = un commit `v2.x : …` ; ce CDC est mis à jour à chaque déploiement.
 - Avant tout push : `node tools/precache.mjs` (liste ASSETS + version de sw.js) puis `node tools/check.mjs` (syntaxe + tests). Changer `version` dans package.json pour chaque version publiée (le nom du cache du service worker en dépend).
@@ -393,13 +406,28 @@ docs/CDC-v2.md
 
 ## 17. Checklist de démarrage (nouvelle session)
 
-1. `git log` (attendu : un commit `v2.0 : …` en tête), lire ce CDC (§18 surtout), `docs/ARCHITECTURE.md` et `docs/JEUX.md`.
+1. `git log` (attendu : un commit `v2.1 : …` en tête), lire ce CDC (§1 principe 7 et §18 surtout), `docs/ARCHITECTURE.md`, `docs/JEUX.md` et `docs/AUDIT-DESIGN.md`.
 2. `node tools/check.mjs` doit être vert ; ouvrir `tests/harness/game.html` pour voir un jeu isolé.
-3. Recueillir le retour du terrain (téléphones des filles : migration, balade, voix), corriger si besoin (`v2.0.x`).
-4. Attaquer la 2.1 (§15) : nouveaux jeux du cycle 3, Grand check-up, rapports PDF/PNG, bilan hebdo, morphing des snapshots.
+3. Recueillir le retour du terrain (téléphones des filles), corriger si besoin (`v2.1.x`).
+4. Attaquer la 2.2 (§15) : simplification « étape par étape » validée par le parent, lecture à voix haute, constats d'audit restants (`docs/AUDIT-DESIGN.md`).
 5. Avant le push : précache, check, version, mise à jour de ce CDC (§18).
 
-## 18. Journal de livraison — v2.0 (03/10/2026)
+## 18. Journal de livraison
+
+### v2.1 (04/10/2026) — compagnon vivant, radar automatique, thèmes, En famille, audit design
+**Livré** :
+- **compagnon redessiné** : 8 espèces sur un rig commun, expressions, humeurs et 3 stades ; dauphin, dragon et capybara refaits après une critique indépendante ;
+- **compagnon vivant** : attente, regard qui suit le doigt, sommeil la nuit, réactions aux soins, câlin, diorama jour/nuit/saisons ; il est intégré partout, avec le bon stade, ses accessoires et une seule ombre, et la carotte arrive à la bouche dans la clôture ;
+- **détection automatique du radar photographié**, calibrée sur 4 vraies photos de fiches CM2 (32 axes sur 32 lus sans réglage) ; plan B manuel avec conseil de prise de vue et « Reprendre la photo » ;
+- **gabarits des fiches CP→CM1 corrigés** : convention d'angle, ordre du CP maths et du CE1 français — une fiche CP→CM1 importée en v2.0 a pu être rangée sous la compétence voisine, il faut la réimporter ;
+- **8 thèmes visuels**, présélectionnés à la création du profil ;
+- **En famille** : « Qui joue ? » depuis l'avatar, classements de la semaine (effort seulement), concours de compagnons, défi à tour de rôle ;
+- **espace parents revu** (audit design) : porte des adultes avec code à 4 chiffres facultatif, synthèse « En bref », repères ⊕ avec l'attendu de la classe, confidentialité exacte sur la voix, sauvegardes datées ; Mes progrès : nouvelles médailles seulement sur les compétences jouées, et une médaille déjà montrée n'est jamais retirée (un profil d'avant la 2.1 garde celles de la v2.0), or fixe, compagnon dessiné.
+**Vérifié** : tests Node (≈ 430 : thèmes et contrastes, rig du compagnon, moteur de vie, famille, détection du radar sur fiches synthétiques et perturbées, gabarits des fiches, espace parents) ; audit design en 4 volets avec les skills design (ergonomie enfant, accessibilité WCAG AA, rendu visuel et design system, textes), chaque constat contre-vérifié (106 retenus) ; vérification de chaque chantier par un agent indépendant ; parcours en Chrome headless (390 × 844, 360 × 740, 1280 × 800, 8 thèmes, mouvement réduit) ; vérification de mise en production (parcours de bout en bout, rendu, régressions v2.0 → v2.1), constats corrigés avant publication : « À revoir » des parents limité aux éléments réellement manqués (un fait juste du premier coup y figurait), podium des ex aequo de « En famille » (valeurs superposées sur téléphone), bouton « C'est parti ! » de nouveau visible sans défiler sur les Android 360 × 740 (D1-05, compagnon et scène réduits ensemble), réglage de lecture des consignes masqué (voir Limites connues).
+**Écarts au CDC initial** : détection du radar avancée de la 2.4 à la 2.1 ; classements « En famille » (effort seulement, §16 amendé) ; précache au-delà de 2 Mo (≈ 2,1 Mo non minifié, ≈ 0,75 Mo compressé).
+**Limites connues** : la simplification « étape par étape » des écrans enfant (consigne du parent, §1 principe 7) est prototypée et arbitrée (jury de 3) mais pas encore intégrée : 2.2 ; restent aussi la lecture à voix haute dans les jeux (le réglage parent « Lire les consignes à voix haute » est prêt dans le code mais masqué tant qu'aucun jeu ne lit : il promettait une lecture qui n'existe pas), la balade bloquée sans micro et le pavé en paysage (constats d'audit `docs/AUDIT-DESIGN.md`) ; pas d'essai sur un vrai téléphone avant publication.
+
+### v2.0 (03/10/2026)
 
 **Livré** : sauvegarde `caramel-v3` multi-profils avec migration v1/v11 (copie brute `caramel-backup-v11`, anciennes clés intactes, idempotente) ; accueil, profils, nouvel enfant, bienvenue après migration ; « Ma balade du jour » (4 blocs, rotation) ; moteur adaptatif θ/b (CDC §7) avec filet de sécurité, jokers et Leitner ; **6 jeux** : la course (moteur vocal v11 porté à l'identique — test vocal de non-régression : mêmes résultats que la v11 —, Zip adaptatif, question de compréhension, 10 histoires CM2 inédites), le Chemin de la clôture, le Galop des tables (réponse au clavier ou à la voix), Pommes express (sprint si chrono autorisé), le Chef d'orchestre, l'Atelier des opérations (compensation ou cassage) ; Mes progrès (radars au gabarit officiel, médailles) ; espace parents (porte, détail par axe, courbe de lecture, à revoir, réglages, sauvegardes, profils, rappels) ; import de la fiche Repères (fichier `caramel-eval`, saisie manuelle, photo guidée avec alignement et rotation) ; export/import des sauvegardes ; service worker versionné avec bandeau de mise à jour et hors-ligne ; polices Fredoka/Andika auto-hébergées.
 **Vérifié** : ≈ 340 tests Node (migration sur fixtures réelles, générateurs sur toute l'échelle A avec réponses recalculées, 17 832 formes de conjugaison contre une table de référence, 4 500 opérations posées rejouées, histoires contre le lexique Vosk) ; parcours en Chrome headless (390 × 844 et 1280 × 800) ; aucune requête réseau hors de l'origine et du CDN Vosk.

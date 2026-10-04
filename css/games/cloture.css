@@ -1,7 +1,9 @@
 /* ============ LE CHEMIN DE LA CLÔTURE (js/games/cloture.js) ============
    Pré du ranch : ciel et herbe aux teintes v11 (comme la carte du compagnon, css/ui/companion.css),
    clôture en bois clair cerné de brun chaud #4a2c1a (JEUX.md §0), plaquettes crème, drapeau rose,
-   carotte orange. Tout le reste vient des jetons de css/base.css. Mobile d'abord (390 × 844) :
+   carotte orange. Tout le reste vient des jetons de css/base.css ; le décor de la scène (pré, clôture, soleil,
+   paille, fleurs, drapeau, aides dessinées sur la clôture) prend la palette FIXE --n-* : il ne change pas avec
+   le thème visuel (seuls la consigne, les réponses et les bulles le suivent). Mobile d'abord (390 × 844) :
    la scène va d'un bord à l'autre de l'écran ; elle s'arrondit en carte sur les grands écrans. */
 
 .cl {
@@ -48,63 +50,63 @@
   -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
 }
 .cl-scene.is-placing { touch-action: none; cursor: pointer; }
-.cl-scene:focus-visible { outline: 3px solid var(--amber-500); outline-offset: -3px; border-radius: 0; }
+.cl-scene:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; border-radius: 0; }
 .cl-bg, .cl-fence { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .cl-fence { pointer-events: none; }
 
 /* décor */
 .cl-g1 { stop-color: var(--cl-grass-1); }
 .cl-g2 { stop-color: var(--cl-grass-2); }
-.cl-sun { fill: var(--amber-300); }
-.cl-sun-halo { fill: var(--amber-200); opacity: .55; }
+.cl-sun { fill: var(--n-amber-300); }
+.cl-sun-halo { fill: var(--n-amber-200); opacity: .55; }
 .cl-cloud { fill: var(--card); opacity: .92; animation: cl-sway 26s ease-in-out infinite alternate; }
 .cl-cloud-2 { opacity: .78; animation-duration: 34s; animation-delay: -12s; }
 .cl-hill { fill: var(--ok-bg); }
 .cl-hill-2 { fill: var(--cl-grass-1); opacity: .5; }
-.cl-fl-p { fill: var(--pink-200); }
+.cl-fl-p { fill: var(--n-pink-200); }
 .cl-fl-p.w { fill: var(--card); }
-.cl-fl-c { fill: var(--amber-400); }
-.cl-bale { fill: var(--amber-300); stroke: var(--cl-outline); stroke-width: 1.5; }
-.cl-straw { fill: none; stroke: var(--amber-500); stroke-width: 1.4; stroke-linecap: round; opacity: .75; }
-.cl-twine { fill: var(--ink-4); }
+.cl-fl-c { fill: var(--n-amber-400); }
+.cl-bale { fill: var(--n-amber-300); stroke: var(--cl-outline); stroke-width: 1.5; }
+.cl-straw { fill: none; stroke: var(--n-amber-500); stroke-width: 1.4; stroke-linecap: round; opacity: .75; }
+.cl-twine { fill: var(--n-ink-4); }
 .cl-bale-shadow { fill: var(--cl-outline); opacity: .14; }
-.cl-path { fill: var(--cl-wood); stroke: var(--ink-5); stroke-width: 1.5; opacity: .5; }
-.cl-pebble { fill: var(--ink-5); opacity: .55; }
+.cl-path { fill: var(--cl-wood); stroke: var(--n-ink-5); stroke-width: 1.5; opacity: .5; }
+.cl-pebble { fill: var(--n-ink-5); opacity: .55; }
 .cl-tuft { fill: none; stroke: var(--ok); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; opacity: .38; }
-.cl-trunk { fill: var(--ink-4); stroke: var(--cl-outline); stroke-width: 1.5; }
+.cl-trunk { fill: var(--n-ink-4); stroke: var(--cl-outline); stroke-width: 1.5; }
 .cl-crown { fill: var(--cl-grass-2); stroke: var(--cl-outline); stroke-width: 1.5; }
 .cl-crown-hi { fill: var(--cl-grass-1); opacity: .8; }
-.cl-apple { fill: var(--pink-400); stroke: var(--cl-outline); stroke-width: 1.1; }
+.cl-apple { fill: var(--n-pink-400); stroke: var(--cl-outline); stroke-width: 1.1; }
 
 /* clôture */
 .cl-shadow { fill: var(--cl-outline); opacity: .13; }
 .cl-post { fill: var(--cl-wood); stroke: var(--cl-outline); stroke-width: 1.3; transition: fill var(--dur-2); }
 .cl-post.is-major { stroke-width: 1.6; }
-.cl-post.is-sel { fill: var(--amber-200); }
-.cl-post.is-hint { fill: var(--amber-200); stroke: var(--amber-900); }
-.cl-post.is-glow { fill: var(--amber-300); }
-.cl-glow-flood { flood-color: var(--amber-400); flood-opacity: .95; }
+.cl-post.is-sel { fill: var(--n-amber-200); }
+.cl-post.is-hint { fill: var(--n-amber-200); stroke: var(--n-amber-900); }
+.cl-post.is-glow { fill: var(--n-amber-300); }
+.cl-glow-flood { flood-color: var(--n-amber-400); flood-opacity: .95; }
 .cl-rail { fill: var(--cl-wood); stroke: var(--cl-outline); stroke-width: 1.6; }
 .cl-rail-hi { fill: var(--card); opacity: .45; }
-.cl-rail2 { fill: var(--ink-5); stroke: var(--cl-outline); stroke-width: 1.2; opacity: .85; }
+.cl-rail2 { fill: var(--n-ink-5); stroke: var(--cl-outline); stroke-width: 1.2; opacity: .85; }
 .cl-board { fill: var(--cl-board); stroke: var(--cl-outline); stroke-width: 1.3; transition: fill var(--dur-2), stroke var(--dur-2); }
-.cl-board-t { fill: var(--ink); font-family: var(--font-ui); font-weight: 600; font-variant-numeric: tabular-nums; }
-.cl-label.is-hint .cl-board { fill: var(--amber-100); stroke: var(--amber-500); stroke-width: 2.4; }
+.cl-board-t { fill: var(--n-ink); font-family: var(--font-ui); font-weight: 600; font-variant-numeric: tabular-nums; }
+.cl-label.is-hint .cl-board { fill: var(--n-amber-100); stroke: var(--n-amber-500); stroke-width: 2.4; }
 
 /* zoom : intervalle agrandi, mini-carte et faisceau de la loupe */
-.cl-zband { fill: var(--amber-300); fill-opacity: .32; stroke: var(--amber-500); stroke-width: 2; stroke-dasharray: 5 4; }
+.cl-zband { fill: var(--n-amber-300); fill-opacity: .32; stroke: var(--n-amber-500); stroke-width: 2; stroke-dasharray: 5 4; }
 .cl-zband.is-pulse { animation: cl-pulse 700ms var(--ease-out) 1; }
 .cl-mini-rail { fill: var(--cl-wood); stroke: var(--cl-outline); stroke-width: 1.1; }
 .cl-mini-tick { stroke: var(--cl-outline); stroke-width: 1.5; stroke-linecap: round; }
-.cl-mini-band { fill: var(--amber-300); fill-opacity: .8; stroke: var(--amber-500); stroke-width: 1.6; }
-.cl-mini-t { fill: var(--ink-2); font-family: var(--font-ui); font-weight: 600; }
-.cl-beam { fill: var(--amber-200); opacity: .3; }
-.cl-beam-e { fill: none; stroke: var(--amber-500); stroke-width: 1.6; stroke-dasharray: 4 4; opacity: .85; }
+.cl-mini-band { fill: var(--n-amber-300); fill-opacity: .8; stroke: var(--n-amber-500); stroke-width: 1.6; }
+.cl-mini-t { fill: var(--n-ink-2); font-family: var(--font-ui); font-weight: 600; }
+.cl-beam { fill: var(--n-amber-200); opacity: .3; }
+.cl-beam-e { fill: none; stroke: var(--n-amber-500); stroke-width: 1.6; stroke-dasharray: 4 4; opacity: .85; }
 
 /* drapeau (lire) */
 .cl-pole { stroke: var(--cl-outline); stroke-width: 2.6; stroke-linecap: round; }
-.cl-knob { fill: var(--amber-400); stroke: var(--cl-outline); stroke-width: 1.2; }
-.cl-cloth { fill: var(--pink-400); stroke: var(--cl-outline); stroke-width: 1.4; stroke-linejoin: round; }
+.cl-knob { fill: var(--n-amber-400); stroke: var(--cl-outline); stroke-width: 1.2; }
+.cl-cloth { fill: var(--n-pink-400); stroke: var(--cl-outline); stroke-width: 1.4; stroke-linejoin: round; }
 .cl-cloth-q { fill: var(--card); font-family: var(--font-ui); font-weight: 700; }
 .cl-cloth-g { transform-box: fill-box; transform-origin: 0% 50%; animation: cl-wave 2.6s ease-in-out infinite; }
 .cl-flag.is-done { opacity: 0; transition: opacity var(--dur-1); }
@@ -124,21 +126,21 @@
 .cl-sign-board { transform-box: fill-box; transform-origin: 50% 100%; }
 .cl-sign-b { fill: var(--cl-board); stroke: var(--cl-outline); stroke-width: 2; }
 /* texte du panneau (nombre, ou fraction empilée : groupe de deux textes et d'une barre) */
-.cl-sign-t { fill: var(--ink); color: var(--ink); font-family: var(--font-ui); font-weight: 700; font-variant-numeric: tabular-nums; }
+.cl-sign-t { fill: var(--n-ink); color: var(--n-ink); font-family: var(--font-ui); font-weight: 700; font-variant-numeric: tabular-nums; }
 .cl-fbar { stroke: currentColor; }
 
 /* indice : petits sauts et intervalle à l'estime */
-.cl-hop { fill: none; stroke: var(--amber-500); stroke-width: 2.2; stroke-linecap: round; }
+.cl-hop { fill: none; stroke: var(--n-amber-500); stroke-width: 2.2; stroke-linecap: round; }
 .cl-hop.is-new { stroke-dasharray: 1; stroke-dashoffset: 1; animation: cl-draw 380ms var(--ease-out) forwards; }
-.cl-hop-t { fill: var(--amber-900); color: var(--amber-900); font-family: var(--font-ui); font-weight: 700;
+.cl-hop-t { fill: var(--n-amber-900); color: var(--n-amber-900); font-family: var(--font-ui); font-weight: 700;
   paint-order: stroke; stroke: var(--card); stroke-width: 3px; stroke-linejoin: round; }
-.cl-hop-t text { fill: var(--amber-900); paint-order: stroke; stroke: var(--card); stroke-width: 3px; stroke-linejoin: round; }
-.cl-hop-t .cl-fbar { stroke: var(--amber-900); stroke-width: 1.6; }
+.cl-hop-t text { fill: var(--n-amber-900); paint-order: stroke; stroke: var(--card); stroke-width: 3px; stroke-linejoin: round; }
+.cl-hop-t .cl-fbar { stroke: var(--n-amber-900); stroke-width: 1.6; }
 .cl-hop-t.is-new { opacity: 0; animation: cl-fade 240ms ease-out forwards; }
-.cl-span { fill: var(--amber-300); opacity: .7; }
-.cl-mid-l { stroke: var(--amber-500); stroke-width: 1.8; stroke-dasharray: 3 3; }
-.cl-mid-b { fill: var(--amber-100); stroke: var(--amber-500); stroke-width: 1.4; }
-.cl-mid-t { fill: var(--amber-900); font-family: var(--font-ui); font-weight: 700; }
+.cl-span { fill: var(--n-amber-300); opacity: .7; }
+.cl-mid-l { stroke: var(--n-amber-500); stroke-width: 1.8; stroke-dasharray: 3 3; }
+.cl-mid-b { fill: var(--n-amber-100); stroke: var(--n-amber-500); stroke-width: 1.4; }
+.cl-mid-t { fill: var(--n-amber-900); font-family: var(--font-ui); font-weight: 700; }
 
 /* loupe pendant le glisser */
 .cl-loupe { opacity: 0; transition: opacity var(--dur-1) var(--ease-out); pointer-events: none; }
@@ -202,15 +204,18 @@
 @keyframes cl-fade { to { opacity: 1; } }
 @keyframes cl-pulse { 0% { fill-opacity: .1; } 45% { fill-opacity: .6; } 100% { fill-opacity: .32; } }
 
-/* ---------- mouvement réduit / animations douces : rien ne flotte, fondus seulement ---------- */
+/* ---------- mouvement réduit / animations douces : rien ne flotte, fondus seulement ;
+   le demi-tour du compagnon est instantané (cloture.js le fait pendant le fondu, quand il est invisible) ---------- */
 @media (prefers-reduced-motion: reduce) {
   .cl-cloud, .cl-cloth-g, .cl-zband.is-pulse { animation: none !important; }
   .cl-hop.is-new { animation: none !important; stroke-dasharray: none; stroke-dashoffset: 0; }
   .cl-hop-t.is-new { animation: none !important; opacity: 1; }
+  .cl-mount-flip { transition: none !important; }
 }
 html.motion-soft .cl-cloud, html.motion-soft .cl-cloth-g, html.motion-soft .cl-zband.is-pulse { animation: none; }
 html.motion-soft .cl-hop.is-new { animation: none; stroke-dasharray: none; stroke-dashoffset: 0; }
 html.motion-soft .cl-hop-t.is-new { animation: none; opacity: 1; }
+html.motion-soft .cl-mount-flip { transition: none; }
 
 /* ---------- petit écran avec pavé numérique (hauteur utile < 660 px) ---------- */
 .cl.is-compact .cl-prompt { font-size: 1.25rem; }

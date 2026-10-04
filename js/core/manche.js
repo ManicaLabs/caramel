@@ -16,7 +16,7 @@ import { absLevel, relLevel } from './levels.js';
 import { skillOf, scoreR, applyResult, applyFluence, targetB } from './adaptive.js';
 import { review, dueKeys } from './leitner.js';
 import { completeBlock, finishDay } from './session.js';
-import { addApples, bumpStreak } from './economy.js';
+import { addApples, bumpStreak, bumpWeek } from './economy.js';
 import { snapshotIfNeeded } from './radar-model.js';
 import { fillTemplate } from './profiles.js';
 import { getProfile, mutateProfile } from './store.js';
@@ -71,17 +71,21 @@ function textWords(text) {
   return display;
 }
 
-/* createManche({ gameId, axis, count, mode, blockIdx, offset, today, seed, generators?, clock? })
+/* createManche({ gameId, axis, count, mode, blockIdx, offset, today, seed, profileId?, generators?, clock? })
    axis   : défaut = axe principal du jeu ; count : défaut = bloc de balade, sinon mancheSize ;
    offset : défaut = celui du bloc de balade, sinon 0 ;
+   profileId : profil joueur (défi en famille : une manche par participant sur un même appareil) ; défaut = profil
+            actif. Tout est lu et écrit sur CE profil, même si le profil actif change pendant la manche ;
    generators : { axe: module } injectés (tests), sinon generatorSync(axe) ;
-   clock  : horloge en ms (tests), défaut Date.now. */
+   clock  : horloge en ms (tests), défaut Date.now.
+   Compteur de la semaine (classements « En famille ») : pommes gagnées (addApples), minutes et items (fin). */
 export function createManche({
   gameId, axis, count, mode = 'libre', blockIdx = null, offset, today = dayStr(), seed,
-  generators = null, clock = Date.now
+  profileId = null, generators = null, clock = Date.now
 } = {}) {
-  const p0 = getProfile();
-  if (!p0) throw new Error('createManche : aucun profil actif');
+  const wanted = profileId === null || profileId === undefined || profileId === '' ? null : String(profileId);
+  const p0 = wanted ? getProfile(wanted) : getProfile();
+  if (!p0) throw new Error(wanted ? 'createManche : profil « ' + wanted + ' » introuvable' : 'createManche : aucun profil actif');
   const pid = p0.id;
   const game = GAME_BY_ID[gameId] || null;
   const mainAxis = axis || (game ? game.primary : null);
@@ -198,7 +202,7 @@ export function createManche({
         : isNum(item.A) ? relLevel(p.classe, item.A, today) : targetB(skillOf(p, ax).t, off + adj);
       const th = applyResult(p, ax, b, r, today);
       if (item.leitner && item.key) review(p, item.key, correct && !hinted, today);
-      if (correct) addApples(p, 1);
+      if (correct) addApples(p, 1, today);
       return th;
     });
     const th = res.ok ? res.out : (t => ({ before: t, after: t }))(skillOf(getProfile(pid), ax).t);
@@ -230,7 +234,7 @@ export function createManche({
       const prev = clamp(Math.round(Number(p.wallet.stars[storyId]) || 0), 0, 3);
       const best = Math.max(prev, stars);
       if (storyId) p.wallet.stars[storyId] = best;                  /* ⭐ : meilleur score, jamais perdu */
-      if (gained) addApples(p, gained);
+      if (gained) addApples(p, gained, today);
       if (isNum(o.mclm) && o.mclm > 0) {                            /* MCLM nul = micro muet : non retenu */
         if (!Array.isArray(p.mclm)) p.mclm = [];
         p.mclm.push({ d: today, t, s: storyId, v: Math.round(o.mclm),
@@ -302,6 +306,9 @@ export function createManche({
     if (!reports) return s;                            /* aucune trace */
     const t = clock();
     write(p => {
+      /* effort de la semaine (« En famille ») : compté AVANT l'ajout à l'historique (un compteur neuf de la semaine
+         part de l'historique de la semaine : cette manche n'y est pas encore, elle n'est donc comptée qu'une fois) */
+      bumpWeek(p, { minutes: activeMs / 60000, items: reports }, today);
       s.thetaAfter = skillOf(p, mainAxis).t;
       if (!Array.isArray(p.history)) p.history = [];
       p.history.push({ d: today, t, g: gameId, ax: mainAxis, n: reports, ok: nCorrect, hint: nHinted,
@@ -354,7 +361,7 @@ export function createManche({
   }
 
   return {
-    gameId, axis: mainAxis, mode, blockIdx: bIdx, kind, count: total, offset: off, today, rng: gameRng,
+    gameId, axis: mainAxis, mode, blockIdx: bIdx, kind, count: total, offset: off, today, rng: gameRng, profileId: pid,
     nextItem, report, useHint, finish, abort,
     get hintsLeft() { return hints; },
     get adj() { return adj; },

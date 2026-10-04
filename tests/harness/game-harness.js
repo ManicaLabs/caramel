@@ -35,6 +35,9 @@ async function main() {
   p.companion.type = q.get('mount') || 'pony';
   p.companion.name = q.get('mountName') || 'Caramel';
   if (!p.companion.owned.includes(p.companion.type)) p.companion.owned.push(p.companion.type);
+  /* accessoires portés (worn=chapeau,foulard) et minutes d'apprentissage (stade : 0 petit, 60 junior, 300 champion) */
+  if (q.get('worn')) { const w = q.get('worn').split(',').filter(Boolean); p.companion.equip.owned = w.slice(); p.companion.equip.worn = w.slice(); }
+  if (q.get('minutes')) p.companion.minutes = Math.max(0, Number(q.get('minutes')) || 0);
   Object.assign(p.settings, {
     timers: q.get('timers') === '1',
     subMethod: q.get('sub') || 'compensation',
@@ -47,6 +50,8 @@ async function main() {
   if (q.get('mclm')) p.mclm = q.get('mclm').split(',').map((v, i) => ({ d: today, t: Date.now() - 1e6 + i, s: 'pomme', v: Number(v), p: 95, z: 80 }));
   if (q.get('stars')) for (const kv of q.get('stars').split(',')) { const [k, v] = kv.split(':'); p.wallet.stars[k] = Number(v); }
   store.addProfile(p);
+  if (q.get('theme')) p.settings.theme = q.get('theme');
+  try { document.documentElement.dataset.theme = p.settings.theme || 'caramel'; } catch (_) {}
   audio.setMuted(p.settings.sound === false);
   motion.setMode(p.settings.motion);
 

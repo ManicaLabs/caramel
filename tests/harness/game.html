@@ -6,6 +6,7 @@
 <title>Banc d’essai — jeu</title>
 <base href="../../">
 <link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/themes.css">
 <link rel="stylesheet" href="css/motion.css">
 <link rel="stylesheet" href="css/ui/kit.css">
 <link rel="stylesheet" href="css/ui/game.css">
@@ -17,7 +18,8 @@
 <body>
 <!-- Banc d'essai d'un jeu, avec le MÊME ctx que la vraie coquille (js/ui/game-ctx.js), une sauvegarde EN MÉMOIRE
      (n'écrit jamais dans le localStorage) et un profil configurable par l'URL :
-     game.html?id=tables&classe=CM2&theta=1.2&mode=libre&count=10&timers=0&sub=compensation&name=Léa&g=f&mount=pony&seed=42&today=2026-10-02
+     game.html?id=tables&classe=CM2&theta=1.2&mode=libre&count=10&timers=0&sub=compensation&name=Léa&g=f&mount=pony&seed=42&today=2026-10-02&theme=dinosaures
+     (+ &worn=chapeau,foulard : accessoires portés ; &minutes=75 : minutes du compagnon, donc son stade)
      Pilotage automatisé : window.__h = { manche, ctx, game, items, reports, summary, ready } -->
 <div id="app"></div>
 <script type="module" src="tests/harness/game-harness.js"></script>

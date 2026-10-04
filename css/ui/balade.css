@@ -8,19 +8,19 @@
 /* ---------- pré ---------- */
 .bl-scene {
   position: relative; width: 100%; aspect-ratio: 360 / 560; border-radius: var(--r-l); overflow: hidden;
-  border: 3px solid #fff; box-shadow: var(--shadow-2); background: #86efac; isolation: isolate;
+  border: 3px solid var(--card); box-shadow: var(--shadow-2); background: #86efac; isolation: isolate;
 }
 .bl-map { position: absolute; inset: 0; width: 100%; height: 100%; }
-.bl-path-edge { fill: none; stroke: var(--amber-200); stroke-width: 46; stroke-linecap: round; stroke-linejoin: round; }
-.bl-path { fill: none; stroke: var(--amber-100); stroke-width: 35; stroke-linecap: round; stroke-linejoin: round; }
-.bl-path-dots { fill: none; stroke: var(--amber-300); stroke-width: 5; stroke-linecap: round; stroke-dasharray: .1 17; opacity: .9; }
+.bl-path-edge { fill: none; stroke: var(--n-amber-200); stroke-width: 46; stroke-linecap: round; stroke-linejoin: round; }
+.bl-path { fill: none; stroke: var(--n-amber-100); stroke-width: 35; stroke-linecap: round; stroke-linejoin: round; }
+.bl-path-dots { fill: none; stroke: var(--n-amber-300); stroke-width: 5; stroke-linecap: round; stroke-dasharray: .1 17; opacity: .9; }
 
 /* pierres */
 .bl-stone-shadow { fill: rgba(74, 44, 26, .2); }
-.bl-stone-top { fill: #fff; stroke: var(--pink-200); stroke-width: 3; }
+.bl-stone-top { fill: var(--card); stroke: var(--pink-200); stroke-width: 3; }
 .bl-stone-shine { fill: #fff; opacity: .75; }
 .bl-stone-emo { font-size: 21px; font-family: var(--font-ui); font-weight: 700; }
-.bl-stone-halo { fill: rgba(251, 191, 36, .32); opacity: 0; transform-box: fill-box; transform-origin: center; }
+.bl-stone-halo { fill: color-mix(in srgb, var(--amber-400) 32%, transparent); opacity: 0; transform-box: fill-box; transform-origin: center; }
 .bl-stone.is-done .bl-stone-top { fill: var(--ok-bg); stroke: var(--ok); }
 .bl-stone.is-done .bl-stone-emo { fill: var(--ok); font-size: 24px; }
 .bl-stone.is-now .bl-stone-top { fill: var(--amber-200); stroke: var(--amber-500); }
@@ -41,9 +41,9 @@
 .bl-label.is-left .bl-g { flex-direction: row-reverse; }
 .bl-g-ico { flex: none; font-size: 1.3rem; line-height: 1; }
 .bl-g-t { min-width: 0; }
-.bl-label.is-now { border-color: var(--amber-500); background: #fffbeb; box-shadow: 0 0 0 4px rgba(251, 191, 36, .28), var(--shadow-2); }
+.bl-label.is-now { border-color: var(--amber-500); background: var(--amber-50); box-shadow: 0 0 0 4px color-mix(in srgb, var(--amber-400) 28%, transparent), var(--shadow-2); }
 .bl-label.is-now .bl-k { color: var(--title); }
-.bl-label.is-done { background: rgba(240, 253, 244, .95); border-color: #86efac; }
+.bl-label.is-done { background: color-mix(in srgb, var(--ok-50) 95%, transparent); border-color: var(--ok-300); }
 .bl-label.is-done .bl-g { color: var(--ink-2); }
 .bl-ok {
   position: absolute; top: -10px; right: -8px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
@@ -51,11 +51,12 @@
 }
 .bl-label.is-left .bl-ok { right: auto; left: -8px; }
 
-/* le compagnon, debout sur la pierre de l'étape en cours */
+/* le compagnon, debout au fond de la pierre de l'étape en cours (balade.js : LIFT) ; une seule ombre, la sienne
+   (rig du compagnon) */
 .bl-buddy { position: absolute; z-index: 2; transform: translate(-50%, -86%); pointer-events: none; line-height: 0; }   /* sous les étiquettes : il passe derrière en marchant */
-.bl-buddy-hop, .bl-buddy-pic { line-height: 0; }
+.bl-buddy-pic { line-height: 0; }
 .bl-buddy-pic.is-left { transform: scaleX(-1); }
-.bl-buddy-pic svg { overflow: visible; filter: drop-shadow(0 3px 2px rgba(74, 44, 26, .22)); }
+.bl-buddy-pic svg { overflow: visible; }
 
 /* ---------- carte d'action ---------- */
 .bl-cta {
@@ -65,7 +66,7 @@
 .bl-cta-kick { font-size: .9rem; font-weight: 600; color: var(--ink-2); }
 .bl-cta-title { display: flex; align-items: center; gap: 10px; font-size: 1.2rem; font-weight: 700; color: var(--ink); line-height: 1.2; text-wrap: balance; }
 .bl-cta-ico { flex: none; font-size: 1.9rem; line-height: 1; }
-.bl-cta.is-done { align-items: center; gap: 8px; padding: 12px 14px 14px; text-align: center; border-color: #86efac; background: linear-gradient(160deg, #f0fdf4 0%, #fff 70%); }
+.bl-cta.is-done { align-items: center; gap: 8px; padding: 12px 14px 14px; text-align: center; border-color: var(--ok-300); background: linear-gradient(160deg, var(--ok-50) 0%, var(--card) 70%); }
 .bl-cta.is-done .bl-cta-kick { font-size: 1.3rem; font-weight: 700; color: var(--title); }
 .bl-cta.is-done .bl-cta-title { justify-content: center; font-size: 1rem; font-weight: 600; color: var(--ink-2); }
 .bl-cta.is-done .bl-cta-btns { flex-direction: row; }
@@ -73,7 +74,7 @@
 .bl-prizes { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .bl-prize {
   display: inline-flex; align-items: center; gap: 4px; padding: 6px 14px; border-radius: var(--r-pill);
-  background: #fff; border: 2px solid var(--amber-200); font-weight: 700; font-size: 1.05rem; color: var(--title);
+  background: var(--card); border: 2px solid var(--amber-200); font-weight: 700; font-size: 1.05rem; color: var(--title);
 }
 .bl-prize.is-fire { border-color: var(--orange-300); color: var(--soft-ink); }
 .bl-cta-btns { display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 2px; }
@@ -85,10 +86,19 @@
 .bl-pick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .bl-pick-tile {
   min-height: 100px; padding: 12px 8px; border-radius: var(--r-m); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-  background: var(--tint, #fff); border: 3px solid #fff; box-shadow: var(--shadow-1); text-align: center;
+  background: var(--tint, var(--card)); border: 3px solid var(--card); box-shadow: var(--shadow-1); text-align: center;
   transition: transform var(--dur-1) var(--ease-out);
 }
 .bl-pick-tile:active { transform: scale(.96); }
+/* teinte du jeu → jeton du thème (--tile-<jeu>) : balade.js pose la teinte du registre (js/games/index.js) en
+   style en ligne ; on la reconnaît pour la remplacer (pont tant que le registre ne donne pas lui-même
+   « var(--tile-<jeu>, #…) », cf. accueil) */
+.bl-pick-tile[style*="#fce7f3"] { --tint: var(--tile-course) !important; }
+.bl-pick-tile[style*="#fef3c7"] { --tint: var(--tile-cloture) !important; }
+.bl-pick-tile[style*="#dcfce7"] { --tint: var(--tile-tables) !important; }
+.bl-pick-tile[style*="#fee2e2"] { --tint: var(--tile-pommes) !important; }
+.bl-pick-tile[style*="#ede9fe"] { --tint: var(--tile-orchestre) !important; }
+.bl-pick-tile[style*="#e0f2fe"] { --tint: var(--tile-operations) !important; }
 .bl-pick-ico { font-size: 2rem; line-height: 1; }
 .bl-pick-t { font-weight: 700; font-size: .95rem; color: var(--ink); line-height: 1.2; }
 

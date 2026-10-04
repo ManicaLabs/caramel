@@ -561,3 +561,119 @@ test('historique plafonné à 500 entrées', () => {
   assert.equal(h[0].t, 1);
   assert.equal(h[499].g, 'pommes');
 });
+
+/* ---------- défi en famille : manche liée à un profil donné (option profileId) ---------- */
+function setupFamily() {
+  const storage = memoryStorage();
+  store.init(storage, D);
+  const a = defaultProfile({ id: 'p1', name: 'Léa', g: 'f', classe: 'CM2', today: D });
+  a.skills['ma.faits'] = { t: 2.0, n: 4, last: '', trend: 0, src: 'eval' };
+  const b = defaultProfile({ id: 'p2', name: 'Tom', g: 'm', classe: 'CE1', today: D });
+  b.skills['ma.faits'] = { t: 1.0, n: 4, last: '', trend: 0, src: 'eval' };
+  store.addProfile(a);
+  store.addProfile(b);
+  store.setActive('p1');
+  return { storage, get: id => store.getProfile(id) };
+}
+
+test('profileId : la manche lit et écrit le profil demandé, pas le profil actif', () => {
+  const { storage, get } = setupFamily();
+  const clock = fakeClock();
+  const G = gens();
+  const m = createManche({ gameId: 'battle', axis: 'ma.faits', count: 3, mode: 'battle', profileId: 'p2', today: D, seed: 5, generators: G, clock });
+  assert.equal(m.profileId, 'p2'); assert.equal(m.mode, 'battle'); assert.equal(m.count, 3);
+  const it = m.nextItem();
+  /* niveau visé = celui de Tom (CE1, θ = 1), pas celui de Léa (CM2, θ = 2) */
+  near(G['ma.faits'].calls.A[0], absLevel('CE1', targetB(1.0), D), 1e-12);
+  near(it.b, relLevel('CE1', it.A, D), 1e-12);
+  clock.step(4000);
+  m.report(it, { correct: true, hinted: false, ms: 1500, tries: 1 });
+  /* le profil actif change pendant la manche (un autre enfant joue son tour) : rien ne bouge */
+  store.setActive('p2'); store.setActive('p1');
+  const it2 = m.nextItem(); clock.step(4000); m.report(it2, { correct: false, hinted: false, ms: 6000, tries: 1 });
+  const it3 = m.nextItem(); clock.step(4000); m.report(it3, { correct: true, hinted: false, ms: 2000, tries: 1 });
+  assert.equal(m.nextItem(), null);
+  const s = m.finish();
+  assert.equal(s.n, 3); assert.equal(s.correct, 2); assert.equal(s.gameId, 'battle'); assert.equal(s.axis, 'ma.faits');
+  const tom = get('p2'), lea = get('p1');
+  assert.equal(tom.wallet.apples, 2 + 10);                          /* 2 bonnes réponses + bonus de série du jour */
+  assert.equal(tom.history.length, 1);
+  assert.equal(tom.history[0].mode, 'battle'); assert.equal(tom.history[0].g, 'battle'); assert.equal(tom.history[0].n, 3);
+  assert.equal(tom.skills['ma.faits'].n, 7);
+  assert.equal(tom.streak.count, 1);
+  /* Léa n'a rien reçu */
+  assert.equal(lea.wallet.apples, 0); assert.equal(lea.history.length, 0); assert.equal(lea.skills['ma.faits'].n, 4);
+  assert.equal(lea.stats.items, 0); assert.ok(!lea.stats.week, 'aucun compteur de semaine pour Léa');
+  assert.equal(store.getData().active, 'p1');
+  assert.equal(JSON.parse(storage.getItem('caramel-v3')).profiles.p2.history.length, 1);
+});
+
+test('profileId : rétrocompatible (défaut = profil actif) ; profil inconnu → erreur claire', () => {
+  setupFamily();
+  const m = createManche({ gameId: 'tables', count: 2, today: D, seed: 1, generators: gens() });
+  assert.equal(m.profileId, 'p1');
+  const m2 = createManche({ gameId: 'tables', count: 2, today: D, seed: 1, generators: gens(), profileId: null });
+  assert.equal(m2.profileId, 'p1');
+  assert.throws(() => createManche({ gameId: 'tables', count: 2, today: D, generators: gens(), profileId: 'p9' }), /p9/);
+});
+
+test('deux manches entrelacées sur deux profils (tour par tour) : chacune garde ses comptes', () => {
+  const { get } = setupFamily();
+  const clock = fakeClock();
+  const mA = createManche({ gameId: 'battle', axis: 'ma.faits', count: 3, mode: 'battle', profileId: 'p1', today: D, seed: 'a', generators: gens(), clock });
+  const mB = createManche({ gameId: 'battle', axis: 'ma.faits', count: 3, mode: 'battle', profileId: 'p2', today: D, seed: 'b', generators: gens(), clock });
+  for (let r = 0; r < 3; r++) {
+    clock.step(3000); mA.report(mA.nextItem(), { correct: true, hinted: false, ms: 1000, tries: 1 });
+    clock.step(3000); mB.report(mB.nextItem(), { correct: r !== 1, hinted: false, ms: 1000, tries: 1 });
+  }
+  const sA = mA.finish(), sB = mB.abort();
+  assert.equal(sA.correct, 3); assert.equal(sA.aborted, false);
+  assert.equal(sB.correct, 2); assert.equal(sB.aborted, true);
+  assert.equal(get('p1').wallet.apples, 3 + 10);
+  assert.equal(get('p2').wallet.apples, 2);                          /* abandon : ni série ni bonus, progrès gardés */
+  assert.equal(get('p2').streak.count, 0);
+  assert.equal(get('p2').history.length, 1);
+});
+
+test('compteur de la semaine : minutes, items et pommes gagnées ; nouvelle semaine → zéro', () => {
+  const { P } = setup();
+  const clock = fakeClock();
+  const m = createManche({ gameId: 'tables', count: 3, today: D, seed: 2, generators: gens(), clock });
+  play(m, clock, (it, i) => ({ correct: i !== 1, hinted: i === 1, tries: i === 1 ? 2 : 1, ms: 1500 }));
+  m.finish();
+  const w = P().stats.week;
+  assert.equal(w.w, weekKey(D));
+  assert.equal(w.items, 3);
+  near(w.minutes, 0.5, 1e-9);                                        /* 3 × 10 s */
+  assert.equal(w.apples, 2 + 10);                                    /* 2 bonnes réponses + série du jour */
+  assert.equal(P().wallet.apples, 12);
+  /* la semaine suivante repart de zéro (lundi 5 octobre) */
+  const next = addDays(D, 3);
+  const m2 = createManche({ gameId: 'tables', count: 1, today: next, seed: 3, generators: gens(), clock });
+  play(m2, clock);
+  m2.finish();
+  const w2 = P().stats.week;
+  assert.equal(w2.w, weekKey(next)); assert.notEqual(w2.w, w.w);
+  assert.equal(w2.items, 1); assert.equal(w2.apples, 1 + 10);
+  /* un abandon compte aussi le temps passé (progrès gardés) */
+  const m3 = createManche({ gameId: 'tables', count: 4, today: next, seed: 4, generators: gens(), clock });
+  clock.step(6000); m3.report(m3.nextItem(), { correct: true, hinted: false, ms: 1000 });
+  m3.abort();
+  assert.equal(P().stats.week.items, 2);
+  assert.equal(P().stats.week.apples, 12);
+});
+
+test('compteur de la semaine : première manche de la semaine sans pomme → comptée une seule fois', () => {
+  const { P } = setup({ tweak: p => {
+    p.history.push({ d: D, t: 1, g: 'tables', ax: 'ma.faits', n: 5, ok: 4, hint: 0, ms: 120000, th: 1.5, mode: 'libre' });
+  } });
+  const clock = fakeClock();
+  const m = createManche({ gameId: 'tables', count: 2, today: D, seed: 9, generators: gens(), clock });
+  play(m, clock, () => ({ correct: false, hinted: true, tries: 2, ms: 3000 }));
+  m.abort();                                                         /* ni pomme ni série : rien n'a créé le compteur avant */
+  const w = P().stats.week;
+  assert.equal(w.items, 5 + 2);
+  near(w.minutes, 2.33, 1e-9);                                       /* 2 min d'historique + 2 × 10 s */
+  assert.equal(w.apples, 0);
+  assert.equal(P().history.length, 2);
+});

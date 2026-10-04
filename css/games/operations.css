@@ -1,7 +1,8 @@
 /* ============ L’ATELIER DES OPÉRATIONS (js/games/operations.js, docs/JEUX.md §7) ============
    Établi en bois, feuille de cahier à grands carreaux (Seyès, lignes légères) alignés sur les cases de l'opération,
    bulle du compagnon au-dessus d'un pavé compact de 10 chiffres. Uniquement des jetons de css/base.css
-   (et des mélanges de ces jetons). Mobile d'abord (390 × 844) ; deux colonnes sur grand écran ou téléphone couché.
+   (et des mélanges de ces jetons) ; l'établi (bois) et la marge du cahier prennent la palette FIXE --n-* :
+   ils ne changent pas avec le thème visuel (les chiffres, les surlignages et la bulle le suivent). Mobile d'abord (390 × 844) ; deux colonnes sur grand écran ou téléphone couché.
    Les positions et la taille des cases (--cw) sont calculées par le jeu : tout tient, sans défilement. */
 
 .op {
@@ -12,13 +13,13 @@
 
 /* ---------- établi ---------- */
 .op-bench {
-  --wood: color-mix(in srgb, var(--ink-5) 46%, var(--amber-100));
-  --wood-2: color-mix(in srgb, var(--ink-5) 62%, var(--amber-200));
-  --seam: color-mix(in srgb, var(--ink-4) 50%, transparent);
-  --grain: color-mix(in srgb, var(--ink-4) 12%, transparent);
+  --wood: color-mix(in srgb, var(--n-ink-5) 46%, var(--n-amber-100));
+  --wood-2: color-mix(in srgb, var(--n-ink-5) 62%, var(--n-amber-200));
+  --seam: color-mix(in srgb, var(--n-ink-4) 50%, transparent);
+  --grain: color-mix(in srgb, var(--n-ink-4) 12%, transparent);
   position: relative; flex: 1; min-height: 0; display: flex; padding: 9px;
   border-radius: var(--r-l);
-  border: 3px solid color-mix(in srgb, var(--ink-4) 75%, var(--ink-5));
+  border: 3px solid color-mix(in srgb, var(--n-ink-4) 75%, var(--n-ink-5));
   background:
     repeating-linear-gradient(180deg, transparent 0 58px, var(--seam) 58px 60px),
     repeating-linear-gradient(177deg, transparent 0 11px, var(--grain) 11px 12px, transparent 12px 27px),
@@ -31,7 +32,7 @@
   --cw: 40px; --ox: 0px; --oy: 0px; --mx: -20px;
   --seyes-main: color-mix(in srgb, var(--violet) 27%, transparent);
   --seyes-fine: color-mix(in srgb, var(--violet) 12%, transparent);
-  --margin-line: color-mix(in srgb, var(--pink-400) 50%, transparent);
+  --margin-line: color-mix(in srgb, var(--n-pink-400) 50%, transparent);
   position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column;
   border-radius: 10px; overflow: hidden;
   background-color: #fff;
@@ -50,7 +51,7 @@
 }
 .op-tag {
   min-width: 0; max-width: 100%; padding: 3px 13px; border-radius: var(--r-pill);
-  background: #fff; border: 2px solid var(--pink-200); box-shadow: var(--shadow-1);
+  background: var(--card); border: 2px solid var(--pink-200); box-shadow: var(--shadow-1);
   font-weight: 700; font-size: 1.08rem; line-height: 1.25; color: var(--ink);
   font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
@@ -171,12 +172,12 @@
 .op-ava svg { overflow: visible; }
 .op-bubble {
   position: relative; flex: 1; min-width: 0; max-height: 100%; min-height: 58px; display: flex; flex-direction: column;
-  background: #fff; border: 2px solid var(--pink-200); border-radius: var(--r-m); border-bottom-left-radius: 6px;
+  background: var(--card); border: 2px solid var(--pink-200); border-radius: var(--r-m); border-bottom-left-radius: 6px;
   box-shadow: var(--shadow-1);
 }
 .op-bubble::before {            /* petite queue tournée vers le compagnon */
   content: ''; position: absolute; left: -8px; bottom: 14px; width: 13px; height: 13px;
-  background: #fff; border-left: 2px solid var(--pink-200); border-bottom: 2px solid var(--pink-200);
+  background: var(--card); border-left: 2px solid var(--pink-200); border-bottom: 2px solid var(--pink-200);
   transform: rotate(45deg); border-bottom-left-radius: 3px;
 }
 .op-scroll {

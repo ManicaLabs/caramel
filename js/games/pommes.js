@@ -1,6 +1,6 @@
 /* ============ POMMES EXPRESS — ma.procedures (docs/JEUX.md §5, contrat §7) ============
    Verger du ranch : pommier en haut (feuillage en aplats, pommes qui se balancent), le calcul est écrit sur une
-   grosse POMME-CARTE suspendue à l'arbre, compagnon à gauche (mountSVG), PANIER à droite qui se remplit (compteur).
+   grosse POMME-CARTE suspendue à l'arbre, compagnon à gauche (ctx.petSVG), PANIER à droite qui se remplit (compteur).
    La case « … » de l'énoncé EST la zone de réponse du pavé du kit (kp.answer déplacé dans la pomme).
    - Série tranquille (défaut) : les calculs de la manche, à son rythme.
    - Sprint 60 s : proposé à l'écran d'accueil du jeu SEULEMENT si settings.timers ; jauge douce en haut de la
@@ -17,7 +17,6 @@
    js/games/pommes-logic.js (tests/pommes.test.mjs). */
 
 import { h, svg, clear, frTypo } from '../core/util.js';
-import { mountSVG } from '../ui/mount-svg.js';
 import * as L from './pommes-logic.js';
 
 const CELEBRATE_MS = 200;     /* la bonne réponse reste visible (verte) avant que la pomme s'envole */
@@ -91,8 +90,6 @@ function createPommes(root, ctx) {
   };
 
   /* ================= DÉCOR ================= */
-  const comp = (() => { try { const p = ctx.profile; return (p && p.companion) || {}; } catch (_) { return {}; } })();
-  const worn = comp.equip && Array.isArray(comp.equip.worn) ? comp.equip.worn : [];
 
   /* petite pomme (décor, panier, pomme qui vole) centrée en (0, 0), rayon r */
   function appleGlyph(r, tone, cls = '') {
@@ -134,7 +131,8 @@ function createPommes(root, ctx) {
   const basket = h('div', { class: 'pm-basket', role: 'img', 'aria-label': frTypo('Panier : aucune pomme') }, basketSvg, badge);
 
   /* ---------- compagnon ---------- */
-  const heroIn = h('div', { class: 'pm-hero-in', html: safe(() => mountSVG(comp.type || 'pony', worn, 100, '')) || '' });
+  /* compagnon du profil (espèce, accessoires, stade) ; son ombre au sol est celle du rig (une seule ombre) */
+  const heroIn = h('div', { class: 'pm-hero-in', html: safe(() => ctx.petSVG(100, '')) || '' });
   const hero = h('div', { class: 'pm-hero', 'aria-hidden': 'true' }, heroIn);
   const heroSvg = heroIn.querySelector('svg');
 
@@ -227,8 +225,6 @@ function createPommes(root, ctx) {
         [0, 72, 144, 216, 288].map(a => svg('circle', { class: 'pm-petal', cx: r1(Math.cos(a * Math.PI / 180) * 3.4), cy: r1(Math.sin(a * Math.PI / 180) * 3.4), r: '2.6' })),
         svg('circle', { class: 'pm-heart', r: '2' })));
     }
-    /* ombres douces au sol */
-    bg.appendChild(svg('ellipse', { class: 'pm-shadow', cx: r1(l.hero.x + l.hero.w * 0.5), cy: r1(l.hero.y + l.hero.h * 0.97), rx: r1(l.hero.w * 0.36), ry: r1(Math.max(3, l.hero.h * 0.05)) }));
     /* feuillage : couche du fond, lobes de devant, reflets */
     const R0 = C * 0.42, R1 = C * 0.35;
     const back = svg('g', { class: 'pm-leaf-back' }, svg('rect', { x: '-2', y: '-2', width: String(W + 4), height: r1(C * 0.42) }));
@@ -415,17 +411,19 @@ function createPommes(root, ctx) {
     const to = ctx.applesEl;
     if (to) fly(badge, to, { emoji: '🍎', size: 26, dur: 560, arc: 0.3 });
   }
-  function hop() {
-    if (reduced()) return;
-    animate(heroIn, [{ transform: 'translateY(0)' }, { transform: 'translateY(-16%) rotate(-3deg)', offset: 0.4 }, { transform: 'translateY(0)' }],
-      { duration: 420, easing: 'ease-out' });
-  }
-  function heroJoy() {
+  /* bonds du compagnon par les humeurs du rig (hop : un saut, joy : deux) : le corps saute, son ombre reste au sol
+     et rétrécit ; la classe est retirée après coup (sinon l'oreille cesse de frémir au repos) */
+  let moodT = 0;
+  function heroMood(cls, ms) {
     if (!heroSvg || reduced()) return;
-    heroSvg.classList.remove('joy');
+    moodT = cancel(moodT);
+    heroSvg.classList.remove('hop', 'joy');
     void heroSvg.getBoundingClientRect();
-    heroSvg.classList.add('joy');
+    heroSvg.classList.add(cls);
+    moodT = later(() => { moodT = 0; heroSvg.classList.remove(cls); }, ms);
   }
+  function hop() { heroMood('hop', 600); }
+  function heroJoy() { heroMood('joy', 1050); }
 
   /* ================= BULLES ================= */
   function showBubble(content, kind, icon) {

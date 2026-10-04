@@ -5,14 +5,18 @@
    Les clés inconnues sont conservées (compatibilité ascendante : champs ajoutés par une version future). */
 
 import { clamp, dayStr, capFirst, deepClone } from './util.js';
-import { CLASSES } from './axes.js';
+import { CLASSES, radarTemplate } from './axes.js';
+import { currentValues } from './radar-model.js';
+import { badgeOf } from './economy.js';
 import { thetaFromMclm } from './levels.js';
 import { MOUNTS, SHOP, PET } from '../content/companion-data.js';
+import { normalizeTheme, DEFAULT_THEME } from './themes.js';
 
 export const DEFAULT_HERO = 'Léa';            /* héros par défaut de la v11 (defaultSave) */
 export const DEFAULT_MOUNT_NAME = 'Caramel';
 export const SESSION_MINUTES = Object.freeze([10, 15, 20]);
-export const DEFAULT_SETTINGS = Object.freeze({ sessionMin: 15, timers: false, sound: true, motion: 'full' });
+/* theme : thème visuel du profil (js/core/themes.js) ; id inconnu → 'caramel' */
+export const DEFAULT_SETTINGS = Object.freeze({ sessionMin: 15, timers: false, sound: true, motion: 'full', theme: DEFAULT_THEME });
 /* plafonds des tableaux (contrat §2) ; freezes = gels de série cumulables au plus */
 export const CAPS = Object.freeze({ history: 500, mclm: 300, snapshots: 104, freezes: 3 });
 const NAME_MAX = 14;
@@ -92,7 +96,8 @@ export function defaultProfile({ id = '', name, g = 'f', classe = null, today } 
     today: null,
     legacy: null,
     settings: { ...DEFAULT_SETTINGS },
-    stats: { minutes: 0, sessions: 0, items: 0 }
+    stats: { minutes: 0, sessions: 0, items: 0 },
+    medals: {}
   };
 }
 
@@ -128,7 +133,41 @@ export function normalizeProfile(p, today) {
     settings: normSettings(src.settings),
     stats: normStats(src.stats)
   };
+  if (has(src, 'trophies')) out.trophies = normTrophies(src.trophies);   /* facultatif (v2.1, « En famille ») */
+  /* médailles gagnées (v2.1) : jamais retirées ; un profil d'avant la 2.1 (champ absent) garde celles que la v2.0
+     lui montrait (legacyMedals), même si la nouvelle règle ne les donnerait plus (CDC §1 : aucune perte) */
+  out.medals = has(src, 'medals') ? normMedals(src.medals) : legacyMedals(out);
   return withExtras(out, src);
+}
+
+/* ---------- médailles (Mes progrès) ----------
+   profile.medals = { 'ma.faits': 'or', … } : la meilleure médaille déjà montrée par axe, jamais retirée.
+   Depuis la v2.1, une nouvelle médaille ne vient que d'une compétence réellement jouée (js/ui/progres.js,
+   earnedMedals) ; legacyMedals rejoue la règle de la v2.0 (badgeOf sur la valeur actuelle de chaque axe du radar
+   de la classe, fiche comprise) pour les profils qui l'ont connue, à leur première normalisation en 2.1. */
+export const MEDAL_TIERS = Object.freeze(['bronze', 'argent', 'or']);
+export function legacyMedals(p) {
+  const out = {};
+  if (!isObj(p)) return out;
+  const classe = p.classe || 'CM2';
+  for (const subject of ['fr', 'ma']) {
+    let tpl = null, values = null;
+    try { tpl = radarTemplate(classe, subject); values = currentValues(p, tpl); } catch (_) { continue; }
+    for (const a of (tpl && tpl.axes) || []) {
+      if (has(out, a.id)) continue;
+      const tier = badgeOf(values[a.id]);
+      if (tier) out[a.id] = tier;
+    }
+  }
+  return out;
+}
+function normMedals(m) {
+  const out = {};
+  if (!isObj(m)) return out;
+  for (const [id, tier] of Object.entries(m)) {
+    if (typeof id === 'string' && id && !BAD_KEYS.has(id) && MEDAL_TIERS.includes(tier)) out[id] = tier;
+  }
+  return out;
 }
 
 const gauge = v => clamp(num(v, PET.START), PET.FLOOR, PET.MAX);
@@ -305,17 +344,42 @@ function normSettings(s) {
     sessionMin: SESSION_MINUTES.includes(m) ? m : DEFAULT_SETTINGS.sessionMin,
     timers: typeof s.timers === 'boolean' ? s.timers : DEFAULT_SETTINGS.timers,
     sound: typeof s.sound === 'boolean' ? s.sound : DEFAULT_SETTINGS.sound,
-    motion: s.motion === 'soft' ? 'soft' : 'full'
+    motion: s.motion === 'soft' ? 'soft' : 'full',
+    theme: normalizeTheme(s.theme)
   }, s);
 }
 
 function normStats(s) {
   s = isObj(s) ? s : {};
-  return withExtras({
+  const out = {
     minutes: Math.max(0, num(s.minutes, 0)),
     sessions: Math.max(0, int(s.sessions, 0)),
     items: Math.max(0, int(s.items, 0))
-  }, s);
+  };
+  /* compteur de la semaine (economy.bumpWeek) : facultatif ; semaine illisible → retiré (il repartira de zéro) */
+  const { week, ...rest } = s;
+  if (isObj(week) && typeof week.w === 'string' && WEEK_RE.test(week.w)) {
+    out.week = withExtras({
+      w: week.w,
+      minutes: Math.max(0, num(week.minutes, 0)),
+      apples: Math.max(0, int(week.apples, 0)),
+      items: Math.max(0, int(week.items, 0))
+    }, week);
+  }
+  return withExtras(out, rest);
+}
+
+/* trophées (economy.addTrophy) : { k, d, w, … } lisibles seulement ; on garde les plus récents */
+const TROPHIES_CAP = 300;
+function normTrophies(arr) {
+  if (!Array.isArray(arr)) return [];
+  return arr.filter(t => isObj(t) && typeof t.k === 'string' && t.k && isDay(t.d))
+    .slice(-TROPHIES_CAP)
+    .map(t => {
+      const o = deepClone(t);
+      if (typeof o.w !== 'string' || !WEEK_RE.test(o.w)) delete o.w;
+      return o;
+    });
 }
 
 /* ---------- templating héros / monture (dictionnaire v11 EXACT) ----------

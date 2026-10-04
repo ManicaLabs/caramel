@@ -5,12 +5,15 @@
 /* ---------- bulle d'encouragement ---------- */
 .pg-hero {
   display: flex; align-items: center; gap: 14px; padding: 14px 16px;
-  border-color: var(--amber-200); background: linear-gradient(160deg, #fffbeb 0%, #fff 55%, var(--pink-50) 100%);
+  border-color: var(--amber-200); background: linear-gradient(160deg, var(--amber-50) 0%, var(--card) 55%, var(--pink-50) 100%);
 }
 .pg-hero-ava {
   flex: none; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; font-size: 2.3rem; line-height: 1;
-  background: radial-gradient(circle at 35% 30%, #fff 0%, var(--amber-100) 75%); border: 3px solid var(--amber-200);
+  background: radial-gradient(circle at 35% 30%, var(--card) 0%, var(--amber-100) 75%); border: 3px solid var(--amber-200);
+  overflow: hidden;
 }
+/* portrait SVG du compagnon (companion.avatarOf, view 'portrait') : il remplit le rond */
+.pg-hero-ava svg { width: 100%; height: 100%; }
 .pg-hero-txt { min-width: 0; }
 .pg-hero-title { font-size: 1.3rem; font-weight: 700; color: var(--title); line-height: 1.2; }
 .pg-hero-msg { margin-top: 4px; color: var(--ink-2); font-size: 1rem; line-height: 1.4; }
@@ -37,7 +40,7 @@
 .pg-medals { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 14px 8px; padding: 6px 2px 2px; }
 .pg-medal { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
 .pg-medal.is-waiting { opacity: 0; }
-.pg-medal--or     { --m1: var(--amber-200); --m2: var(--amber-400); --m3: var(--amber-500); }
+.pg-medal--or     { --m1: var(--n-amber-200); --m2: var(--n-amber-400); --m3: var(--n-amber-500); }   /* or fixe (palette --n-*), même métal dans les 8 thèmes */
 .pg-medal--argent { --m1: #fff;             --m2: var(--fr-fill);   --m3: var(--fr); }
 .pg-medal--bronze { --m1: var(--ma-fill);   --m2: var(--orange-300); --m3: var(--ma); }
 .pg-medal-disc {
@@ -58,6 +61,8 @@
 .pg-medal-tier { font-size: .8rem; color: var(--ink-3); font-weight: 600; }
 .pg-medal.anim-spin-in { animation-delay: calc(var(--i, 0) * 90ms); }
 .pg-medals-empty { display: flex; align-items: center; gap: 12px; color: var(--ink-2); }
+.pg-medals-empty-txt { display: grid; gap: 10px; justify-items: start; min-width: 0; }
+.pg-go { min-height: 48px; padding: 10px 22px; font-size: 1.05rem; }
 .pg-medals-empty-emo { font-size: 2rem; line-height: 1; filter: grayscale(.3); }
 
 .pg-home { margin-top: 8px; }

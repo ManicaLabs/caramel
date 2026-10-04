@@ -1,6 +1,6 @@
 /* ============ LE GALOP DES TABLES — ma.faits (docs/JEUX.md §4, contrat §7) ============
    Course de profil en parallaxe (nuages, collines, clôture, herbe : couches SVG animées en CSS, vitesse pilotée
-   par le playbackRate des animations), compagnon au galop (mountSVG, classe walk), obstacle (botte de foin ou
+   par le playbackRate des animations), compagnon au galop (ctx.petSVG, classe walk), obstacle (botte de foin ou
    rondin) qui arrive de la droite, calcul écrit sur un panneau en bois (la case « … » du panneau EST la zone
    de réponse du pavé du kit).
    - Zen (défaut) : l'obstacle freine et s'arrête devant le compagnon, qui attend.
@@ -15,7 +15,6 @@
    Logique pure (énoncé, saisie, juge de la voix, vitesses) : js/games/tables-logic.js (tests/tables.test.mjs). */
 
 import { h, svg, clear, fmtNum, frTypo } from '../core/util.js';
-import { mountSVG } from '../ui/mount-svg.js';
 import * as L from './tables-logic.js';
 
 const JUMP_MS = 660;            /* saut (élan, envol, réception) */
@@ -73,8 +72,6 @@ function createTables(root, ctx) {
   const sound = name => { try { const f = ctx.audio && ctx.audio[name]; if (typeof f === 'function') return f(); } catch (_) {} return null; };
 
   /* ---------- décor ---------- */
-  const companion = (() => { try { const p = ctx.profile; return (p && p.companion) || {}; } catch (_) { return {}; } })();
-  const worn = companion.equip && Array.isArray(companion.equip.worn) ? companion.equip.worn : [];
 
   const layer = (cls, tile, height, shapes) => {
     const id = uid + '-' + cls;
@@ -115,9 +112,15 @@ function createTables(root, ctx) {
   /* couches de décor agrandies sur les grandes scènes (tablette, ordinateur) : le motif est mis à l'échelle */
   const SCALED = [[clouds, 460, 96], [hillsFar, 380, 120], [hillsNear, 300, 100], [fence, 84, 46]];
 
-  const heroBob = h('div', { class: 'tb-hero-bob', html: mountSVG(companion.type || 'pony', worn, 100, '') });
+  const heroBob = h('div', { class: 'tb-hero-bob', html: ctx.petSVG(100, '') });
   const hero = h('div', { class: 'tb-hero', 'aria-hidden': 'true' }, heroBob);
   const heroSvg = heroBob.querySelector('svg');
+  /* saut et trébuchement : c'est le CORPS du rig qui bouge (.c-all) ; son ombre (.c-shadow) reste au sol et la vague
+     du dauphin (.c-wave, hors de .c-all) dans l'eau — une seule ombre, toujours au sol (JEUX §0) */
+  const heroBody = heroSvg && heroSvg.querySelector('.c-all');
+  const heroShadow = heroSvg && heroSvg.getAttribute('data-species') !== 'dolphin' ? heroSvg.querySelector('.c-shadow') : null;
+  /* px de l'écran → unités du viewBox du rig (100 unités = largeur du compagnon ; offsetWidth : insensible aux animations) */
+  const unit = () => 100 / (hero.offsetWidth || 100);
 
   const baleSvg = () => svg('svg', { class: 'tb-ob-svg', viewBox: '0 0 64 50', 'aria-hidden': 'true', focusable: 'false' },
     svg('ellipse', { class: 'tb-ob-shadow', cx: '32', cy: '47', rx: '30', ry: '3' }),
@@ -210,7 +213,9 @@ function createTables(root, ctx) {
     stage.classList.toggle('is-running', running && r > 0.25);
     if (heroSvg) {
       const had = heroSvg.classList.contains('walk');
-      if (had !== running) { heroSvg.classList.toggle('walk', running); world.legs = null; }
+      /* style recalculé aussitôt : sinon Chrome perd, pendant une image, le saut ou le trébuchement joué en composition
+         « add » sur .c-all quand l'animation CSS du corps change (galop ↔ attente) */
+      if (had !== running) { heroSvg.classList.toggle('walk', running); void heroSvg.getBoundingClientRect(); world.legs = null; }
       if (running) {
         if (!world.legs) { try { world.legs = heroSvg.getAnimations({ subtree: true }).filter(a => a.animationName === 'step'); } catch (_) { world.legs = []; } }
         for (const a of world.legs) { try { a.playbackRate = Math.min(1.7, Math.max(0.55, r)); } catch (_) {} }
@@ -356,13 +361,23 @@ function createTables(root, ctx) {
     world.phase = 'leap';
     kick();
     sound('whoosh');
-    const H = geo.jumpH;
-    animate(hero, [
-      { transform: 'translateY(0) rotate(0deg) scale(1, 1)', easing: 'ease-out' },
-      { transform: 'translateY(2px) rotate(2deg) scale(1.06, .9)', offset: 0.13, easing: 'cubic-bezier(.2, .75, .35, 1)' },
-      { transform: `translateY(${-H}px) rotate(-10deg) scale(.97, 1.05)`, offset: 0.5, easing: 'cubic-bezier(.55, 0, .85, .45)' },
-      { transform: 'translateY(0) rotate(3deg) scale(1.06, .92)', offset: 0.86, easing: 'ease-out' },
-      { transform: 'translateY(0) rotate(0deg) scale(1, 1)' }
+    const u = unit(), H = geo.jumpH * u, f = v => (v * u).toFixed(2);
+    /* composition « add » : le saut s'ajoute au pas du galop (keyframes step du rig), comme le moteur de vie */
+    animate(heroBody, [
+      { transform: 'translateY(0px) rotate(0deg) scale(1, 1)', easing: 'ease-out' },
+      { transform: `translateY(${f(2)}px) rotate(2deg) scale(1.06, .9)`, offset: 0.13, easing: 'cubic-bezier(.2, .75, .35, 1)' },
+      { transform: `translateY(${(-H).toFixed(2)}px) rotate(-10deg) scale(.97, 1.05)`, offset: 0.5, easing: 'cubic-bezier(.55, 0, .85, .45)' },
+      { transform: 'translateY(0px) rotate(3deg) scale(1.06, .92)', offset: 0.86, easing: 'ease-out' },
+      { transform: 'translateY(0px) rotate(0deg) scale(1, 1)' }
+    ], { duration: JUMP_MS, composite: 'add' });
+    /* l'ombre reste au sol et suit la hauteur du corps (mêmes temps) : un peu plus large à l'élan et à la réception,
+       plus petite et plus pâle en l'air (la flaque du dauphin, elle, ne change pas : mount.css) */
+    animate(heroShadow, [
+      { transform: 'scale(1)', opacity: 1, easing: 'ease-out' },
+      { transform: 'scale(1.04)', opacity: 1, offset: 0.13, easing: 'cubic-bezier(.2, .75, .35, 1)' },
+      { transform: 'scale(.55)', opacity: 0.5, offset: 0.5, easing: 'cubic-bezier(.55, 0, .85, .45)' },
+      { transform: 'scale(1.04)', opacity: 1, offset: 0.86, easing: 'ease-out' },
+      { transform: 'scale(1)', opacity: 1 }
     ], { duration: JUMP_MS });
     later(() => {
       if (world.phase === 'leap') { world.phase = 'run'; kick(); }
@@ -372,12 +387,13 @@ function createTables(root, ctx) {
   }
   function stumble() {
     if (reduced()) return;
-    animate(hero, [
-      { transform: 'translate(0, 0) rotate(0deg)' },
-      { transform: 'translate(3px, 2px) rotate(7deg)', offset: 0.28 },
-      { transform: 'translate(-2px, 0) rotate(-3deg)', offset: 0.62 },
-      { transform: 'translate(0, 0) rotate(0deg)' }
-    ], { duration: 440, easing: 'ease-out' });
+    const u = unit(), f = v => (v * u).toFixed(2);
+    animate(heroBody, [
+      { transform: 'translate(0px, 0px) rotate(0deg)' },
+      { transform: `translate(${f(3)}px, ${f(2)}px) rotate(7deg)`, offset: 0.28 },
+      { transform: `translate(${f(-2)}px, 0px) rotate(-3deg)`, offset: 0.62 },
+      { transform: 'translate(0px, 0px) rotate(0deg)' }
+    ], { duration: 440, easing: 'ease-out', composite: 'add' });
   }
 
   /* ---------- panneau ---------- */

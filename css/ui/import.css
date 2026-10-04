@@ -16,10 +16,10 @@
 
 /* ---------- introduction ---------- */
 .im-intro { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; padding: 18px 16px;
-  border-color: var(--amber-200); background: linear-gradient(160deg, #fffbeb 0%, #fff 60%, var(--pink-50) 100%); }
+  border-color: var(--amber-200); background: linear-gradient(160deg, var(--amber-50) 0%, var(--card) 60%, var(--pink-50) 100%); }
 .im-intro-ico {
   position: relative; width: 64px; height: 64px; margin-bottom: 4px; border-radius: 50%; display: grid; place-items: center;
-  font-size: 2.1rem; line-height: 1; background: radial-gradient(circle at 35% 30%, #fff 0%, var(--amber-100) 75%); border: 3px solid var(--amber-200);
+  font-size: 2.1rem; line-height: 1; background: radial-gradient(circle at 35% 30%, var(--card) 0%, var(--amber-100) 75%); border: 3px solid var(--amber-200);
 }
 .im-intro-star { position: absolute; right: -6px; top: -6px; font-size: 1.2rem; animation: twinkle 1.8s ease-in-out infinite; }
 
@@ -37,7 +37,7 @@
 .im-method-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .im-method-t { font-weight: 700; font-size: 1.1rem; color: var(--ink); line-height: 1.2; }
 .im-method-s { font-size: .9rem; color: var(--ink-3); line-height: 1.35; }
-.im-method-go { flex: none; font-size: 1.8rem; line-height: 1; color: var(--ink-4); }
+.im-method-go { flex: none; font-size: 1.8rem; line-height: 1; color: var(--ink-3); }
 .im-later { margin-top: -2px; }
 
 /* ---------- champs ---------- */
@@ -59,7 +59,7 @@
 .im-private { font-size: .88rem; color: var(--ink-3); padding: 8px 10px; border-radius: var(--r-s); background: var(--bg-2); }
 
 /* ---------- fichier ---------- */
-.im-file { display: grid; gap: 3px; border-color: var(--amber-200); background: linear-gradient(160deg, #fffbeb 0%, #fff 70%); }
+.im-file { display: grid; gap: 3px; border-color: var(--amber-200); background: linear-gradient(160deg, var(--amber-50) 0%, var(--card) 70%); }
 .im-file-t { font-weight: 700; font-size: 1.05rem; color: var(--ink); }
 .im-file-who { font-weight: 700; color: var(--title); font-size: 1.15rem; margin-bottom: 2px; }
 .im-file-l { color: var(--ink-2); font-size: .95rem; }
@@ -67,7 +67,7 @@
 .im-targets { display: grid; gap: 8px; }
 .im-target {
   display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 10px 14px; text-align: left;
-  border-radius: var(--r-m); background: #fff; border: 2px solid var(--pink-200); box-shadow: var(--shadow-1);
+  border-radius: var(--r-m); background: var(--card); border: 2px solid var(--pink-200); box-shadow: var(--shadow-1);
   transition: transform var(--dur-1) var(--ease-out), border-color var(--dur-1), background var(--dur-1);
 }
 .im-target:active { transform: scale(.98); }
@@ -78,7 +78,7 @@
 .im-target-t { font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
 .im-target-m { font-size: .86rem; color: var(--ink-3); }
 .im-tag { flex: none; padding: 2px 9px; border-radius: var(--r-pill); font-size: .76rem; font-weight: 700; background: var(--ok-bg); color: var(--ok-ink); }
-.im-target-dot { flex: none; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--pink-200); background: #fff; transition: border var(--dur-1), background var(--dur-1); }
+.im-target-dot { flex: none; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--pink-200); background: var(--card); transition: border var(--dur-1), background var(--dur-1); }
 .im-target.on .im-target-dot { border: 7px solid var(--pink-400); }
 .im-newname[hidden], .im-rename[hidden] { display: none; }
 .im-name { max-width: 320px; }
@@ -99,7 +99,7 @@
 /* ---------- scène photo ---------- */
 .im-stage {
   position: relative; width: 100%; max-width: 560px; margin: 0 auto; overflow: hidden; border-radius: var(--r-m);
-  background: repeating-conic-gradient(var(--pink-50) 0 25%, #fff 0 50%) 0 0 / 22px 22px;
+  background: repeating-conic-gradient(var(--pink-50) 0 25%, var(--card) 0 50%) 0 0 / 22px 22px;
   border: 3px solid var(--pink-200); box-shadow: var(--shadow-1); touch-action: manipulation;
   user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
@@ -109,7 +109,7 @@
 .im-stage.is-points .im-photo { opacity: .58; }
 .im-mark {
   position: absolute; left: 0; top: 0; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%; pointer-events: none;
-  border: 3px solid var(--pink-800); background: rgba(255, 255, 255, .55); box-shadow: 0 0 0 3px #fff;
+  border: 3px solid var(--pink-800); background: color-mix(in srgb, var(--card) 55%, transparent); box-shadow: 0 0 0 3px var(--card);
 }
 .im-mark::after { content: ''; position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: var(--pink-800); }
 .im-mark--t { border-color: var(--title); }
@@ -117,14 +117,14 @@
 .im-mark[hidden], .im-ring[hidden] { display: none; }
 .im-instr {
   display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: var(--r-m);
-  background: #fffbeb; border: 2px solid var(--amber-300); color: var(--amber-900); font-weight: 600; line-height: 1.3;
+  background: var(--amber-50); border: 2px solid var(--amber-300); color: var(--amber-900); font-weight: 600; line-height: 1.3;
 }
 .im-instr-n { flex: none; min-width: 40px; height: 32px; padding: 0 8px; border-radius: var(--r-pill); display: grid; place-items: center;
   background: var(--amber-400); color: var(--amber-900); font-weight: 700; font-variant-numeric: tabular-nums; }
 .im-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .im-row--tools { justify-content: center; }
 .im-tools { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 14px; }
-.im-tool-g { display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 12px; border-radius: var(--r-pill); background: #fff; border: 2px solid var(--pink-100); }
+.im-tool-g { display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 12px; border-radius: var(--r-pill); background: var(--card); border: 2px solid var(--pink-100); }
 .im-tool-l { font-size: .84rem; font-weight: 600; color: var(--ink-3); margin-right: 2px; }
 .im-tool {
   width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; font-size: 1.3rem; font-weight: 700; line-height: 1;
@@ -132,6 +132,81 @@
   transition: transform var(--dur-1) var(--ease-out), background var(--dur-1);
 }
 .im-tool:active { transform: scale(.92); background: var(--pink-100); }
+.im-confirm[hidden] { display: none; }
+/* cercle +++ esquissé entre les deux repères (alignement manuel) */
+.im-ring {
+  position: absolute; left: 0; top: 0; border-radius: 50%; pointer-events: none;
+  border: 2px dashed var(--pink-800); box-shadow: 0 0 0 2px color-mix(in srgb, var(--card) 60%, transparent), inset 0 0 0 2px color-mix(in srgb, var(--card) 60%, transparent);
+}
+.im-miss { display: flex; gap: 10px; align-items: flex-start; line-height: 1.4; }
+.im-miss-emo { flex: none; font-size: 1.4rem; line-height: 1.1; }
+.im-miss-txt { flex: 1; min-width: 0; display: grid; gap: 8px; }
+.im-miss-tip { font-weight: 600; }
+/* « Reprendre la photo » : l'autre issue du plan B, avec le conseil de prise de vue au-dessus */
+.im-retake { justify-self: start; }
+.im-retake > span[aria-hidden] { font-size: 1.1rem; line-height: 1; }
+
+/* ---------- détection automatique : « Je cherche le radar… » ---------- */
+.im-scan-cap {
+  display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 10px 16px;
+  border-radius: var(--r-pill); background: var(--amber-50); border: 2px solid var(--amber-300); color: var(--amber-900);
+  font-weight: 700; font-size: 1.12rem; line-height: 1.2; text-align: center;
+}
+.im-scan-emo { font-size: 1.35rem; line-height: 1; display: inline-block; animation: im-wobble 1.6s var(--ease-out) infinite; }
+.im-scan-l { display: inline-flex; align-items: baseline; }
+.im-dots { display: inline-flex; width: 1.1em; }
+.im-dots i { font-style: normal; animation: im-dot 1.2s ease-in-out infinite; }
+.im-dots i:nth-child(2) { animation-delay: .2s; }
+.im-dots i:nth-child(3) { animation-delay: .4s; }
+.im-scan-ok { color: var(--ok); }
+.im-stage.is-scan { min-height: 200px; }
+.im-stage.is-scan .im-photo { opacity: .95; transition: opacity var(--dur-3) var(--ease-out), filter var(--dur-3) var(--ease-out); }
+/* balayage façon radar : un faisceau ambré tourne sur la photo */
+.im-sweep {
+  position: absolute; inset: -40%; pointer-events: none; border-radius: 50%; mix-blend-mode: multiply;
+  background: conic-gradient(from 0deg, transparent 0deg, transparent 290deg, color-mix(in srgb, var(--amber-400) 22%, transparent) 345deg, color-mix(in srgb, var(--amber-500) 50%, transparent) 360deg);
+  animation: im-sweep 1.6s linear infinite;
+  transition: opacity var(--dur-2) var(--ease-out);
+}
+.im-lens {
+  position: absolute; left: 50%; top: 50%; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 2rem; line-height: 1; pointer-events: none;
+  background: color-mix(in srgb, var(--card) 82%, transparent); border: 3px solid var(--amber-300); box-shadow: var(--shadow-2);
+  animation: im-lens 2.4s ease-in-out infinite;
+  transition: opacity var(--dur-2) var(--ease-out), transform var(--dur-2) var(--ease-out);
+}
+.im-found {
+  position: absolute; left: 0; top: 0; border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%);
+  border: 4px solid var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--card) 85%, transparent), 0 0 24px 6px color-mix(in srgb, var(--ok) 35%, transparent);
+  animation: im-found var(--dur-3) var(--ease-pop) both;
+}
+.im-found[hidden] { display: none; }
+.im-stage.is-found .im-sweep, .im-stage.is-found .im-lens { opacity: 0; animation-play-state: paused; }
+@keyframes im-sweep { to { transform: rotate(360deg); } }
+@keyframes im-lens {
+  0%, 100% { transform: translate(-46px, -28px) rotate(-8deg); }
+  25% { transform: translate(38px, -36px) rotate(6deg); }
+  50% { transform: translate(44px, 30px) rotate(10deg); }
+  75% { transform: translate(-40px, 36px) rotate(-4deg); }
+}
+@keyframes im-found { from { opacity: 0; transform: translate(-50%, -50%) scale(1.25); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@keyframes im-dot { 0%, 100% { opacity: .2; } 40% { opacity: 1; } }
+@keyframes im-wobble { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(12deg) scale(1.08); } }
+
+/* ---------- radar lu : vérification des points ---------- */
+.im-auto { display: flex; gap: 10px; align-items: flex-start; line-height: 1.4; font-size: .98rem; }
+.im-auto b { color: var(--ok-ink); }
+.im-auto-ico {
+  flex: none; width: 30px; height: 30px; margin-top: 1px; border-radius: 50%; display: grid; place-items: center;
+  font-weight: 700; color: var(--card); background: var(--ok); box-shadow: 0 2px 0 var(--ok-ink);
+}
+.im-stage.is-points.is-view .im-photo { opacity: .82; }
+.im-progress.is-check { color: var(--soft-ink); }
+.im-realign > span[aria-hidden] { font-size: 1.15rem; line-height: 1; }
+/* point incertain : halo orange qui respire (s'éteint dès que le point a été regardé ou déplacé) */
+.im-stage .radar-handle.is-unsure .radar-hit { fill: var(--soft); fill-opacity: .2; animation: im-halo 1.5s ease-in-out infinite; }
+.im-stage .radar-handle.is-unsure .radar-knob { stroke: var(--soft); }
+@keyframes im-halo { 0%, 100% { fill-opacity: .12; } 50% { fill-opacity: .4; } }
 
 /* ---------- récapitulatif ---------- */
 .im-recap-t { font-weight: 700; font-size: 1.1rem; color: var(--ink); }
@@ -140,14 +215,14 @@
 .im-recap-row:first-child { border-top: none; }
 .im-recap-l { min-width: 0; color: var(--ink); line-height: 1.3; }
 .im-recap-v { flex: none; white-space: nowrap; color: var(--ink); }
-.im-recap-row.is-null .im-recap-v { color: var(--ink-4); font-weight: 600; }
+.im-recap-row.is-null .im-recap-v { color: var(--ink-3); font-weight: 600; }
 
 /* ---------- résumé ---------- */
 .im-done { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; padding: 20px 16px 16px;
-  border-color: var(--ok-bg); background: linear-gradient(160deg, #f0fdf4 0%, #fff 65%); }
+  border-color: var(--ok-bg); background: linear-gradient(160deg, var(--ok-50) 0%, var(--card) 65%); }
 .im-done-ico {
   width: 64px; height: 64px; margin-bottom: 6px; border-radius: 50%; display: grid; place-items: center; font-size: 2rem; font-weight: 700; line-height: 1;
-  background: var(--ok); color: #fff; box-shadow: 0 4px 0 var(--ok-ink);
+  background: var(--ok); color: var(--card); box-shadow: 0 4px 0 var(--ok-ink);
 }
 .im-done-who { font-weight: 700; color: var(--ink-2); }
 .im-done-radars { display: grid; gap: 12px; }
@@ -175,6 +250,14 @@
   .im-screen:has(.im-done-radars) { max-width: 980px; }
 }
 
-/* ---------- mouvement réduit / animations douces ---------- */
-@media (prefers-reduced-motion: reduce) { .im-intro-star { animation: none; } }
-html.motion-soft .im-intro-star { animation: none; }
+/* ---------- mouvement réduit / animations douces : rien ne tourne ni ne flotte, le halo reste fixe ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .im-intro-star, .im-scan-emo, .im-lens, .im-found { animation: none; }
+  .im-sweep { animation: none; opacity: 0; }
+  .im-dots i { animation: none; opacity: 1; }
+  .im-stage .radar-handle.is-unsure .radar-hit { animation: none; fill-opacity: .3; }
+}
+html.motion-soft .im-intro-star, html.motion-soft .im-scan-emo, html.motion-soft .im-lens, html.motion-soft .im-found { animation: none; }
+html.motion-soft .im-sweep { animation: none; opacity: 0; }
+html.motion-soft .im-dots i { animation: none; opacity: 1; }
+html.motion-soft .im-stage .radar-handle.is-unsure .radar-hit { animation: none; fill-opacity: .3; }

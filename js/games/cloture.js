@@ -1,7 +1,7 @@
 /* ============ LE CHEMIN DE LA CLÔTURE — ma.ligne (docs/JEUX.md §3, contrat docs/ARCHITECTURE.md §7) ============
    Une clôture de ranch en bois sert de ligne graduée : la lisse = la droite, les grands piquets = les
    graduations principales (plaquettes numérotées sous la lisse), les petits piquets = les sous-graduations.
-   Le compagnon (mountSVG) attend au départ, sur des bottes de foin.
+   Le compagnon (ctx.petSVG : espèce, accessoires et stade du profil) attend au départ, sur des bottes de foin.
    - lire   : un drapeau est planté sur un piquet → « Quel nombre se cache sous le drapeau ? » → QCM à 6 choix
               (3 colonnes, fractions en écriture empilée) ou pavé numérique (décimal si fmt 'dec') ;
    - placer : « Place 47 sur la clôture. » → toucher ou glisser la carotte 🥕 sur la lisse (aimantée aux piquets
@@ -17,12 +17,12 @@
    Tout le dessin est en SVG à l'échelle du pixel (viewBox = taille réelle, redessiné si la largeur change). */
 
 import { h, svg, clear, frTypo, fmtNum } from '../core/util.js';
-import { mountSVG } from '../ui/mount-svg.js';
 import { fracWords } from '../content/maths/ligne.js';
 import * as L from './cloture-logic.js';
 
 const PAD = 8;              /* marge intérieure totale d'une plaquette (px) */
 const FEET = 0.74;          /* hauteur des sabots dans le dessin du compagnon (× largeur) */
+const CARROT_HALF = 8.5;    /* demi-largeur du corps de la carotte posée sur la lisse (carrotShape, échelle 1) */
 const WIDE_PX = 640;        /* au-delà (largeur de scène), tailles « grand écran » */
 let inst = null, seq = 0;
 
@@ -186,10 +186,9 @@ function createCloture(root, ctx) {
   const answer = h('div', { class: 'cl-answer' });
   const wrap = h('div', { class: 'cl' }, head, scene, help, answer);
 
-  const comp = (() => {
-    const c = (ctx.profile && ctx.profile.companion) || {};
-    return { type: c.type || 'pony', worn: c.equip && Array.isArray(c.equip.worn) ? c.equip.worn : [] };
-  })();
+  /* ancres du compagnon (bouche…) à son stade, en unités du viewBox (× S / 100 pour des px) */
+  const anchors = (() => { try { return ctx.petAnchors(); } catch (_) { return null; } })();
+  const mouthUnits = () => (anchors && Array.isArray(anchors.mouth) ? anchors.mouth : [78, 40.2]);
 
   /* ---------- état ---------- */
   let item = null, D = null;
@@ -201,6 +200,7 @@ function createCloture(root, ctx) {
   let scMain = null, scAct = null, fontMain = 13, fontAct = 13, cam = null;
   let act = null, gMain = null, world = null, gHops = null, gFlag = null, gCarrot = null, gSign = null, loupe = null, loupeUse = null;
   let svgRoot = null, mountS = 0, mpos = { kind: 'bale' }, facing = 1;
+  const arcAnims = [];           /* saut en cours : corps, carotte tenue, ombre (arcLift) */
   let dragging = null, lastTick = 0, okBtn = null, prevBtn = null, nextBtn = null;
 
   const mainPlane = () => D;
@@ -587,66 +587,123 @@ function createCloture(root, ctx) {
   function ensureMount() {
     if (mountS === lay.S && svgRoot) return;
     mountS = lay.S;
-    mountIn.innerHTML = mountSVG(comp.type, comp.worn, lay.S, '');
+    mountIn.innerHTML = ctx.petSVG(lay.S, '');
     svgRoot = mountIn.querySelector('svg');
-    mouth.style.left = Math.round(lay.S * 0.8) + 'px';
-    mouth.style.top = Math.round(lay.S * 0.84 * 0.3) + 'px';
+    /* carotte tenue À LA BOUCHE (ancre de l'espèce et du stade) : bout des fanes au coin de la bouche, axe de la
+       carotte à sa hauteur (le petit SVG fait 18 px de haut, axe à 9 px) */
+    const [mx, my] = mouthUnits();
+    mouth.style.left = Math.round(lay.S * mx / 100 + 1) + 'px';
+    mouth.style.top = Math.round(lay.S * my / 100 - 9) + 'px';
   }
-  function mountXY(p) {
+  /* distance du centre du compagnon à la valeur visée quand sa bouche touche la carotte plantée sur la lisse */
+  const reach = () => (mouthUnits()[0] / 100 - 0.5) * lay.S + CARROT_HALF * (wide ? 1.2 : 1);
+  /* place du compagnon : sur les bottes de foin, ou sur la lisse, la bouche contre la valeur visée (carotte,
+     drapeau) du côté où il regarde (dir : 1 vers la droite, −1 vers la gauche) */
+  function mountXY(p, dir = facing) {
     const S = lay.S;
     if (!p || p.kind === 'bale') return { x: (lay.left - 10) / 2 + 3, y: lay.yRail - 4 };
-    const x = scAct.toX(p.v) - 0.42 * S;
+    const x = scAct.toX(p.v) - (dir < 0 ? -1 : 1) * reach();
     return { x: L.clamp(x, S / 2 + 2, W - S / 2 - 2), y: lay.yRail - lay.railH / 2 + 1 };
   }
+  /* sens du déplacement vers p depuis le point from : vers la valeur visée (il la regarde en arrivant) */
+  const dirTo = (p, from) => (p && p.kind === 'v' ? (scAct.toX(p.v) >= from.x ? 1 : -1) : (mountXY(p).x >= from.x ? 1 : -1));
   const tf = ({ x, y }) => `translate(${f2(x - lay.S / 2)}px, ${f2(y - FEET * lay.S)}px)`;
   function placeMount() {
     if (!lay) return;
     for (const a of (mountBox.getAnimations ? mountBox.getAnimations() : [])) safe(() => a.cancel());
+    for (const a of arcAnims.splice(0)) safe(() => a.cancel());
     mountBox.style.transform = tf(mountXY(mpos));
     face(mpos.kind === 'bale' ? 1 : facing);
   }
   function face(dir) { facing = dir < 0 ? -1 : 1; mountFlip.classList.toggle('is-left', facing < 0); }
+  /* saut en arc : le conteneur glisse AU SOL (l'ombre du rig et la vague du dauphin y restent) ; le CORPS du rig
+     (.c-all, en unités du viewBox, composition « add ») et la carotte tenue à la bouche montent par-dessus ;
+     l'ombre rétrécit quand il s'élève (sauf la flaque du dauphin, mount.css) */
+  function arcLift(pts, from, to, dur, easing) {
+    const body = svgRoot && svgRoot.querySelector('.c-all');
+    const up = pts.map(q => q.y - (from.y + (to.y - from.y) * q.t));        /* px, ≤ 0 : hauteur au-dessus du sol */
+    const top = Math.min(-1, ...up);
+    const u = 100 / (lay.S || 100);
+    const opts = { duration: dur, easing };
+    for (const a of arcAnims.splice(0)) safe(() => a.cancel());
+    const add = a => { if (a) arcAnims.push(a); };
+    if (body) add(anim(body, up.map(v => ({ transform: `translateY(${f2(v * u)}px)` })), { ...opts, composite: 'add' }));
+    if (!mouth.classList.contains('hidden')) add(anim(mouth, up.map(v => ({ translate: `0px ${f2(v)}px` })), { ...opts, composite: 'add' }));
+    const sh = svgRoot && svgRoot.getAttribute('data-species') !== 'dolphin' ? svgRoot.querySelector('.c-shadow') : null;
+    if (sh) add(anim(sh, up.map(v => { const k = v / top; return { transform: `scale(${f2(1 - 0.45 * k)})`, opacity: f2(1 - 0.5 * k) }; }), opts));
+  }
+  /* humeur ponctuelle du rig ; le style est recalculé AUSSITÔT après chaque changement de classe : sinon Chrome perd,
+     pendant une image, le saut joué en composition « add » sur .c-all (arcLift) quand l'animation CSS du corps change */
   function moodOnce(cls, ms) {
     if (!svgRoot || M.reduced()) return;
     svgRoot.classList.remove(cls);
     void svgRoot.getBoundingClientRect();
     svgRoot.classList.add(cls);
-    later(() => svgRoot && svgRoot.classList.remove(cls), ms);
+    void svgRoot.getBoundingClientRect();
+    carrotWithBody();
+    later(() => { if (svgRoot) { svgRoot.classList.remove(cls); void svgRoot.getBoundingClientRect(); } }, ms);
   }
-  /* fondu (mouvement réduit) : le compagnon disparaît puis réapparaît à destination */
-  function fadeMove(to) {
+  /* la carotte tenue suit la bouche pendant un bond d'humeur du rig (joie : animation CSS finie de .c-all, mount.css) :
+     mêmes images clés, même horloge, appliquées au point de la bouche autour de l'origine du corps (unités du viewBox
+     → px), en composition « add » sur un éventuel saut en cours (arcLift) */
+  function carrotWithBody() {
+    if (!svgRoot || mouth.classList.contains('hidden')) return;
+    const body = svgRoot.querySelector('.c-all');
+    const css = safe(() => body.getAnimations().find(a => a.animationName && isFinite(a.effect.getTiming().iterations)));
+    if (!css) return;
+    safe(() => {
+      const bb = body.getBBox(), o = getComputedStyle(body).transformOrigin.split(' ').map(parseFloat);
+      const ox = bb.x + (o[0] || 0), oy = bb.y + (o[1] || 0), [mx, my] = mouthUnits(), k = lay.S / 100;
+      const kf = css.effect.getKeyframes().map(f => {
+        const p = new DOMMatrix(f.transform || 'none').transformPoint(new DOMPoint(mx - ox, my - oy));
+        return { offset: f.computedOffset, easing: f.easing, translate: `${f2((p.x + ox - mx) * k)}px ${f2((p.y + oy - my) * k)}px` };
+      });
+      const t = css.effect.getTiming();
+      const a = anim(mouth, kf, { duration: t.duration, iterations: t.iterations, composite: 'add' });
+      if (a) css.ready.then(() => safe(() => { a.startTime = css.startTime; }), () => {});
+    });
+  }
+  /* fondu (mouvement réduit) : le compagnon disparaît puis réapparaît à destination, déjà tourné vers où il va
+     (turn : le demi-tour se fait pendant qu'il est invisible, sans aucun mouvement) */
+  function fadeMove(to, turn) {
     const a = anim(mountBox, [{ opacity: 1 }, { opacity: 0 }], { duration: 110, fill: 'forwards' });
     return finished(a, 110).then(() => {
       if (!alive) return;
       if (a) safe(() => a.cancel());
+      if (turn) face(turn);
       mountBox.style.transform = tf(to);
       return finished(anim(mountBox, [{ opacity: 0 }, { opacity: 1 }], { duration: 140 }), 140);
     });
   }
+  /* sens du regard pour un déplacement vers p : vers la valeur visée, sinon dans le sens de la marche (0 : inchangé) */
+  const turnFor = (p, dir, dx) => (p && p.kind === 'v' ? dir : Math.abs(dx) > 1 ? dx : 0);
   /* saut en arc (≤ 400 ms) ; fromPx : point de départ déjà calculé (changement de mise en page) ;
      quiet : sans souffle (retour aux bottes de foin entre deux items) */
   function jumpTo(p, fromPx, quiet) {
-    const from = fromPx || mountXY(mpos), to = mountXY(p);
+    const from = fromPx || mountXY(mpos), dir = dirTo(p, from), to = mountXY(p, dir);
     mpos = p;
-    const dx = to.x - from.x;
-    if (Math.abs(dx) > 1) face(dx);
-    if (Math.abs(dx) < 2 && Math.abs(to.y - from.y) < 2) { mountBox.style.transform = tf(to); return Promise.resolve(); }
-    if (M.reduced()) return fadeMove(to);
+    const dx = to.x - from.x, turn = turnFor(p, dir, dx);
+    if (Math.abs(dx) < 2 && Math.abs(to.y - from.y) < 2) { if (turn) face(turn); mountBox.style.transform = tf(to); return Promise.resolve(); }
+    /* sur les bottes de foin, il regarde toujours la clôture (placeMount) */
+    if (M.reduced()) return fadeMove(to, p && p.kind === 'bale' ? 1 : turn);
+    if (turn) face(turn);
     const pts = L.arcPoints(from.x, from.y, to.x, to.y, L.jumpHeight(dx), 14);
-    const dur = L.jumpMs(dx);
+    const dur = L.jumpMs(dx), easing = 'cubic-bezier(.4,.1,.6,1)';
     mountBox.style.transform = tf(to);
-    const a = anim(mountBox, pts.map(q => ({ transform: tf(q) })), { duration: dur, easing: 'cubic-bezier(.4,.1,.6,1)' });
+    /* le conteneur suit la droite du sol (départ → arrivée) ; le corps fait l'arc par-dessus (arcLift) */
+    const a = anim(mountBox, pts.map(q => ({ transform: tf({ x: q.x, y: from.y + (to.y - from.y) * q.t }) })), { duration: dur, easing });
+    arcLift(pts, from, to, dur, easing);
     if (!quiet) AU.whoosh();
     return finished(a, dur).then(() => { if (alive) M.squash(mountIn, { amount: 0.7, dur: 360 }); });
   }
   /* marche (explication) : pattes qui trottent + sabots */
   function walkTo(p) {
-    const from = mountXY(mpos), to = mountXY(p);
+    const from = mountXY(mpos), dir = dirTo(p, from), to = mountXY(p, dir);
     mpos = p;
-    const dx = to.x - from.x;
-    if (Math.abs(dx) > 1) face(dx);
-    if (Math.abs(dx) < 2) { mountBox.style.transform = tf(to); return Promise.resolve(); }
-    if (M.reduced()) return fadeMove(to);
+    const dx = to.x - from.x, turn = turnFor(p, dir, dx);
+    if (Math.abs(dx) < 2) { if (turn) face(turn); mountBox.style.transform = tf(to); return Promise.resolve(); }
+    if (M.reduced()) return fadeMove(to, turn);
+    if (turn) face(turn);
     const dur = L.walkMs(dx);
     if (svgRoot) svgRoot.classList.add('walk');
     stopClip();

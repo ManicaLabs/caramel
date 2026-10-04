@@ -88,12 +88,21 @@ const CM2_MA = [
 ];
 export const OFFICIAL_TEMPLATES = { CM2: { fr: CM2_FR, ma: CM2_MA } };
 
-/* ---------- Fiches de restitution Repères 2026 (pour l'import photo) ----------
-   Un axe officiel peut correspondre à un même axe interne qu'un autre axe officiel
-   (ex. CM1 : « synonymes » et « mots de la même famille » → fr.vocab) : l'import en fait la moyenne.
-   Ordre horaire depuis le haut, axes répartis régulièrement (angles exacts seulement pour le CM2,
-   relevés sur des fiches réelles ; ailleurs l'écran d'import permet de tourner le gabarit).
-   Source : guides DEPP et maquettes 2026 (recherche du 02/10/2026). */
+/* ---------- Fiches de restitution Repères 2026 (import : saisie manuelle et photo) ----------
+   CONVENTION D'ANGLE. Sur les fiches, le haut (repères ⊕ / ⊕⊕ / ⊕⊕⊕) tombe toujours ENTRE deux axes, disposés
+   symétriquement. Chaque liste ci-dessous suit la fiche dans le sens horaire en partant de l'axe situé JUSTE À GAUCHE
+   du haut : l'axe i est à (i − ½) × pas (pas = 360 / nombre d'axes), soit −pas/2 pour le 1er (334,3° sur une fiche à
+   7 axes), +pas/2 pour le 2e (25,7°), etc. Les angles restent croissants, de −pas/2 à 360 − 3·pas/2, sans être ramenés
+   dans [0 ; 360[ : radar-detect.js prend le milieu de deux axes consécutifs. Au CM2, angles relevés sur des fiches
+   réelles (OFFICIAL_TEMPLATES, gabarits « exacts »).
+   ORDRE lu libellé par libellé sur des documents DEPP 2026 (tests/fiches.test.mjs le fige) :
+   - maquettes de fiches : diaporama de présentation, p. 30 (CP français, CP maths) ; guide d'accès enseignant au
+     portail, p. 32 (CP français, CE1 maths, CE2 français, CM1 maths) ;
+   - mini-radars des fiches descriptives pour les parents (education.gouv.fr, juillet 2026) : CE1 français (« Lire à
+     voix haute des mots »), CE2 maths (« Placer un nombre sur une ligne graduée »), CM1 français (« Accorder le nom et
+     l’adjectif »), et en contrôle CP maths (« Compter des objets ») et CM1 maths (« Reconnaître des nombres »).
+   Un axe officiel peut correspondre au même axe interne qu'un autre axe officiel
+   (ex. CM1 : « synonymes » et « mots de la même famille » → fr.vocab) : l'import en fait la moyenne. */
 const F = (label, domain, id) => ({ label, domain, id });
 const FICHES = {
   CM1: {
@@ -115,17 +124,17 @@ const FICHES = {
       F('Identifier la nature des mots', 'GRAMMAIRE ET ORTHOGRAPHE', 'fr.classes'), F('Accorder le nom et l’adjectif', 'GRAMMAIRE ET ORTHOGRAPHE', 'fr.accord_gn'),
       F('Mémoriser des temps de conjugaison', 'GRAMMAIRE ET ORTHOGRAPHE', 'fr.conjug'), F('Lire à voix haute un texte', 'LECTURE', 'fr.fluence'),
       F('Comprendre des phrases lues', 'LECTURE', 'fr.comp_ecrit')],
-    ma: [F('Placer un nombre sur une ligne graduée', 'NOMBRES', 'ma.ligne'), F('Connaître et comprendre les fractions', 'FRACTIONS', 'ma.repres'),
-      F('Poser et calculer', 'OPÉRATIONS', 'ma.operations'), F('Connaître les tables d’addition', 'CALCUL MENTAL', 'ma.faits'),
-      F('Calculer rapidement', 'CALCUL MENTAL', 'ma.procedures'), F('Résoudre des problèmes', 'PROBLÈMES', 'ma.problemes'),
-      F('Dénombrer des collections', 'NOMBRES', 'ma.denombrer'), F('Écrire des nombres', 'NOMBRES', 'ma.nombres'),
-      F('Reconnaître des nombres', 'NOMBRES', 'ma.repres')]
+    ma: [F('Reconnaître des nombres', 'NOMBRES', 'ma.repres'), F('Placer un nombre sur une ligne graduée', 'NOMBRES', 'ma.ligne'),
+      F('Connaître et comprendre les fractions', 'FRACTIONS', 'ma.repres'), F('Poser et calculer', 'OPÉRATIONS', 'ma.operations'),
+      F('Connaître les tables d’addition', 'CALCUL MENTAL', 'ma.faits'), F('Calculer rapidement', 'CALCUL MENTAL', 'ma.procedures'),
+      F('Résoudre des problèmes', 'PROBLÈMES', 'ma.problemes'), F('Dénombrer des collections', 'NOMBRES', 'ma.denombrer'),
+      F('Écrire des nombres', 'NOMBRES', 'ma.nombres')]
   },
   CE1: {
-    fr: [F('Lire à voix haute des mots', 'LECTURE', 'fr.decodage'), F('Lire à voix haute un texte', 'LECTURE', 'fr.fluence'),
-      F('Comprendre des phrases lues', 'LECTURE', 'fr.comp_ecrit'), F('Comprendre un texte lu', 'LECTURE', 'fr.comp_ecrit'),
-      F('Écrire des syllabes', 'ÉCRITURE', 'fr.ecrire_syll'), F('Écrire des mots', 'VOCABULAIRE', 'fr.ortho'),
-      F('Comprendre des mots', 'ORAL', 'fr.comp_oral'), F('Comprendre des phrases', 'ORAL', 'fr.comp_oral')],
+    fr: [F('Lire à voix haute un texte', 'LECTURE', 'fr.fluence'), F('Comprendre des phrases lues', 'LECTURE', 'fr.comp_ecrit'),
+      F('Comprendre un texte lu', 'LECTURE', 'fr.comp_ecrit'), F('Écrire des syllabes', 'ÉCRITURE', 'fr.ecrire_syll'),
+      F('Comprendre des mots', 'ORAL', 'fr.comp_oral'), F('Comprendre des phrases', 'ORAL', 'fr.comp_oral'),
+      F('Écrire des mots', 'VOCABULAIRE', 'fr.ortho'), F('Lire à voix haute des mots', 'LECTURE', 'fr.decodage')],
     ma: [F('Lire des nombres', 'NOMBRES', 'ma.nombres'), F('Écrire des nombres', 'NOMBRES', 'ma.nombres'),
       F('Placer un nombre sur une ligne graduée', 'NOMBRES', 'ma.ligne'), F('Connaître les tables d’addition', 'CALCUL MENTAL', 'ma.faits'),
       F('Calculer rapidement', 'CALCUL MENTAL', 'ma.procedures'), F('Résoudre des problèmes', 'RÉSOLUTION DE PROBLÈMES', 'ma.problemes'),
@@ -136,18 +145,19 @@ const FICHES = {
       F('Manipuler des syllabes', 'LECTURE', 'fr.phono'), F('Manipuler des phonèmes', 'LECTURE', 'fr.phono'),
       F('Connaître le nom des lettres', 'LECTURE', 'fr.lettres'), F('Connaître le son des lettres', 'LECTURE', 'fr.lettres'),
       F('Comprendre des mots', 'ORAL', 'fr.comp_oral')],
-    ma: [F('Compter des objets', 'NOMBRES', 'ma.denombrer'), F('Lire des nombres', 'NOMBRES', 'ma.nombres'),
-      F('Écrire des nombres', 'NOMBRES', 'ma.nombres'), F('Comparer des nombres', 'NOMBRES', 'ma.repres'),
-      F('Placer un nombre sur une ligne graduée', 'NOMBRES', 'ma.ligne'), F('Résoudre des problèmes', 'RÉSOLUTION DE PROBLÈMES', 'ma.problemes')]
+    ma: [F('Comparer des nombres', 'NOMBRES', 'ma.repres'), F('Lire des nombres', 'NOMBRES', 'ma.nombres'),
+      F('Écrire des nombres', 'NOMBRES', 'ma.nombres'), F('Placer un nombre sur une ligne graduée', 'NOMBRES', 'ma.ligne'),
+      F('Résoudre des problèmes', 'RÉSOLUTION DE PROBLÈMES', 'ma.problemes'), F('Compter des objets', 'NOMBRES', 'ma.denombrer')]
   }
 };
-/* gabarit de la FICHE officielle (import) : { classe, subject, exact, axes: [{ id, angle, label, domain }] } */
+/* gabarit de la FICHE officielle (import) : { classe, subject, exact, axes: [{ id, angle, label, domain }] }.
+   exact : angles relevés sur des fiches réelles (CM2) ; sinon axe i à (i − ½) × pas (convention ci-dessus). */
 export function ficheTemplate(classe, subject) {
   const off = OFFICIAL_TEMPLATES[classe] && OFFICIAL_TEMPLATES[classe][subject];
   if (off) return { classe, subject, exact: true, axes: off.map(a => ({ ...a })) };
   const list = (FICHES[classe] || FICHES.CM1)[subject];
   const step = 360 / list.length;
-  return { classe, subject, exact: false, axes: list.map((a, i) => ({ ...a, angle: step / 2 + i * step })) };
+  return { classe, subject, exact: false, axes: list.map((a, i) => ({ ...a, angle: (i - 0.5) * step })) };
 }
 /* valeurs d'une fiche (une par axe officiel, null = absence) → valeurs par axe interne (moyenne) */
 export function ficheToAxes(template, values) {
@@ -162,7 +172,8 @@ export function ficheToAxes(template, values) {
   return out;
 }
 
-/* gabarit du radar « Mes progrès » : officiel au CM2, sinon axes internes de la classe répartis régulièrement */
+/* gabarit du radar « Mes progrès » : officiel au CM2, sinon axes internes de la classe répartis régulièrement
+   (ils ne reproduisent pas la fiche : la convention d'angle de ficheTemplate ne s'applique pas ici) */
 export function radarTemplate(classe, subject) {
   const off = OFFICIAL_TEMPLATES[classe] && OFFICIAL_TEMPLATES[classe][subject];
   if (off) return { classe, subject, official: true, axes: off.map(a => ({ ...a })) };

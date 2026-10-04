@@ -4,3 +4,5 @@ docs/profil-*.json
 # Outillage local
 node_modules/
 tests/.cache/
+# Photos réelles de fiches Repères (calibrage de la détection du radar) : jamais dans le repo
+docs/photos/

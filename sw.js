@@ -10,7 +10,7 @@
    - Rappels quotidiens (periodicsync 'caramel-daily', enregistré par js/core/notifs.js) et notificationclick. */
 
 /* ASSETS:START */
-const VERSION = '2.0.0';
+const VERSION = '2.1.0';
 const ASSETS = [
   'index.html',
   'manifest.webmanifest',
@@ -31,9 +31,12 @@ const ASSETS = [
   'css/games/pommes.css',
   'css/games/tables.css',
   'css/motion.css',
+  'css/themes.css',
   'css/ui/backup.css',
   'css/ui/balade.css',
+  'css/ui/battle.css',
   'css/ui/companion.css',
+  'css/ui/famille.css',
   'css/ui/game.css',
   'css/ui/home.css',
   'css/ui/import.css',
@@ -61,6 +64,7 @@ const ASSETS = [
   'js/core/audio.js',
   'js/core/axes.js',
   'js/core/economy.js',
+  'js/core/family.js',
   'js/core/leitner.js',
   'js/core/levels.js',
   'js/core/manche.js',
@@ -74,6 +78,7 @@ const ASSETS = [
   'js/core/session.js',
   'js/core/speech.js',
   'js/core/store.js',
+  'js/core/themes.js',
   'js/core/tts.js',
   'js/core/util.js',
   'js/games/cloture-logic.js',
@@ -93,7 +98,10 @@ const ASSETS = [
   'js/router.js',
   'js/ui/backup.js',
   'js/ui/balade.js',
+  'js/ui/battle.js',
+  'js/ui/companion-life.js',
   'js/ui/companion.js',
+  'js/ui/famille.js',
   'js/ui/game-ctx.js',
   'js/ui/game-header.js',
   'js/ui/game-shell.js',
@@ -105,7 +113,10 @@ const ASSETS = [
   'js/ui/parents.js',
   'js/ui/profiles.js',
   'js/ui/progres.js',
-  'js/ui/radar.js'
+  'js/ui/radar-detect-worker.js',
+  'js/ui/radar-detect.js',
+  'js/ui/radar.js',
+  'js/ui/theme-picker.js'
 ];
 /* ASSETS:END */
 

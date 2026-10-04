@@ -1,44 +1,314 @@
 /* ============ COMPAGNON : ANIMATIONS DU RIG SVG (js/ui/mount-svg.js) ============
-   Règles et keyframes de la v11.3 (index.html @ c5bd8d1) recopiées à l'identique : respiration (.m-body),
-   queue (.m-tail), clignement (.m-lid), oreille basse (.sad), petit bond de joie (.joy), marche (.walk).
-   transform-box: fill-box partout sur les groupes SVG (leçon v11.2 : pivot = la forme elle-même).
-   Ajout v2 : .dance (fin de la balade du jour) = élan, saut, puis petite vrille sur lui-même.
-   Mouvement réduit (préférence système) et « animations douces » (html.motion-soft) : compagnon immobile,
-   yeux ouverts (la paupière reste repliée : scaleY(0)). */
+   Le compagnon vit sans JS : respiration ~3,5 s (la tête suit), regard de côté et en l'air, queue qui ondule avec traîne
+   (coups de queue espacés pour les équidés), oreilles qui frémissent de temps en temps, clignements irréguliers, léger
+   balancement ; chaque espèce a sa phase (--c-ph, réglable par compagnon : mountSVG(…, { phase })), pour que plusieurs
+   compagnons d'une même page ne vivent pas au même rythme. Le moteur de vie (js/ui/companion-life.js) fait mieux
+   par-dessus : il pilote data-expr, les classes d'humeur, les paupières, les pupilles et les oreilles.
+   Humeurs (classes sur la racine) : walk joy sad dance sleep eat hop wiggle. Expressions : data-expr.
+   - transform-box: fill-box sur tous les groupes animés (leçon v11.2) ; les groupes à transform statique (stades,
+     accessoires) n'ont pas de classe et gardent la boîte par défaut.
+   - POSES (tête basse, couché, menton levé, queue rentrée) : Chrome ne dessine pas les propriétés rotate / translate
+     d'un groupe SVG dont transform est animé par une animation CSS en cours. Les poses de la tête, du torse et de la
+     queue sont donc des variables enregistrées (@property, héritées) posées sur la RACINE (--c-hr, --c-hy, --c-by,
+     --c-tr, --c-ty), avec une transition sur la racine (il se couche, se relève en douceur), et reprises dans chaque
+     keyframe par le préfixe translate(var(--px), var(--py)) rotate(var(--pr)). Oreilles et pupilles : leur animation
+     d'attente est coupée pendant une pose (rotate / translate s'affichent alors).
+   - Les keyframes de la marche s'appellent toujours « step » (tables.js règle leur playbackRate par ce nom) ; elles
+     sont paramétrées par --sa / --sb (rotation) et --sy0 / --sy1 (translation).
+   - .dance pose aussi une animation témoin sur la racine (companion.js / balade.js testent animationName).
+   - Mouvement réduit / html.motion-soft : seulement respiration très douce et clignement (les poses restent, figées).
+   - Sans cette feuille (chargement en cours, export PNG), le SVG reste juste : visage neutre, yeux ouverts (attributs
+     display="none" sur les autres expressions et les « z », paupières repliées par transform="scale(1 0)"). */
 
-/* ---------- rig v11 (verbatim) ---------- */
-.m-root .m-body { animation:breathe 3.2s ease-in-out infinite; transform-origin:center; transform-box:fill-box; }
-@keyframes breathe { 0%,100%{transform:scaleY(1);} 50%{transform:scaleY(1.035) translateY(-1px);} }
-.m-root .m-tail { animation:swish 2.6s ease-in-out infinite; transform-origin:90% 20%; transform-box:fill-box; }
-@keyframes swish { 0%,100%{transform:rotate(0);} 50%{transform:rotate(12deg);} }
-.m-root .m-lid { animation:blink 4.5s infinite; transform-origin:center; transform-box:fill-box; transform:scaleY(0); }
-@keyframes blink { 0%,94%,100%{transform:scaleY(0);} 96%,98%{transform:scaleY(1);} }
-.m-root.sad .m-ear { transform:rotate(30deg); transform-origin:30% 100%; transform-box:fill-box; }
-.m-root.sad .m-tail { animation-duration:5.5s; }
-.m-root.joy { animation:joyb .5s ease 2; }
-@keyframes joyb { 40%{ transform:translateY(-12px);} }
-.m-root.walk .m-legF { animation:step .5s ease-in-out infinite; transform-origin:top center; transform-box:fill-box; }
-.m-root.walk .m-legB { animation:step .5s ease-in-out infinite reverse; transform-origin:top center; transform-box:fill-box; }
-@keyframes step { 0%,100%{transform:rotate(-13deg);} 50%{transform:rotate(13deg);} }
+@property --c-hr { syntax: '<angle>'; inherits: true; initial-value: 0deg; }
+@property --c-hy { syntax: '<length>'; inherits: true; initial-value: 0px; }
+@property --c-by { syntax: '<length>'; inherits: true; initial-value: 0px; }
+@property --c-tr { syntax: '<angle>'; inherits: true; initial-value: 0deg; }
+@property --c-ty { syntax: '<length>'; inherits: true; initial-value: 0px; }
 
-/* ---------- v2 : danse de fin de balade (saut + petite vrille), une fois ----------
-   Pivot en bas au centre ; même liste de fonctions à chaque étape (interpolation fonction par fonction). */
-.m-root.dance { animation:m-dance 1.5s var(--ease-out, cubic-bezier(.22,1,.36,1)) both; transform-origin:50% 100%; transform-box:fill-box; }
-.m-root.dance .m-legF, .m-root.dance .m-legB { animation:step .3s ease-in-out 4; transform-origin:top center; transform-box:fill-box; }
-@keyframes m-dance {
-  0%   { transform:translateY(0)     rotate(0deg)  rotateY(0deg)   scale(1, 1); }
-  10%  { transform:translateY(0)     rotate(0deg)  rotateY(0deg)   scale(1.1, .88); }
-  28%  { transform:translateY(-30%)  rotate(-8deg) rotateY(0deg)   scale(.94, 1.07); }
-  44%  { transform:translateY(0)     rotate(0deg)  rotateY(0deg)   scale(1.08, .92); }
-  54%  { transform:translateY(0)     rotate(0deg)  rotateY(0deg)   scale(1, 1); }
-  74%  { transform:translateY(-20%)  rotate(5deg)  rotateY(180deg) scale(1, 1); }
-  90%  { transform:translateY(0)     rotate(0deg)  rotateY(360deg) scale(1.06, .94); }
-  100% { transform:translateY(0)     rotate(0deg)  rotateY(360deg) scale(1, 1); }
+/* ---------- boîtes de transformation ---------- */
+.c-rig .c-all, .c-rig .m-body, .c-rig .c-head, .c-rig .m-tail, .c-rig .c-tail-tip, .c-rig .m-ear, .c-rig .c-leg,
+.c-rig .m-legF, .c-rig .m-legB, .c-rig .c-eye, .c-rig .c-pupil, .c-rig .m-lid, .c-rig .c-cheek, .c-rig .m-mouth,
+.c-rig .c-wing, .c-rig .c-fw, .c-rig .c-shadow, .c-rig .c-zz, .c-rig .c-spark, .c-rig .c-glint, .c-rig .c-wave {
+  transform-box: fill-box;
+  --px: 0px; --py: 0px; --pr: 0deg;
+}
+.c-rig {
+  --c-breath: 3.5s; --c-sit: 7px; --c-ph: 0s;
+  transition: --c-hr .6s var(--ease-out, ease-out), --c-hy .6s var(--ease-out, ease-out), --c-by .6s var(--ease-out, ease-out),
+    --c-tr .6s var(--ease-out, ease-out), --c-ty .6s var(--ease-out, ease-out);
+}
+/* phases propres à chaque espèce (s'ajoutent à celle passée par l'appelant) */
+.sp-horse { --c-sp: -1.3s; } .sp-cat { --c-sp: -2.1s; } .sp-capy { --c-sp: -.7s; } .sp-dolphin { --c-sp: -2.9s; }
+.sp-lion { --c-sp: -1.7s; } .sp-unicorn { --c-sp: -3.3s; } .sp-dragon { --c-sp: -2.5s; }
+
+/* poses portées par la racine, reprises par les groupes */
+.c-rig .c-head { --py: var(--c-hy, 0px); --pr: var(--c-hr, 0deg); }
+.c-rig .m-body { --py: var(--c-by, 0px); }
+.c-rig .m-tail { --py: var(--c-ty, 0px); --pr: var(--c-tr, 0deg); }
+
+.c-rig .c-all { transform-origin: 50% 100%; animation: c-sway 7.4s ease-in-out calc(var(--c-ph) + var(--c-sp, 0s)) infinite; }
+.c-rig .m-body { transform-origin: 50% 100%; animation: c-breathe var(--c-breath) ease-in-out calc(var(--c-ph) + var(--c-sp, 0s)) infinite; }
+/* tête : suit la respiration (décalage 120 ms), lève le nez vers quelque chose puis renifle, sur trois respirations */
+.c-rig .c-head { animation: c-look calc(var(--c-breath) * 3) ease-in-out calc(var(--c-ph) + var(--c-sp, 0s) + .12s) infinite; }
+.c-rig .c-pupil { animation: c-glance calc(var(--c-breath) * 3) ease-in-out calc(var(--c-ph) + var(--c-sp, 0s) + .12s) infinite; }
+.c-rig.sad .c-head, .c-rig.sleep .c-head, .sp-dolphin .c-head, .sp-capy .c-head {
+  animation: c-nod var(--c-breath) ease-in-out calc(var(--c-ph) + var(--c-sp, 0s) + .12s) infinite;
+}
+.c-rig .m-tail { animation: c-tail 2.8s ease-in-out calc(var(--c-ph) + var(--c-sp, 0s)) infinite; }
+.c-rig .c-tail-tip { animation: c-tip 2.8s ease-in-out calc(var(--c-ph) + var(--c-sp, 0s) + .12s) infinite; }
+/* équidés : la queue pend, puis un coup de queue de temps en temps (pas un métronome) */
+.sp-pony .m-tail, .sp-horse .m-tail, .sp-unicorn .m-tail { animation: c-swish 6.2s ease-in-out calc(var(--c-ph) + var(--c-sp, 0s)) infinite; }
+.sp-pony .c-tail-tip, .sp-horse .c-tail-tip, .sp-unicorn .c-tail-tip { animation: c-swish-tip 6.2s ease-in-out calc(var(--c-ph) + var(--c-sp, 0s) + .12s) infinite; }
+/* dauphin : il se berce sur l'eau, la caudale bat lentement ; la vague ondule */
+.sp-dolphin .c-all { transform-origin: 55% 75%; animation: c-bob 4.2s ease-in-out calc(var(--c-ph) + var(--c-sp, 0s)) infinite; }
+.sp-dolphin .m-tail { animation: c-fluke 2.6s ease-in-out calc(var(--c-ph) + var(--c-sp, 0s)) infinite; }
+.sp-dolphin .c-tail-tip { animation: none; }
+.c-rig .c-wave { transform-origin: 50% 50%; animation: c-wave 3.4s ease-in-out calc(var(--c-ph) + var(--c-sp, 0s)) infinite; }
+.c-rig .m-ear { transform-origin: 50% 100%; }
+.sp-dragon .m-ear { transform-origin: 100% 55%; }          /* collerettes : attachées à l'avant */
+.c-rig .c-ear-l { animation: c-ear 6.3s ease-in-out calc(var(--c-ph) + var(--c-sp, 0s)) infinite; }
+.c-rig .c-ear-r { animation: c-ear 8.1s ease-in-out calc(var(--c-ph) + var(--c-sp, 0s) + 1.7s) infinite; }
+.c-rig .c-eye { transform-origin: 50% 50%; }
+.c-rig .m-lid { transform-origin: 50% 0; transform: scaleY(0); animation: c-blink 7.4s linear calc(var(--c-ph) + var(--c-sp, 0s)) infinite; }
+.c-rig .c-leg { transform-origin: 50% 10%; }
+.c-rig .c-wing { animation: c-wing 3.6s ease-in-out calc(var(--c-ph) + var(--c-sp, 0s)) infinite; }
+.c-rig .c-wing-far { animation-delay: calc(var(--c-ph) + var(--c-sp, 0s) - .2s); }
+.c-rig .c-fw { transform-origin: 100% 55%; animation: c-flutter 1.8s ease-in-out infinite; }
+.c-rig .c-shadow { transform-origin: 50% 50%; }
+svg.c-rig .c-shadow { opacity: 1; }                       /* protège des styles d'une scène hôte (.c-shadow) */
+.c-rig .c-spark, .c-rig .c-glint { transform-origin: 50% 50%; animation: c-twinkle 2.6s ease-in-out infinite; }
+.c-rig .c-glint { animation-duration: 3.1s; animation-delay: -1.2s; }
+.c-rig .m-mouth, .c-rig .c-cheek { transform-origin: 50% 30%; }
+.c-rig .m-ear, .c-rig .c-leg, .c-rig .c-pupil, .c-rig .c-eye, .c-rig .c-wings, .c-rig .c-acc {
+  transition: rotate .5s var(--ease-out, ease-out), translate .5s var(--ease-out, ease-out), scale .4s var(--ease-out, ease-out);
 }
 
-/* ---------- mouvement réduit / animations douces : compagnon immobile, yeux ouverts ---------- */
+/* préfixe de pose (tête, torse, queue) : translate(var(--px), var(--py)) rotate(var(--pr)) */
+@keyframes c-breathe {
+  0%, 100% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) scale(1, 1); }
+  50% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) scale(1.016, 1.048); }
+}
+@keyframes c-nod {
+  0%, 100% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) translate(0, 0) rotate(0deg); }
+  50% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) translate(0, -.7px) rotate(-1.2deg); }
+}
+@keyframes c-look {
+  0%, 33.3%, 100% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) translate(0, 0) rotate(0deg); }
+  16.7% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) translate(0, -.8px) rotate(-1.2deg); }
+  44%, 56% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) translate(0, -.8px) rotate(-6deg); }
+  66.7% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) translate(0, 0) rotate(-.6deg); }
+  80%, 86% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) translate(0, -.6px) rotate(2.4deg); }
+}
+/* regard : de côté (vers l'arrière), puis en l'air vers l'avant */
+@keyframes c-glance {
+  0%, 18%, 36%, 60%, 100% { transform: translate(0, 0); }
+  22%, 32% { transform: translate(-.7px, .1px); }
+  44%, 54% { transform: translate(.5px, -.8px); }
+  78%, 88% { transform: translate(.7px, .2px); }
+}
+@keyframes c-tail {
+  0%, 100% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) rotate(-4deg); }
+  50% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) rotate(6deg); }
+}
+@keyframes c-tip { 0%, 100% { transform: rotate(-7deg); } 50% { transform: rotate(9deg); } }
+@keyframes c-swish {
+  0%, 100% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) rotate(0deg); }
+  30% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) rotate(2.5deg); }
+  56% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) rotate(-1.5deg); }
+  64% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) rotate(15deg); }
+  71% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) rotate(-7deg); }
+  78% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) rotate(7deg); }
+  86% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) rotate(-1deg); }
+}
+@keyframes c-swish-tip { 0%, 56%, 92%, 100% { transform: rotate(0deg); } 66% { transform: rotate(14deg); } 73% { transform: rotate(-12deg); } 80% { transform: rotate(8deg); } }
+@keyframes c-ear { 0%, 84%, 100% { transform: rotate(0deg); } 87% { transform: rotate(-16deg); } 90% { transform: rotate(5deg); } 93% { transform: rotate(-8deg); } 96% { transform: rotate(0deg); } }
+/* clignements irréguliers : à ≈ 1,9 s, 5,1 s et 5,5 s d'un cycle de 7,4 s (décalé par la phase) */
+@keyframes c-blink {
+  0%, 24.4%, 27%, 67.6%, 70.2%, 73%, 75.6%, 100% { transform: scaleY(0); }
+  25.7%, 68.9%, 74.3% { transform: scaleY(1); }
+}
+@keyframes c-sway { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(.8deg); } }
+@keyframes c-bob { 0%, 100% { transform: translate(0, .4px) rotate(-1.8deg); } 50% { transform: translate(0, -.8px) rotate(1.8deg); } }
+@keyframes c-fluke {
+  0%, 100% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) rotate(-7deg); }
+  50% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) rotate(8deg); }
+}
+@keyframes c-wave { 0%, 100% { transform: translate(-.8px, 0); } 50% { transform: translate(.8px, -.3px); } }
+@keyframes c-wing { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-9deg); } }
+@keyframes c-flutter { 0%, 100% { transform: scale(1, 1) rotate(0deg); } 50% { transform: scale(.82, 1) rotate(-6deg); } }
+@keyframes c-twinkle { 0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; } 50% { transform: scale(.55) rotate(45deg); opacity: .6; } }
+@keyframes c-mark { from { opacity: 1; } to { opacity: 1; } }
+
+/* ---------- expressions (data-expr) ---------- */
+.c-rig .c-x { display: none; }
+.c-rig .x-neutral { display: inline; }
+.c-rig[data-expr="happy"] .x-neutral, .c-rig[data-expr="delighted"] .x-neutral, .c-rig[data-expr="proud"] .x-neutral,
+.c-rig[data-expr="surprised"] .x-neutral, .c-rig[data-expr="sleepy"] .x-neutral, .c-rig[data-expr="hungry"] .x-neutral,
+.c-rig[data-expr="focused"] .x-neutral { display: none; }
+.c-rig[data-expr="happy"] .x-happy, .c-rig[data-expr="delighted"] .x-delighted, .c-rig[data-expr="proud"] .x-proud,
+.c-rig[data-expr="surprised"] .x-surprised, .c-rig[data-expr="sleepy"] .x-sleepy, .c-rig[data-expr="hungry"] .x-hungry,
+.c-rig[data-expr="focused"] .x-focused { display: inline; }
+/* humeur → expression par défaut (seulement si l'expression est neutre) ; tristesse : visage dédié (.x-sad) */
+.c-rig.joy[data-expr="neutral"] .x-neutral, .c-rig.hop[data-expr="neutral"] .x-neutral, .c-rig.wiggle[data-expr="neutral"] .x-neutral,
+.c-rig.eat[data-expr="neutral"] .x-neutral, .c-rig.sad[data-expr="neutral"] .x-neutral { display: none; }
+.c-rig.joy[data-expr="neutral"] .x-happy, .c-rig.hop[data-expr="neutral"] .x-happy, .c-rig.wiggle[data-expr="neutral"] .x-happy,
+.c-rig.eat[data-expr="neutral"] .x-happy, .c-rig.sad[data-expr="neutral"] .x-sad { display: inline; }
+/* danse → ravi, sommeil → endormi (priment sur tout) */
+.c-rig.dance[data-expr] .c-x, .c-rig.sleep[data-expr] .c-x { display: none; }
+.c-rig.dance[data-expr] .x-delighted, .c-rig.sleep[data-expr] .x-sleepy { display: inline; }
+/* yeux ouverts masqués quand l'expression dessine ses propres yeux */
+.c-rig[data-expr="delighted"] .c-eyes, .c-rig[data-expr="sleepy"] .c-eyes, .c-rig[data-expr="proud"] .c-eyes,
+.c-rig.dance .c-eyes, .c-rig.sleep .c-eyes { display: none; }
+.c-rig[data-expr="surprised"] .c-eye { scale: 1.16; }
+.c-rig[data-expr="surprised"] .c-cap { display: none; }                /* capybara : grands yeux ouverts */
+/* regard posé (le coup d'œil d'attente est coupé : sinon Chrome n'afficherait pas translate) : petit creux et
+   tristesse = yeux levés, concentré = yeux baissés sur la tâche */
+.c-rig[data-expr="hungry"] .c-pupil, .c-rig.sad[data-expr="neutral"] .c-pupil { animation: none; translate: .3px -.6px; }
+.c-rig[data-expr="focused"] .c-pupil { animation: none; translate: .2px .9px; }
+.c-rig[data-expr="proud"] { --c-hr: -6deg; }
+.sp-dolphin[data-expr="proud"], .sp-capy[data-expr="proud"] { --c-hr: -2deg; }
+
+/* ---------- humeurs ---------- */
+/* marche / galop (trot : diagonales opposées) ; le dauphin nage */
+.c-rig.walk .c-leg { animation: step .5s ease-in-out infinite; --sa: -18deg; --sb: 18deg; }
+.c-rig.walk .m-legB .c-leg:last-child, .c-rig.walk .m-legF .c-leg:first-child { animation-delay: -.25s; }
+.c-rig.walk .c-all { animation: step .25s ease-in-out infinite; --sa: 0deg; --sb: 0deg; --sy0: 0px; --sy1: -1.6px; }
+.c-rig.walk .c-head { animation: step .5s ease-in-out -.12s infinite; --sa: -2.5deg; --sb: 2.5deg; }
+.c-rig.walk .m-tail { animation: step .5s ease-in-out infinite; --sa: 8deg; --sb: 16deg; }
+.c-rig.walk .c-tail-tip { animation: step .5s ease-in-out -.12s infinite; --sa: -6deg; --sb: 10deg; }
+@keyframes step {
+  0%, 100% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) rotate(var(--sa, -13deg)) translateY(var(--sy0, 0px)); }
+  50% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) rotate(var(--sb, 13deg)) translateY(var(--sy1, 0px)); }
+}
+.sp-dolphin.walk .c-all { animation: step 1s ease-in-out infinite; --sa: -3deg; --sb: 3deg; --sy0: 1px; --sy1: -1.5px; transform-origin: 50% 60%; }
+.sp-dolphin.walk .c-leg { animation-duration: 1s; --sa: -14deg; --sb: 14deg; }
+.sp-dolphin.walk .m-tail { animation: step 1s ease-in-out -.5s infinite; --sa: -12deg; --sb: 12deg; }
+.sp-dolphin.walk .c-tail-tip { animation: none; }
+.sp-dolphin.walk .c-head { animation: step 1s ease-in-out -.2s infinite; --sa: -2deg; --sb: 2deg; }
+
+/* oreilles posées (le frémissement d'attente est coupé pendant la pose) */
+.c-rig.walk .m-ear, .c-rig.joy .m-ear, .c-rig.hop .m-ear, .c-rig.sad .m-ear, .c-rig.dance .m-ear, .c-rig.sleep .m-ear { animation: none; }
+.c-rig.walk .m-ear { rotate: -12deg; }
+
+/* joie : deux petits bonds */
+.c-rig.joy .c-all { animation: c-hop .5s var(--ease-out, ease-out) 2; }
+.c-rig.joy .c-shadow { animation: c-shadow-hop .5s var(--ease-out, ease-out) 2; }
+.c-rig.joy .m-ear, .c-rig.hop .m-ear { rotate: 6deg; }
+/* petit saut unique */
+.c-rig.hop .c-all { animation: c-hop .55s var(--ease-out, ease-out) 1; }
+.c-rig.hop .c-shadow { animation: c-shadow-hop .55s var(--ease-out, ease-out) 1; }
+@keyframes c-hop {
+  0% { transform: translateY(0) scale(1, 1); }
+  15% { transform: translateY(0) scale(1.07, .9); }
+  45% { transform: translateY(-11px) scale(.95, 1.06); }
+  75% { transform: translateY(0) scale(1.06, .93); }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+@keyframes c-shadow-hop { 0%, 100% { transform: scale(1); opacity: 1; } 45% { transform: scale(.7); opacity: .6; } }
+
+/* se trémousse */
+.c-rig.wiggle .c-all { animation: c-wiggle .7s ease-in-out 2; }
+.c-rig.wiggle .m-tail { animation: c-tail .35s ease-in-out 4; }
+@keyframes c-wiggle {
+  0%, 100% { transform: rotate(0deg) scale(1, 1); }
+  20% { transform: rotate(-5deg) scale(1.03, .97); }
+  45% { transform: rotate(5deg) scale(.98, 1.02); }
+  70% { transform: rotate(-3deg) scale(1.02, .98); }
+  85% { transform: rotate(2deg) scale(1, 1); }
+}
+
+/* tristesse : oreilles et tête basses, corps tassé, queue rentrée, respiration lente */
+.c-rig.sad { --c-breath: 5.6s; --c-hr: 8deg; --c-hy: 2.6px; --c-by: 1.4px; --c-tr: -14deg; --c-ty: .6px; }
+.c-rig.sad .m-ear { rotate: -32deg; }
+.sp-cat.sad .c-ear-r, .sp-lion.sad .c-ear-r { rotate: 30deg; }
+.sp-capy.sad .m-ear { rotate: -14deg; }
+.sp-dragon.sad .m-ear { rotate: -18deg; }
+.c-rig.sad .m-tail { animation-duration: 5.2s; }
+.c-rig.sad .c-tail-tip { animation-duration: 5.2s; }
+.sp-dolphin.sad { --c-hr: 3deg; --c-hy: 1.2px; --c-by: .8px; --c-tr: -6deg; --c-ty: 0px; }
+.sp-capy.sad { --c-hr: 4deg; --c-hy: 1.8px; }
+
+/* sommeil : couché (pattes repliées), menton posé, yeux fermés, respiration lente et profonde, « z » qui montent */
+.c-rig.sleep { --c-breath: 5s; --c-hr: 14deg; --c-hy: calc(var(--c-sit) + 2.6px); --c-by: var(--c-sit); --c-tr: 16deg; --c-ty: calc(var(--c-sit) * .5); }
+.c-rig.sleep .c-all { animation: none; }
+.c-rig.sleep .c-leg { transform-origin: 50% 100%; scale: 1 .5; }
+.c-rig.sleep .c-wings, .c-rig.sleep .c-acc.acc-ailes { translate: 0 var(--c-by); }
+.c-rig.sleep .m-ear { rotate: -18deg; }
+.c-rig.sleep .m-tail { animation: c-tail 7s ease-in-out infinite; }
+.c-rig.sleep .c-tail-tip { animation: none; }
+.c-rig.sleep .m-body { animation: c-breathe-deep var(--c-breath) ease-in-out infinite; }
+.c-rig.sleep .c-zz { display: inline; animation: c-zz 2.8s ease-in-out infinite; transform-origin: 0 100%; }
+.c-rig.sleep .c-zz + .c-zz { animation-delay: 1.4s; }
+.sp-horse { --c-sit: 10px; }                               /* longues jambes : le corps descend plus */
+.sp-horse.sleep { --c-hr: 22deg; --c-hy: calc(var(--c-sit) + 4.6px); --c-tr: 34deg; }
+.sp-capy { --c-sit: 4px; }
+.sp-capy.sleep { --c-hr: 5deg; --c-hy: calc(var(--c-sit) + 1.6px); }
+.sp-dolphin { --c-sit: 3px; }
+.sp-dolphin.sleep { --c-hr: 4deg; --c-hy: var(--c-sit); --c-tr: -4deg; --c-ty: var(--c-sit); }
+.sp-dolphin.sleep .c-leg { scale: 1 1; }
+.sp-dolphin.sleep .m-tail { animation: c-fluke 6s ease-in-out infinite; }
+/* dauphin : la vaguelette ne rétrécit pas */
+.sp-dolphin .c-shadow { animation: none !important; }
+@keyframes c-breathe-deep {
+  0%, 100% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) scale(1, 1); }
+  50% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) scale(1.02, 1.055); }
+}
+@keyframes c-zz { 0% { transform: translate(0, 2px) scale(.6); opacity: 0; } 25% { opacity: 1; } 100% { transform: translate(4px, -7px) scale(1.1); opacity: 0; } }
+
+/* mange : mâche (tête qui grignote, bouche et joues) */
+.c-rig.eat .c-head { animation: c-chew-head .44s ease-in-out infinite; }
+.c-rig.eat .m-mouth { animation: c-chew .44s ease-in-out infinite; }
+.c-rig.eat .c-cheek { animation: c-puff .44s ease-in-out infinite; }
+/* tête fondue dans le corps (dauphin, capybara) : mâchonnement plus discret (la jointure ne doit pas se voir) */
+.sp-dolphin.eat .c-head, .sp-capy.eat .c-head { animation-name: c-chew-head-s; }
+@keyframes c-chew-head-s {
+  0%, 100% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) rotate(0deg); }
+  50% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) rotate(1.2deg) translateY(.5px); }
+}
+@keyframes c-chew-head {
+  0%, 100% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) rotate(0deg); }
+  50% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) rotate(3.5deg) translateY(.6px); }
+}
+@keyframes c-chew { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(.8, .5); } }
+@keyframes c-puff { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.18); } }
+
+/* danse de fin de balade : élan, saut avec une vrille complète (retournements rapides et linéaires, jamais figé de
+   profil), réception, petit bond ; témoin sur la racine */
+.c-rig.dance { animation: c-mark 1.5s linear both; }
+.c-rig.dance .c-all { animation: c-dance 1.5s ease-out both; }
+.c-rig.dance .c-shadow { animation: c-shadow-dance 1.5s var(--ease-out, ease-out) both; }
+.c-rig.dance .c-leg { animation: step .3s ease-in-out 5; --sa: -24deg; --sb: 24deg; }
+.c-rig.dance .m-ear { rotate: 8deg; }
+@keyframes c-dance {
+  0%   { transform: translateY(0) rotate(0deg) scale(1, 1); }
+  10%  { transform: translateY(0) rotate(0deg) scale(1.1, .88); animation-timing-function: cubic-bezier(.2, .7, .4, 1); }
+  24%  { transform: translateY(-15px) rotate(-6deg) scale(1, 1.06); animation-timing-function: linear; }
+  29%  { transform: translateY(-17px) rotate(-3deg) scale(0, 1.04); animation-timing-function: linear; }
+  34%  { transform: translateY(-17px) rotate(0deg) scale(-1, 1.04); animation-timing-function: linear; }
+  39%  { transform: translateY(-15px) rotate(3deg) scale(0, 1.03); animation-timing-function: linear; }
+  44%  { transform: translateY(-11px) rotate(4deg) scale(1, 1.02); animation-timing-function: cubic-bezier(.5, 0, .9, .6); }
+  54%  { transform: translateY(0) rotate(0deg) scale(1.08, .9); animation-timing-function: cubic-bezier(.2, .7, .4, 1); }
+  62%  { transform: translateY(0) rotate(0deg) scale(1, 1); animation-timing-function: cubic-bezier(.2, .7, .4, 1); }
+  74%  { transform: translateY(-8px) rotate(3deg) scale(.97, 1.04); animation-timing-function: cubic-bezier(.5, 0, .9, .6); }
+  86%  { transform: translateY(0) rotate(0deg) scale(1.05, .94); }
+  100% { transform: translateY(0) rotate(0deg) scale(1, 1); }
+}
+@keyframes c-shadow-dance { 0%, 100% { transform: scale(1); opacity: 1; } 32% { transform: scale(.55); opacity: .5; } 54% { transform: scale(1); opacity: 1; } 74% { transform: scale(.75); opacity: .7; } 86% { transform: scale(1); } }
+
+/* ---------- mouvement réduit / animations douces : respiration très douce et clignement seulement ;
+   les poses (couché, tête basse) restent, sans mouvement ---------- */
 @media (prefers-reduced-motion: reduce) {
-  .m-root, .m-root .m-body, .m-root .m-tail, .m-root .m-lid, .m-root .m-legF, .m-root .m-legB { animation:none !important; }
+  .c-rig, .c-rig * { animation: none !important; transition: none !important; }
+  .c-rig .m-body { animation: c-breathe-soft 4.6s ease-in-out infinite !important; }
+  .c-rig .m-lid { animation: c-blink 7.4s linear infinite !important; }
+  .c-rig .c-head, .c-rig .m-tail { transform: translate(var(--px), var(--py)) rotate(var(--pr)); }
 }
-html.motion-soft .m-root, html.motion-soft .m-root .m-body, html.motion-soft .m-root .m-tail,
-html.motion-soft .m-root .m-lid, html.motion-soft .m-root .m-legF, html.motion-soft .m-root .m-legB { animation:none !important; }
+html.motion-soft .c-rig, html.motion-soft .c-rig * { animation: none !important; transition: none !important; }
+html.motion-soft .c-rig .m-body { animation: c-breathe-soft 4.6s ease-in-out infinite !important; }
+html.motion-soft .c-rig .m-lid { animation: c-blink 7.4s linear infinite !important; }
+html.motion-soft .c-rig .c-head, html.motion-soft .c-rig .m-tail { transform: translate(var(--px), var(--py)) rotate(var(--pr)); }
+@keyframes c-breathe-soft {
+  0%, 100% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) scale(1, 1); }
+  50% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) scale(1.004, 1.014); }
+}

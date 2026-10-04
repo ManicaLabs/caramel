@@ -63,12 +63,13 @@ export function dueKeys(profile, prefix, today = dayStr(), limit = 20) {
     .map(([k]) => k);
 }
 
-/* « à revoir » (espace parents) : boîtes 1-2, les plus fragiles d'abord (boîte, taux de réussite,
-   nombre de rencontres) */
+/* « à revoir » (espace parents) : boîte 1 (dernière réponse fausse ou aidée) et boîte 2 seulement si l'élément a déjà
+   été manqué (ok < seen) — une clé juste du premier coup entre directement en boîte 2 sans avoir posé de difficulté ;
+   les plus fragiles d'abord (boîte, taux de réussite, nombre de rencontres) */
 export function weakKeys(profile, prefix, limit = 12) {
   const rate = e => (cnt(e.seen) ? cnt(e.ok) / cnt(e.seen) : 0);
   return entries(profile, prefix)
-    .filter(([, e]) => boxOf(e) <= 2)
+    .filter(([, e]) => boxOf(e) === 1 || (boxOf(e) === 2 && cnt(e.ok) < cnt(e.seen)))
     .sort(([ka, a], [kb, b]) => boxOf(a) - boxOf(b) || rate(a) - rate(b)
       || cnt(b.seen) - cnt(a.seen) || cmpStr(ka, kb))
     .slice(0, Math.max(0, limit))

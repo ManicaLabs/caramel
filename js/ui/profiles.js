@@ -1,7 +1,8 @@
 /* ============ « QUI JOUE AUJOURD'HUI ? » : sélecteur de profils (JEUX.md §8, CDC §10.1) ============
    Grandes cartes (compagnon + prénom + 🍎), toucher → profil actif (store.setActive), mémorisé pour la
    session (sessionStorage['caramel-picked']) ; les réglages du profil (son, animations) sont réappliqués
-   par main.js à chaque commit du store. « ➕ Ajouter un enfant » → #/onboarding. */
+   par main.js à chaque commit du store. « ➕ Ajouter un enfant » → #/onboarding ; dès deux enfants,
+   « 🏆 En famille » → #/famille (défi, classements de la semaine, concours de compagnons). */
 
 import { h, clear, frTypo, loadCSS, fmtNum } from '../core/util.js';
 import * as store from '../core/store.js';
@@ -33,25 +34,31 @@ export default {
     back.hidden = !fromHome;
 
     const grid = h('div', { class: 'pf-grid' + (list.length === 1 ? ' is-one' : '') });
-    for (const p of list) grid.appendChild(card(p));
+    list.forEach((p, i) => grid.appendChild(card(p, i)));
     const add = h('button', { type: 'button', class: 'pf-add' },
       h('span', { class: 'pf-add-ico', 'aria-hidden': 'true' }, '➕'), h('span', null, 'Ajouter un enfant'));
     add.addEventListener('click', () => { audio.tap(); router.go('onboarding'); });
+    /* « En famille » (dès deux enfants) : défi, classements de la semaine, concours de compagnons */
+    const family = list.length >= 2 ? h('button', { type: 'button', class: 'pf-family' },
+      h('span', { class: 'pf-family-ico', 'aria-hidden': 'true' }, '🏆'),
+      h('span', { class: 'pf-family-txt' }, h('b', null, 'En famille'),
+        h('span', null, frTypo('Défi, classements et concours de compagnons')))) : null;
+    if (family) family.addEventListener('click', () => { audio.tap(); router.go('famille'); });
 
     const screen = h('div', { class: 'screen pf' },
       h('div', { class: 'pf-top' }, back),
       h('header', { class: 'pf-head' },
         h('h1', { class: 'title-xl pf-title' }, frTypo('Qui joue aujourd’hui ?')),
         h('p', { class: 'subtitle pf-sub' }, 'Touche ton compagnon pour commencer.')),
-      grid, add);
+      grid, add, family);
     clear(root);
     root.appendChild(screen);
-    motion.stagger([screen.querySelector('.pf-head'), ...grid.children, add],
+    motion.stagger([screen.querySelector('.pf-head'), ...grid.children, add, family].filter(Boolean),
       el => motion.enter(el, { from: el.classList.contains('pf-card') ? 'scale' : 'bottom', dur: 420 }), 70);
 
-    function card(p) {
+    function card(p, i = 0) {
       const pic = h('span', { class: 'pf-pic' });
-      setAvatar(pic, avatarOf(p, 116, ''));
+      setAvatar(pic, avatarOf(p, 116, '', { phase: i * 1.3 }));   /* phase : les compagnons ne respirent pas en chœur */
       const apples = (p.wallet && p.wallet.apples) | 0;
       const c = h('button', { type: 'button', class: 'pf-card', 'data-id': p.id,
         'aria-label': p.name + ', ' + apples + ' pomme' + (apples > 1 ? 's' : '') },

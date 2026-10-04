@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#fff1f5">
 <meta name="color-scheme" content="light">
 <meta name="description" content="Le compagnon qui fait progresser en lecture et en maths, du CP au CM2">
-<meta name="caramel-version" content="2.0.0">
+<meta name="caramel-version" content="2.1.0">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Caramel">
@@ -18,7 +18,26 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preload" href="fonts/fredoka-600.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/andika-400.woff2" as="font" type="font/woff2" crossorigin>
+<script>
+  /* Thème visuel du dernier profil, posé avant le premier affichage (sinon éclair des couleurs Caramel) ;
+     main.js le confirme ensuite d'après le profil actif. Cache écrit par js/ui/theme-picker.js.
+     Idem pour le réglage « animations douces » (html.motion-soft dès l'écran d'attente : le petit cheval ne saute
+     pas) : cache 'caramel-motion' écrit par js/main.js. */
+  (function () {
+    try {
+      if (localStorage.getItem('caramel-motion') === 'soft') document.documentElement.classList.add('motion-soft');
+    } catch (e) {}
+    try {
+      var m = /^([a-z]{3,12})\|(#[0-9a-f]{6})$/.exec(localStorage.getItem('caramel-theme') || '');
+      if (!m) return;
+      document.documentElement.setAttribute('data-theme', m[1]);
+      var meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', m[2]);
+    } catch (e) {}
+  })();
+</script>
 <link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/themes.css">
 <link rel="stylesheet" href="css/motion.css">
 <link rel="stylesheet" href="css/ui/kit.css">
 <link rel="modulepreload" href="js/router.js">
@@ -45,6 +64,7 @@
   .shell-msg button { margin-top: 18px; min-height: 52px; padding: 12px 24px; border: none; border-radius: 999px;
     background: #fbbf24; color: #78350f; font: inherit; font-weight: 600; }
   @media (prefers-reduced-motion: reduce) { .boot-horse { animation: none; } }
+  html.motion-soft .boot-horse { animation: none; }
 </style>
 </head>
 <body>

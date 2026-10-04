@@ -1,6 +1,9 @@
 /* ============ LE CHEF D’ORCHESTRE (js/games/orchestre.js) ============
    Mobile d'abord (390 × 844) : portée en haut, scène (qui cède sa place quand une bulle s'ouvre),
    carte de la phrase (Andika), bulle d'aide, choix à portée de pouce. Couleurs = jetons de base.css.
+   Thème visuel : la scène est « habillée » par le thème (mur, rideaux, lambrequin, galon, guirlande, estrade) ;
+   le plancher, les lampes et les musiciens (animaux, instruments) gardent la palette FIXE --n-*, comme les
+   notes de la portée aux couleurs des musiciens.
    Mouvement : balancements et battue pilotés par le JS (désactivés en mouvement réduit) ; ici, impulsions
    sur le temps (choix, sujet, trou) avec des variantes « couleur seule » en mouvement réduit / animations douces. */
 
@@ -15,7 +18,7 @@
 /* ---------- portée ---------- */
 .orc-staff {
   flex: none; align-self: center; width: min(100%, 540px); aspect-ratio: 364 / 62;
-  background: #fff; border: 2px solid var(--pink-200); border-radius: var(--r-m); box-shadow: var(--shadow-1);
+  background: var(--card); border: 2px solid var(--pink-200); border-radius: var(--r-m); box-shadow: var(--shadow-1);
   padding: 1px 2px; overflow: hidden;
 }
 .orc-staff-svg { width: 100%; height: 100%; overflow: visible; }
@@ -25,9 +28,9 @@
 .orc-staff-svg .sf-clef-dot { fill: var(--ink-2); }
 .orc-staff-svg .sf-time { font-family: var(--font-ui); font-weight: 700; font-size: 16.5px; fill: var(--ink-2); }
 .orc-staff-svg .sf-note { color: var(--ink); }
-.orc-staff-svg .sf-note.is-rabbit { color: var(--pink-400); }
+.orc-staff-svg .sf-note.is-rabbit { color: var(--n-pink-400); }
 .orc-staff-svg .sf-note.is-frog { color: var(--ok); }
-.orc-staff-svg .sf-note.is-fox { color: var(--title); }
+.orc-staff-svg .sf-note.is-fox { color: var(--n-title); }
 .orc-staff-svg .sf-head { fill: currentColor; }
 .orc-staff-svg .sf-stem { stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
 .orc-staff-svg .sf-ledger { stroke: var(--ink-4); stroke-width: 1.2; }
@@ -50,81 +53,82 @@
 @supports (width: 1cqw) {
   .orc-stage-in { width: min(100cqw, 168.22cqh); height: min(100cqh, 59.44cqw); }
 }
-.orc-scene { position: absolute; inset: 0; width: 100%; height: 100%; filter: drop-shadow(0 4px 10px rgba(180, 83, 9, .14)); }
+.orc-scene { position: absolute; inset: 0; width: 100%; height: 100%; filter: drop-shadow(0 4px 10px color-mix(in srgb, var(--shade) 14%, transparent)); }
 .orc-scene .g-wall-a { stop-color: var(--pink-100); }
 .orc-scene .g-wall-b { stop-color: var(--bg-2); }
-.orc-scene .g-floor-a { stop-color: var(--amber-300); }
-.orc-scene .g-floor-b { stop-color: var(--amber-400); }
+.orc-scene .g-floor-a { stop-color: var(--n-amber-300); }
+.orc-scene .g-floor-b { stop-color: var(--n-amber-400); }
 .orc-scene .g-beam-a { stop-color: #fff; stop-opacity: .95; }
 .orc-scene .g-beam-b { stop-color: #fff; stop-opacity: 0; }
 .orc-scene .st-garland .c-pink { fill: var(--pink-400); }
 .orc-scene .st-garland .c-amber { fill: var(--amber-300); }
 .orc-scene .st-garland .c-sky { fill: var(--sky); }
-.orc-scene .st-string { stroke: var(--ink-4); stroke-width: 1; }
-.orc-scene .st-planks line { stroke: var(--amber-500); stroke-opacity: .32; stroke-width: 1; }
-.orc-scene .st-edge { fill: var(--amber-200); }
-.orc-scene .st-riser-top { fill: var(--amber-300); }
-.orc-scene .st-riser { fill: var(--amber-500); }
-.orc-scene .st-riser-lines line { stroke: var(--amber-900); stroke-opacity: .16; stroke-width: 1.2; }
-.orc-scene .st-lip { fill: var(--amber-500); }
+.orc-scene .st-string { stroke: var(--n-ink-4); stroke-width: 1; }
+.orc-scene .st-planks line { stroke: var(--n-amber-500); stroke-opacity: .32; stroke-width: 1; }
+.orc-scene .st-edge { fill: var(--n-amber-200); }
+.orc-scene .st-riser-top { fill: var(--n-amber-300); }
+.orc-scene .st-riser { fill: var(--n-amber-500); }
+.orc-scene .st-riser-lines line { stroke: var(--n-amber-900); stroke-opacity: .16; stroke-width: 1.2; }
+.orc-scene .st-lip { fill: var(--n-amber-500); }
 .orc-scene .st-pools ellipse { fill: #fff; opacity: .6; }
-.orc-scene .st-lamps rect { fill: var(--ink-2); transition: fill var(--dur-3); }
-.orc-stage.is-playing .orc-scene .st-lamps rect { fill: var(--amber-300); }
+.orc-scene .st-lamps rect { fill: var(--n-ink-2); transition: fill var(--dur-3); }
+.orc-stage.is-playing .orc-scene .st-lamps rect { fill: var(--n-amber-300); }
 .orc-scene .c-podium-top { fill: var(--pink-400); }
 .orc-scene .c-podium { fill: var(--pink-200); }
 .orc-scene .c-podium-star { fill: var(--amber-400); }
-.orc-scene .c-baton { stroke: var(--ink); stroke-width: 2.2; stroke-linecap: round; }
-.orc-scene .c-baton-tip { fill: #fff; stroke: var(--ink-4); stroke-width: .8; }
-.orc-scene .c-baton-grip { fill: var(--ink-2); }
+.orc-scene .c-baton { stroke: var(--n-ink); stroke-width: 2.2; stroke-linecap: round; }
+.orc-scene .c-baton-tip { fill: #fff; stroke: var(--n-ink-4); stroke-width: .8; }
+.orc-scene .c-baton-grip { fill: var(--n-ink-2); }
 .orc-scene .st-curtain, .orc-scene .st-valance { fill: var(--pink-400); }
 .orc-scene .st-curtain-fold { stroke: var(--pink-800); stroke-opacity: .22; stroke-width: 2.2; stroke-linecap: round; }
 .orc-scene .st-trim { stroke: var(--amber-300); stroke-width: 2.4; stroke-linecap: round; }
 
-/* musiciens (aplats) */
-.orc-scene .c-shadow { fill: var(--amber-500); opacity: .28; }
-.orc-scene .c-eye, .orc-scene .c-nose { fill: var(--ink); }
+/* musiciens (aplats) ; .c-shadow, .c-eye et .c-nose portent aussi les noms des groupes du rig du compagnon (chef
+   d'orchestre, js/ui/mount-svg.js) : ces trois règles visent les seuls musiciens (.mus) */
+.orc-scene .mus .c-shadow { fill: var(--n-amber-500); opacity: .28; }
+.orc-scene .mus .c-eye, .orc-scene .mus .c-nose { fill: var(--n-ink); }
 .orc-scene .c-shine, .orc-scene .c-white { fill: #fff; }
-.orc-scene .c-blush { fill: var(--pink-200); opacity: .9; }
-.orc-scene .c-mouth { fill: none; stroke: var(--ink); stroke-width: 1.2; stroke-linecap: round; }
-.orc-scene .c-bear { fill: var(--ink-3); }
-.orc-scene .c-bear-d { fill: var(--ink-2); }
-.orc-scene .c-bear-l { fill: var(--ink-5); }
-.orc-scene .c-drum { fill: var(--pink-400); }
+.orc-scene .c-blush { fill: var(--n-pink-200); opacity: .9; }
+.orc-scene .c-mouth { fill: none; stroke: var(--n-ink); stroke-width: 1.2; stroke-linecap: round; }
+.orc-scene .c-bear { fill: var(--n-ink-3); }
+.orc-scene .c-bear-d { fill: var(--n-ink-2); }
+.orc-scene .c-bear-l { fill: var(--n-ink-5); }
+.orc-scene .c-drum { fill: var(--n-pink-400); }
 .orc-scene .c-drum-cord { stroke: #fff; stroke-width: 1.4; stroke-linejoin: round; }
-.orc-scene .c-drum-rim { fill: var(--amber-300); }
-.orc-scene .c-drum-skin { fill: var(--amber-100); }
-.orc-scene .c-stick { stroke: var(--ink-2); stroke-width: 2; stroke-linecap: round; }
-.orc-scene .c-stick-tip { fill: var(--amber-100); stroke: var(--ink-2); stroke-width: .8; }
-.orc-scene .c-rabbit { fill: #fff; stroke: var(--pink-200); stroke-width: 1; }
-.orc-scene .c-rabbit-b { fill: var(--pink-50); }
-.orc-scene .c-rabbit-s { fill: var(--pink-100); }
-.orc-scene .c-rabbit-e { fill: var(--pink-200); }
-.orc-scene .c-rnose { fill: var(--pink-400); }
-.orc-scene .c-whisk { fill: none; stroke: var(--ink-4); stroke-width: .7; stroke-linecap: round; }
-.orc-scene .c-violin { fill: var(--title); }
-.orc-scene .c-neck { fill: var(--ink-2); }
-.orc-scene .c-fhole { stroke: var(--amber-900); stroke-width: .8; stroke-linecap: round; }
-.orc-scene .c-string { stroke: var(--amber-100); stroke-width: .6; }
-.orc-scene .c-bridge { fill: var(--amber-100); }
-.orc-scene .c-bow { stroke: var(--ink-2); stroke-width: 1.7; stroke-linecap: round; }
+.orc-scene .c-drum-rim { fill: var(--n-amber-300); }
+.orc-scene .c-drum-skin { fill: var(--n-amber-100); }
+.orc-scene .c-stick { stroke: var(--n-ink-2); stroke-width: 2; stroke-linecap: round; }
+.orc-scene .c-stick-tip { fill: var(--n-amber-100); stroke: var(--n-ink-2); stroke-width: .8; }
+.orc-scene .c-rabbit { fill: #fff; stroke: var(--n-pink-200); stroke-width: 1; }
+.orc-scene .c-rabbit-b { fill: var(--n-pink-50); }
+.orc-scene .c-rabbit-s { fill: var(--n-pink-100); }
+.orc-scene .c-rabbit-e { fill: var(--n-pink-200); }
+.orc-scene .c-rnose { fill: var(--n-pink-400); }
+.orc-scene .c-whisk { fill: none; stroke: var(--n-ink-4); stroke-width: .7; stroke-linecap: round; }
+.orc-scene .c-violin { fill: var(--n-title); }
+.orc-scene .c-neck { fill: var(--n-ink-2); }
+.orc-scene .c-fhole { stroke: var(--n-amber-900); stroke-width: .8; stroke-linecap: round; }
+.orc-scene .c-string { stroke: var(--n-amber-100); stroke-width: .6; }
+.orc-scene .c-bridge { fill: var(--n-amber-100); }
+.orc-scene .c-bow { stroke: var(--n-ink-2); stroke-width: 1.7; stroke-linecap: round; }
 .orc-scene .c-bow-hair { stroke: #fff; stroke-width: .8; }
 .orc-scene .c-frog { fill: var(--grass); }
 .orc-scene .c-frog-d { fill: var(--ok); }
 .orc-scene .c-frog-b { fill: var(--ok-bg); }
 .orc-scene .c-frog-spot { fill: var(--ok); opacity: .35; }
 .orc-scene .c-fmouth { fill: none; stroke: var(--ok-ink); stroke-width: 1.4; stroke-linecap: round; }
-.orc-scene .c-brass { fill: var(--amber-400); stroke: var(--amber-900); stroke-opacity: .5; stroke-width: .7; stroke-linejoin: round; }
-.orc-scene .c-brass-d { fill: var(--amber-500); stroke: var(--amber-900); stroke-opacity: .4; stroke-width: .5; }
-.orc-scene .c-brass-l { fill: var(--amber-200); stroke: var(--amber-500); stroke-width: .8; }
-.orc-scene .c-fox { fill: var(--amber-500); }
-.orc-scene .c-fox-d { fill: var(--ink-2); }
-.orc-scene .c-fox-in { fill: var(--amber-100); }
-.orc-scene .c-piano { fill: var(--ink); }
-.orc-scene .c-piano-d { fill: var(--ink-2); }
+.orc-scene .c-brass { fill: var(--n-amber-400); stroke: var(--n-amber-900); stroke-opacity: .5; stroke-width: .7; stroke-linejoin: round; }
+.orc-scene .c-brass-d { fill: var(--n-amber-500); stroke: var(--n-amber-900); stroke-opacity: .4; stroke-width: .5; }
+.orc-scene .c-brass-l { fill: var(--n-amber-200); stroke: var(--n-amber-500); stroke-width: .8; }
+.orc-scene .c-fox { fill: var(--n-amber-500); }
+.orc-scene .c-fox-d { fill: var(--n-ink-2); }
+.orc-scene .c-fox-in { fill: var(--n-amber-100); }
+.orc-scene .c-piano { fill: var(--n-ink); }
+.orc-scene .c-piano-d { fill: var(--n-ink-2); }
 .orc-scene .c-keys { fill: #fff; }
-.orc-scene .c-keyline { stroke: var(--ink-5); stroke-width: .6; }
-.orc-scene .c-bkey { fill: var(--ink); }
-.orc-scene .c-piano-dot { fill: var(--amber-300); }
+.orc-scene .c-keyline { stroke: var(--n-ink-5); stroke-width: .6; }
+.orc-scene .c-bkey { fill: var(--n-ink); }
+.orc-scene .c-piano-dot { fill: var(--n-amber-300); }
 
 /* pivots des animations (pilotées par motion WAAPI) */
 .orc-scene .mus, .orc-scene .mus-body { transform-box: fill-box; transform-origin: 50% 100%; }
@@ -133,18 +137,17 @@
 .orc-scene .st-baton { transform-box: fill-box; transform-origin: 3.3% 50%; rotate: -24deg; }
 .orc-scene .bear-stick-r { transform-box: fill-box; transform-origin: 69% 25%; }
 .orc-scene .drum-skin { transform-box: fill-box; transform-origin: 50% 50%; }
-.orc-scene .st-cond-svg { transform-box: fill-box; transform-origin: 50% 100%; }
 .orc-scene .st-fx-in { transform-box: fill-box; transform-origin: 50% 50%; opacity: 0; }
 .orc-scene .st-fx ellipse { fill: currentColor; }
 .orc-scene .st-fx path { stroke: currentColor; }
-.orc-scene .st-fx.is-rabbit { color: var(--pink-400); }
+.orc-scene .st-fx.is-rabbit { color: var(--n-pink-400); }
 .orc-scene .st-fx.is-frog { color: var(--ok); }
-.orc-scene .st-fx.is-fox { color: var(--title); }
+.orc-scene .st-fx.is-fox { color: var(--n-title); }
 
 /* tempo (♩ = 72) */
 .orc-tempo {
   position: absolute; bottom: 5.5%; right: 2.6%; display: inline-flex; align-items: baseline; gap: 3px;
-  padding: 1px 9px 2px; border-radius: var(--r-pill); background: #fff; border: 2px solid var(--amber-200);
+  padding: 1px 9px 2px; border-radius: var(--r-pill); background: var(--card); border: 2px solid var(--amber-200);
   font-weight: 700; font-size: .82rem; line-height: 1.2; color: var(--amber-900); font-variant-numeric: tabular-nums;
   box-shadow: var(--shadow-1); transition: background var(--dur-2), border-color var(--dur-2);
 }
@@ -173,8 +176,8 @@
 .orc-verb-k { font-size: .74rem; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; color: var(--ink-3); }
 .orc-verb b { font-size: 1.12rem; font-weight: 700; }
 .orc-model {
-  margin-top: 7px; padding: 5px 10px; border-radius: var(--r-s); background: var(--orange-50);
-  border: 2px dashed var(--orange-300); font-size: 1.08rem; line-height: 1.35; color: var(--ink-2);
+  margin-top: 7px; padding: 5px 10px; border-radius: var(--r-s); background: var(--panel-bg);
+  border: 2px dashed var(--panel-line); font-size: 1.08rem; line-height: 1.35; color: var(--ink-2);
 }
 .orc-model-k { font-family: var(--font-ui); font-weight: 700; font-size: .74rem; letter-spacing: .5px; text-transform: uppercase; color: var(--ink-3); }
 .orc-sentence {

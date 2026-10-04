@@ -10,7 +10,7 @@
 .pf-grid.is-one { grid-template-columns: minmax(0, 220px); justify-content: center; }
 .pf-card {
   display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 10px 14px; border-radius: var(--r-l);
-  background: #fff; border: 3px solid var(--pink-200); box-shadow: var(--shadow-1); min-width: 0;
+  background: var(--card); border: 3px solid var(--pink-200); box-shadow: var(--shadow-1); min-width: 0;
   transition: transform var(--dur-1) var(--ease-out), box-shadow var(--dur-2), opacity var(--dur-2), border-color var(--dur-2);
 }
 .pf-card:active { transform: scale(.97); }
@@ -26,20 +26,32 @@
 
 .pf-add {
   width: 100%; max-width: 560px; min-height: 60px; display: inline-flex; align-items: center; justify-content: center; gap: 10px;
-  border-radius: var(--r-l); background: var(--orange-50); border: 2px dashed var(--orange-300);
+  border-radius: var(--r-l); background: var(--panel-bg); border: 2px dashed var(--panel-line);
   font-weight: 600; font-size: 1.1rem; color: var(--title);
   transition: transform var(--dur-1) var(--ease-out), background var(--dur-2);
 }
 .pf-add:active { transform: scale(.98); background: var(--amber-100); }
 .pf-add-ico { font-size: 1.2rem; }
+/* « En famille » : défi, classements, concours */
+.pf-family {
+  width: 100%; max-width: 560px; min-height: 64px; display: flex; align-items: center; gap: 12px; padding: 10px 16px; text-align: left;
+  border-radius: var(--r-l); background: linear-gradient(135deg, var(--amber-100) 0%, var(--card) 75%); border: 3px solid var(--amber-300);
+  box-shadow: var(--shadow-1); color: var(--ink); transition: transform var(--dur-1) var(--ease-out), box-shadow var(--dur-2);
+}
+.pf-family:active { transform: scale(.98); }
+.pf-family-ico { font-size: 1.9rem; line-height: 1; flex: none; }
+.pf-family-txt { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.pf-family-txt b { font-size: 1.12rem; color: var(--title); }
+.pf-family-txt span { font-size: .92rem; color: var(--ink-2); }
 
 @media (hover: hover) and (pointer: fine) {
   .pf-card:hover { border-color: var(--pink-400); box-shadow: var(--shadow-2); transform: translateY(-2px); }
   .pf-add:hover { background: var(--amber-100); }
+  .pf-family:hover { box-shadow: var(--shadow-2); }
 }
 @media (min-width: 900px) {
   .pf-grid { max-width: 860px; grid-template-columns: repeat(auto-fit, minmax(190px, 220px)); justify-content: center; }
   .pf-stage { height: 140px; }
-  .pf-add { max-width: 460px; }
+  .pf-add, .pf-family { max-width: 460px; }
   .pf-title { font-size: 2.4rem; }
 }

@@ -82,6 +82,23 @@ test('weakKeys : boîtes 1-2, les plus fragiles d’abord', () => {
   assert.deepEqual(weakKeys(p, 'ma.faits'), ['ma.faits:7x8']);
 });
 
+test('weakKeys : un fait réussi du premier coup (boîte 2, jamais manqué) n’est pas « à revoir »', () => {
+  const p = {};
+  review(p, 'ma.faits:5x9', true, D);                   /* nouvelle clé juste → boîte 2, seen 1 ok 1 */
+  review(p, 'ma.faits:2x4', true, D);
+  review(p, 'ma.faits:2x4', true, D);                   /* revu juste le même jour : boîte 2, seen 2 ok 2 */
+  review(p, 'ma.faits:8x8', false, D);                  /* manqué → boîte 1 */
+  review(p, 'ma.faits:8x8', false, D);
+  review(p, 'ma.faits:add:10+10', false, D);            /* joker (aidé) = pas « juste » → boîte 1 */
+  review(p, 'ma.faits:6x7', false, '2026-09-30');       /* manqué puis retrouvé à l'échéance : boîte 2, ok < seen */
+  review(p, 'ma.faits:6x7', true, '2026-10-01');
+  assert.equal(p.leitner['ma.faits:5x9'].b, 2);
+  assert.equal(p.leitner['ma.faits:6x7'].b, 2);
+  assert.deepEqual(weakKeys(p, 'ma.faits'), ['ma.faits:8x8', 'ma.faits:add:10+10', 'ma.faits:6x7']);
+  /* boîte 1 sans compteurs (sauvegarde ancienne ou incomplète) : toujours à revoir */
+  assert.deepEqual(weakKeys({ leitner: { 'a:1': { b: 1, due: D }, 'a:2': { b: 2, due: D, seen: 1, ok: 1 } } }, 'a'), ['a:1']);
+});
+
 test('stats : total, répartition par boîte, dues', () => {
   const p = {};
   review(p, 'ma.faits:7x8', true, '2026-09-28');      /* b2 due 09-30 */

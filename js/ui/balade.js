@@ -1,6 +1,6 @@
 /* ============ « MA BALADE DU JOUR » (JEUX.md §8, CDC §7.4) ============
    Un sentier qui serpente dans un pré, quatre pierres (échauffement 🌅, mission ⭐, révision 🔁,
-   récompense 🎁) et le compagnon posé sur l'étape en cours. Quand un bloc vient
+   récompense 🎁) et le compagnon debout au fond de la pierre de l'étape en cours (l'emoji reste visible). Quand un bloc vient
    d'être terminé, il marche le long du sentier jusqu'à la pierre suivante ; balade finie → il danse,
    confettis, « +10 🍎 » (déjà crédité par la manche : rien n'est recrédité ici), série du jour.
    Plan : session.ensureToday via store.mutateProfile. Lancement d'une étape :
@@ -50,6 +50,10 @@ function leaveHome() {
 
 /* ---------- géométrie du pré (unités du viewBox) ---------- */
 const VW = 360, VH = 560;
+/* le compagnon se tient au FOND de la pierre de l'étape (pieds LIFT unités au-dessus de son centre) : l'emoji de
+   l'étape (🌅 ⭐ 🔁 🎁, haut de l'emoji ≈ 11 unités au-dessus du centre) reste entièrement visible devant ses pattes,
+   ombre comprise ; même décalage pendant la marche d'une pierre à l'autre */
+const LIFT = 15;
 function layoutFor(n) {
   const top = 112, bottom = 492;
   const pts = [];
@@ -230,7 +234,7 @@ export default {
     });
 
     const buddyPic = h('div', { class: 'bl-buddy-pic' });
-    const buddy = h('div', { class: 'bl-buddy', 'aria-hidden': 'true' }, h('div', { class: 'bl-buddy-hop' }, buddyPic));
+    const buddy = h('div', { class: 'bl-buddy', 'aria-hidden': 'true' }, buddyPic);
     const scene = h('div', { class: 'bl-scene' }, map, ...labels, buddy);
 
     /* ----- carte d'action ----- */
@@ -244,7 +248,7 @@ export default {
     const placeBuddy = (i, face) => {
       const pt = L.pts[Math.max(0, Math.min(N - 1, i))];
       buddy.style.left = (pt.x / VW * 100) + '%';
-      buddy.style.top = (pt.y / VH * 100) + '%';
+      buddy.style.top = ((pt.y - LIFT) / VH * 100) + '%';
       if (face) buddyPic.classList.toggle('is-left', face < 0);
     };
 
@@ -383,22 +387,20 @@ export default {
           for (let s = (k === a ? 0 : 1); s <= steps; s++) {
             let pt = null;
             try { pt = probe.getPointAtLength((len * s) / steps); } catch (_) { pt = null; }
-            if (pt) frames.push({ left: (pt.x / VW * 100).toFixed(3) + '%', top: (pt.y / VH * 100).toFixed(3) + '%' });
+            if (pt) frames.push({ left: (pt.x / VW * 100).toFixed(3) + '%', top: ((pt.y - LIFT) / VH * 100).toFixed(3) + '%' });
           }
         }
         probe.remove();
         if (frames.length < 2) { placeBuddy(b); resolve(); return; }
         const dur = 1300 * (b - a);
-        drawBuddy('walk');
+        const rig = drawBuddy('walk');
         buddyPic.classList.toggle('is-left', L.pts[b].x < L.pts[a].x);
         try { if (my.clip) my.clip.stop(); } catch (_) {}
         my.clip = audio.clipClop();
-        let anim = null, hop = null;
+        let anim = null;
         try {
           anim = buddy.animate(frames, { duration: dur, easing: 'cubic-bezier(.45,0,.55,1)', fill: 'forwards' });
-          hop = buddy.firstChild.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(-7px)' }, { transform: 'translateY(0)' }],
-            { duration: 330, iterations: Math.max(1, Math.round(dur / 330)), easing: 'ease-in-out' });
-          my.anims.push(anim, hop);
+          my.anims.push(anim, ...walkHops(rig, dur));
         } catch (_) {}
         const done = () => {
           if (st !== my) return;
@@ -412,6 +414,25 @@ export default {
         if (anim) anim.finished.then(done, done); else done();
         later(done, dur + 600);
       });
+    }
+    /* petits bonds de la marche (7 px à l'écran, 330 ms) : c'est le CORPS du rig qui bondit (.c-all, composition « add »
+       sur le pas de l'humeur walk, en unités du viewBox : 100 unités = largeur du compagnon), jamais un conteneur qui
+       emporterait l'ombre et la vague ; l'ombre reste sur le sentier et rétrécit en l'air (comme au petit saut du rig),
+       la vague du dauphin reste dans l'eau (ARCHITECTURE §8.6, JEUX §0) */
+    function walkHops(rig, dur) {
+      const body = rig && rig.querySelector('.c-all');
+      if (!body || typeof body.animate !== 'function') return [];
+      const H = (7 * 100) / buddySize(), k = Math.min(1, H / 11);
+      const timing = { duration: 330, iterations: Math.max(1, Math.round(dur / 330)), easing: 'ease-in-out' };
+      const hops = [body.animate([{ transform: 'translateY(0px)' }, { transform: 'translateY(' + (-H).toFixed(2) + 'px)' }, { transform: 'translateY(0px)' }],
+        { ...timing, composite: 'add' })];
+      const shadow = rig.getAttribute('data-species') !== 'dolphin' ? rig.querySelector('.c-shadow') : null;
+      if (shadow) {
+        hops.push(shadow.animate([{ transform: 'scale(1)', opacity: 1 },
+          { transform: 'scale(' + (1 - 0.3 * k).toFixed(2) + ')', opacity: +(1 - 0.4 * k).toFixed(2) },
+          { transform: 'scale(1)', opacity: 1 }], timing));
+      }
+      return hops;
     }
 
     /* redimensionnement (tablette tournée, fenêtre PC) : taille du compagnon */

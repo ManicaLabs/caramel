@@ -2,7 +2,8 @@
    v11 → v2 : maybeShowNotifCard → shouldOffer() (l'écran affiche lui-même sa carte « 🔔 Un petit rappel
    chaque jour ? »), enableNotifs → enable() (renvoie le statut), dismissNotifs → dismiss().
    Même préférence d'appareil 'caramel-notifs' ('on' | 'later' | 'denied'), même synchronisation
-   périodique 'caramel-daily' (23 h) traitée par sw.js. Textes : « Caramel » au lieu de « La course de Caramel ».
+   périodique 'caramel-daily' (23 h) traitée par sw.js. Textes : « Caramel » au lieu de « La course de Caramel » ;
+   notifications de confirmation impersonnelles (elles partent de l'espace parents, qui vouvoie).
    Aucun accès au navigateur au chargement du module. */
 import { frTypo } from './util.js';
 
@@ -62,6 +63,11 @@ function plainNotification(body) {
   try { new globalThis.Notification(TITLE, { body, icon: ICON }); } catch (_) {}
 }
 
+/* textes de confirmation : ne jamais annoncer un rappel qui ne partira pas. Sans rappel quotidien enregistré, mêmes
+   mots que la ligne d'état de l'espace parents (NO_DAILY) */
+export const DAILY_ON = 'Rappels quotidiens activés ! À demain 🌟';
+export const NO_DAILY = 'Notifications activées. Le rappel quotidien demande d’installer Caramel sur l’écran d’accueil (Chrome Android).';
+
 /* « Activer » → 'unsupported' | 'denied' | 'on' (notifications permises, pas de rappel automatique)
                 | 'daily' (rappel quotidien enregistré) */
 export async function enable() {
@@ -72,25 +78,20 @@ export async function enable() {
     setPref('on');
     let periodic = false;
     const reg = await swReady();
-    if (reg) {
+    if (reg && 'periodicSync' in reg) {
       try {
-        if ('periodicSync' in reg) {
-          try {
-            const st = await globalThis.navigator.permissions.query({ name: 'periodic-background-sync' });
-            if (st.state === 'granted') {
-              await reg.periodicSync.register(SYNC_TAG, { minInterval: MIN_INTERVAL });
-              periodic = true;
-            }
-          } catch (_) {}
+        const st = await globalThis.navigator.permissions.query({ name: 'periodic-background-sync' });
+        if (st.state === 'granted') {
+          await reg.periodicSync.register(SYNC_TAG, { minInterval: MIN_INTERVAL });
+          periodic = true;
         }
-        await reg.showNotification(TITLE, {
-          body: periodic ? frTypo('Rappels quotidiens activés ! À demain 🌟')
-            : frTypo('Notifications activées ! Pour les rappels automatiques : installe Caramel sur ton écran d’accueil (Chrome Android).'),
-          icon: ICON
-        });
-      } catch (_) { plainNotification(frTypo('Notifications activées ! 🌟')); }
+      } catch (_) {}
+    }
+    const body = frTypo(periodic ? DAILY_ON : NO_DAILY);
+    if (reg) {
+      try { await reg.showNotification(TITLE, { body, icon: ICON }); } catch (_) { plainNotification(body); }
     } else {
-      plainNotification(frTypo('Notifications activées ! 🌟'));
+      plainNotification(body);
     }
     return periodic ? 'daily' : 'on';
   } catch (_) { return 'unsupported'; }

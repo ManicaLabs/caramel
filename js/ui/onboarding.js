@@ -1,13 +1,17 @@
 /* ============ ARRIVÉE : nouvel enfant (#/onboarding) et bienvenue après migration (#/welcome) ============
-   Mode 'new' (assistant en 4 étapes animées) :
-     1. prénom + fille / garçon → 2. classe (5 gros boutons : c'est SA classe, elle peut s'afficher ici)
-     → 3. nom du compagnon (poney « Caramel » par défaut, aperçu) → profil créé (defaultProfile +
-     store.addProfile, mémorisé pour la session) → 4. « Tu as ta fiche d'évaluation nationale ? »
-     (un adulte la photographie → #/import?from=onboarding ; plus tard → #/home).
+   Mode 'new' (assistant en 5 étapes animées) :
+     1. prénom + fille / garçon → 2. « Choisis ton univers » : thème visuel présélectionné selon le genre
+     (defaultThemeFor : fille → Caramel, garçon → Dinosaures ; l'enfant peut en choisir n'importe quel
+     autre), aperçu instantané de tout l'écran (previewTheme, jusqu'à la création du profil)
+     → 3. classe (5 gros boutons : c'est SA classe, elle peut s'afficher ici)
+     → 4. nom du compagnon (poney « Caramel » par défaut, aperçu) → profil créé (defaultProfile +
+     settings.theme + store.addProfile, mémorisé pour la session) → 5. « Tu as ta fiche d'évaluation
+     nationale ? » (un adulte la photographie → #/import?from=onboarding ; plus tard → #/home).
    Mode 'welcome' (params.mode === 'welcome' : profil migré de la v11, sans classe) :
      confettis + fanfare, « Bienvenue dans Caramel 2 ! », « Tes X 🍎 et Y ⭐ sont bien là. »
-     (message doux, sans chiffres, si la sauvegarde était illisible), prénom modifiable → classe
-     (setClasse via mutateProfile) → proposition d'import de la fiche ou plus tard → #/home. */
+     (message doux, sans chiffres, si la sauvegarde était illisible), prénom modifiable → univers (thème
+     actuel présélectionné, enregistré au toucher) → classe (setClasse via mutateProfile)
+     → proposition d'import de la fiche ou plus tard → #/home. */
 
 import { h, clear, dayStr, frTypo, loadCSS, fmtNum } from '../core/util.js';
 import * as store from '../core/store.js';
@@ -16,8 +20,10 @@ import * as motion from '../core/motion.js';
 import * as audio from '../core/audio.js';
 import { CLASSES } from '../core/axes.js';
 import { defaultProfile, sanitizeName, setClasse, DEFAULT_MOUNT_NAME } from '../core/profiles.js';
+import { defaultThemeFor, normalizeTheme } from '../core/themes.js';
 import { totalStarsOf } from '../content/stories/index.js';
-import { mountReady, avatarSVG, avatarOf, setAvatar } from './companion.js';
+import { mountReady, avatarSVG, avatarOf, setAvatar, stageOf } from './companion.js';
+import { themeGrid, previewTheme, endPreview, swapTheme, cheerTheme } from './theme-picker.js';
 
 const PICKED_KEY = 'caramel-picked';
 const ssSet = (k, v) => { try { sessionStorage.setItem(k, v); } catch (_) {} };
@@ -47,13 +53,15 @@ export default {
     clear(root);
     root.appendChild(screen);
 
-    const steps = welcome ? ['hello', 'classe', 'fiche'] : ['name', 'classe', 'buddy', 'fiche'];
-    const data = { name: '', g: null, classe: null, buddy: DEFAULT_MOUNT_NAME, createdId: null };
+    const steps = welcome ? ['hello', 'theme', 'classe', 'fiche'] : ['name', 'theme', 'classe', 'buddy', 'fiche'];
+    /* theme : univers choisi ; themePicked : touché par l'enfant (sinon il suit la présélection du genre) */
+    const data = { name: '', g: null, classe: null, buddy: DEFAULT_MOUNT_NAME, createdId: null, theme: null, themePicked: false };
     if (welcome) {
       const p = store.getProfile();
       data.name = p.name || '';
       data.g = p.g;
       data.classe = null;
+      data.theme = normalizeTheme(p.settings && p.settings.theme);
     }
     let cur = -1;
 
@@ -91,10 +99,14 @@ export default {
     }
 
     /* ----- briques ----- */
+    /* poney d'un enfant qui arrive, au stade d'un compagnon NEUF (0 min d'apprentissage : petit) : le même qu'à
+       l'accueil juste après, pas le junior par défaut du dessin */
+    const newPony = size => avatarSVG('pony', [], size, 'joy', { stage: stageOf({ companion: { minutes: 0 } }) });
+    /* petite scène : le compagnon y porte sa propre ombre au sol (rig du compagnon) — pas d'ombre en plus */
     const stage = (html, cls = '') => {
       const pic = h('div', { class: 'ob-pic' });
       setAvatar(pic, html);
-      return h('div', { class: 'ob-stage ob-anim ' + cls, 'aria-hidden': 'true' }, pic, h('span', { class: 'ob-shadow' }));
+      return h('div', { class: 'ob-stage ob-anim ' + cls, 'aria-hidden': 'true' }, pic);
     };
     const title = text => h('h1', { class: 'title-xl ob-title ob-anim', tabindex: '-1' }, frTypo(text));
     const sub = text => h('p', { class: 'subtitle ob-sub ob-anim' }, frTypo(text));
@@ -162,20 +174,42 @@ export default {
           if (!data.g) { motion.shake(segBox); return; }
           data.name = v;
           audio.tap();
-          go(1);
+          go(cur + 1);
         }
         input.addEventListener('input', check);
         input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); if (!next.disabled) submit(); } });
         const segBox = genderSeg(check);
         check();
         return h('div', { class: 'ob-card' },
-          stage(avatarSVG('pony', [], 132, 'joy')),
+          stage(newPony(132)),
           title('Bonjour ! Comment tu t’appelles ?'),
           h('div', { class: 'ob-field ob-anim' }, h('label', { class: 'ob-label', for: 'ob-name' }, 'Ton prénom'), input),
           h('div', { class: 'ob-field ob-anim' }, h('span', { class: 'ob-label' }, 'Tu es…'), segBox),
           next);
       },
-      /* 2 : classe (les deux modes) */
+      /* univers (les deux modes) : présélection, aperçu instantané au toucher */
+      theme() {
+        if (!welcome && !data.themePicked) data.theme = defaultThemeFor(data.g);
+        if (!welcome) previewTheme(data.theme, { animate: false });    /* l'entrée de l'étape suffit comme mouvement */
+        const grid = themeGrid({
+          value: data.theme,
+          label: 'Ton univers',
+          onPick: (id, card) => {
+            data.theme = id;
+            data.themePicked = true;
+            if (welcome) swapTheme(() => store.mutateProfile(p => { p.settings.theme = id; }));
+            else previewTheme(id);
+            cheerTheme(id, card);
+          }
+        });
+        const next = nextBtn('C’est mon univers ! ➜', () => { audio.tap(); go(cur + 1); });
+        return h('div', { class: 'ob-card ob-card--theme' },
+          title('Choisis ton univers'),
+          sub('Touche une carte pour l’essayer. Tu pourras en changer quand tu veux avec le bouton 🎨.'),
+          h('div', { class: 'ob-themes ob-anim' }, grid.el),
+          next);
+      },
+      /* classe (les deux modes) */
       classe() {
         const who = data.name ? ', ' + data.name : '';
         const grid = classGrid(c => {
@@ -183,7 +217,8 @@ export default {
             store.mutateProfile(p => { setClasse(p, c, dayStr()); });
             ssSet(PICKED_KEY, store.getProfile() ? store.getProfile().id : '');
           }
-          later(() => go(2), 380);
+          const at = cur;
+          later(() => { if (cur === at) go(at + 1); }, 380);       /* deux touchers rapides : une seule étape */
         });
         return h('div', { class: 'ob-card' },
           h('div', { class: 'ob-school ob-anim', 'aria-hidden': 'true' }, '🎒'),
@@ -191,21 +226,21 @@ export default {
           sub('C’est ta classe à l’école, cette année.'),
           grid);
       },
-      /* nouvel enfant, 3 : nom du compagnon → le profil est créé */
+      /* nouvel enfant, 4 : nom du compagnon → le profil est créé */
       buddy() {
         const input = nameInput(data.buddy, 'Nom de ton compagnon', 'ob-buddy');
         input.setAttribute('enterkeyhint', 'done');
         const next = nextBtn('C’est mon compagnon ! ➜', submit);
-        const pic = stage(avatarSVG('pony', [], 150, 'joy'), 'is-big');
+        const pic = stage(newPony(150), 'is-big');
         function submit() {
           data.buddy = sanitizeName(input.value, DEFAULT_MOUNT_NAME);
           createOrUpdate();
           audio.neigh();
           motion.confetti({ count: 16 });
-          go(3);
+          go(cur + 1);
         }
         input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
-        pic.addEventListener('click', () => { audio.neigh(); const s = pic.querySelector('.ob-pic'); setAvatar(s, avatarSVG('pony', [], 150, 'joy')); });
+        pic.addEventListener('click', () => { audio.neigh(); const s = pic.querySelector('.ob-pic'); setAvatar(s, newPony(150)); });
         pic.removeAttribute('aria-hidden');
         pic.setAttribute('role', 'img');
         pic.setAttribute('aria-label', 'Ton poney');
@@ -237,7 +272,7 @@ export default {
           data.name = v;
           store.mutateProfile(pp => { pp.name = v; });
           audio.tap();
-          go(1);
+          go(cur + 1);
         }
         input.addEventListener('input', check);
         input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); if (!next.disabled) submit(); } });
@@ -253,19 +288,22 @@ export default {
       }
     };
 
-    /* profil du nouvel enfant : créé à la fin de l'étape 3, mis à jour si l'on revient en arrière */
+    /* profil du nouvel enfant : créé à la fin de l'étape 4 (compagnon), mis à jour si l'on revient en arrière */
     function createOrUpdate() {
       const today = dayStr();
+      const theme = normalizeTheme(data.theme || defaultThemeFor(data.g));
       if (!data.createdId || !store.getProfile(data.createdId)) {
         const p = defaultProfile({ name: data.name, g: data.g || 'f', classe: data.classe, today });
         p.companion.name = data.buddy;
-        data.createdId = store.addProfile(p);        /* devient le profil actif (commit → réglages appliqués) */
+        p.settings.theme = theme;
+        data.createdId = store.addProfile(p);        /* devient le profil actif (commit → réglages et thème appliqués) */
       } else {
         store.mutateProfile(pp => {
           pp.name = sanitizeName(data.name, pp.name);
           pp.g = data.g === 'm' ? 'm' : 'f';
           setClasse(pp, data.classe, today);
           pp.companion.name = data.buddy;
+          pp.settings.theme = theme;
         }, data.createdId);
         store.setActive(data.createdId);
       }
@@ -276,6 +314,7 @@ export default {
   },
 
   unmount() {
+    endPreview();                     /* aperçu d'un thème non enregistré : retour au thème du profil actif */
     const my = st;
     st = null;
     if (!my) return;

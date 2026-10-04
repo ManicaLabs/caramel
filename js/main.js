@@ -1,6 +1,7 @@
 /* ============ DÉMARRAGE DE L'APPLI ============
    1. store.init() (migration v1/v11 → v3) ;
    2. réglages du profil actif : son (audio.setMuted), mouvement (motion.setMode + html.motion-soft),
+      thème visuel (js/ui/theme-picker.js : html[data-theme] + <meta name="theme-color">),
       ré-appliqués à chaque changement du store ;
    3. service worker + bandeau « Nouvelle version » (rechargement UNIQUEMENT après un geste) ;
    4. déverrouillage du son au premier geste ;
@@ -22,24 +23,31 @@ const ROUTES = {
   'play/:id': () => import('./ui/game-shell.js'),
   'progres': () => import('./ui/progres.js'),
   'parents': () => import('./ui/parents.js'),
-  'import': () => import('./ui/import-eval.js')
+  'import': () => import('./ui/import-eval.js'),
+  'famille': () => import('./ui/famille.js'),                  /* En famille : classements de la semaine, concours */
+  'famille/:part': () => import('./ui/famille.js'),            /* #/famille/concours : spectacle du concours */
+  'battle': () => import('./ui/battle.js')                     /* défi en famille, à tour de rôle sur un appareil */
 };
 
 const load = path => import(path).catch(e => { console.error('Module indisponible : ' + path, e); return null; });
 
 /* ---------- réglages du profil actif ---------- */
 let applied = '';
-function applySettings(store, audio, motion) {
+function applySettings(store, audio, motion, themes) {
   let s = {};
   try { const p = store && store.getProfile(); s = (p && p.settings) || {}; } catch (_) {}
   const sound = s.sound !== false;
   const mode = s.motion === 'soft' ? 'soft' : 'full';
-  const sig = sound + '|' + mode;
+  const theme = typeof s.theme === 'string' ? s.theme : '';      /* aucun profil → thème par défaut (Caramel) */
+  const sig = sound + '|' + mode + '|' + theme;
   if (sig === applied) return;
   applied = sig;
   try { if (audio && audio.setMuted) audio.setMuted(!sound); } catch (e) { console.error(e); }
   try { if (motion && motion.setMode) motion.setMode(mode); } catch (e) { console.error(e); }
   document.documentElement.classList.toggle('motion-soft', mode === 'soft');
+  /* cache lu par index.html avant le premier affichage (écran d'attente immobile en « animations douces ») */
+  try { globalThis.localStorage.setItem('caramel-motion', mode); } catch (_) {}
+  try { if (themes && themes.applyTheme) themes.applyTheme(theme); } catch (e) { console.error(e); }
 }
 
 /* ---------- son : déverrouillage au premier geste ----------
@@ -80,7 +88,7 @@ let bar = null;
 
 function renderBar() {
   const route = router.current();
-  const show = !!pendingUpdate && !(route && route.name === 'play');   /* jamais pendant un jeu */
+  const show = !!pendingUpdate && !(route && (route.name === 'play' || route.name === 'battle'));   /* jamais pendant un jeu ni un défi */
   if (!show) { if (bar) bar.hidden = true; return; }
   if (!bar) {
     bar = document.createElement('button');
@@ -147,14 +155,14 @@ function registerSW() {
 
 /* ---------- démarrage ---------- */
 async function boot() {
-  const [store, audio, motion, tts] = await Promise.all([
-    load('./core/store.js'), load('./core/audio.js'), load('./core/motion.js'), load('./core/tts.js')
+  const [store, audio, motion, tts, themes] = await Promise.all([
+    load('./core/store.js'), load('./core/audio.js'), load('./core/motion.js'), load('./core/tts.js'), load('./ui/theme-picker.js')
   ]);
   if (store) {
     try { store.init(); } catch (e) { console.error('store.init', e); }
   }
-  applySettings(store, audio, motion);
-  try { if (store && store.subscribe) store.subscribe(() => applySettings(store, audio, motion)); } catch (_) {}
+  applySettings(store, audio, motion, themes);
+  try { if (store && store.subscribe) store.subscribe(() => applySettings(store, audio, motion, themes)); } catch (_) {}
   unlockOnGesture(audio, tts);
   registerSW();
   router.onChange(renderBar);

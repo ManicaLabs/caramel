@@ -19,7 +19,6 @@
    ctx.settings.subMethod → ctx.nextItem(undefined, { subMethod }). */
 
 import { h, svg, clear } from '../core/util.js';
-import { mountSVG } from '../ui/mount-svg.js';
 import * as L from './operations-logic.js';
 
 let inst = null;
@@ -146,15 +145,10 @@ function createAtelier(root, ctx) {
     for (const c of clones) c.remove();
     clones.clear();
   }
-  function companion() {
-    const p = ctx.profile || {};
-    const c = p.companion || {};
-    return { type: c.type || 'pony', worn: (c.equip && c.equip.worn) || [] };
-  }
+  /* compagnon du profil (ctx.petSVG : espèce, accessoires portés, stade) */
   function drawAva(mood) {
-    const c = companion();
     const big = (globalThis.innerWidth || 390) >= 900 && (globalThis.innerHeight || 800) >= 560;
-    safe(() => { ava.innerHTML = mountSVG(c.type, c.worn, big ? 84 : 60, mood || ''); });
+    safe(() => { ava.innerHTML = ctx.petSVG(big ? 84 : 60, mood || ''); });
   }
 
   /* entrée animée d'un élément (case qui apparaît) : petit pop, ou fondu en mouvement réduit */

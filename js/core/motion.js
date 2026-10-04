@@ -8,7 +8,9 @@
    Les Promise se résolvent toujours (jamais de rejet, sauf viewTransition si fn échoue),
    avec un filet de sécurité si l'onglet passe en arrière-plan (rAF suspendu).
    Les transformations utilisent les propriétés individuelles scale/translate quand elles existent :
-   elles se composent avec le transform CSS de l'élément (toast centré, etc.) au lieu de l'écraser. */
+   elles se composent avec le transform CSS de l'élément (toast centré, etc.) au lieu de l'écraser.
+   Thème visuel : setTheme({ confetti }) règle les emojis par défaut de confetti() ; les couleurs des
+   particules (burst, sparkle) sont relues dans les jetons CSS du thème courant. */
 
 import { fmtNum } from './util.js';
 
@@ -295,10 +297,19 @@ function control(p0, p2, k, side, W, H) {
 const FX = { cv: null, g: null, parts: [], raf: 0, last: 0, w: 0, h: 0, dpr: 1 };
 const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
 const PAL = {
-  burst: [['--amber-400', '#fbbf24'], ['--pink-400', '#f472b6'], ['--violet', '#c084fc'], ['--sky', '#7dd3fc'], ['--grass', '#4ade80'], ['--amber-300', '#fcd34d']],
+  burst: [['--amber-400', '#fbbf24'], ['--pink-400', '#f472b6'], ['--accent', '#c084fc'], ['--sky', '#7dd3fc'], ['--grass', '#4ade80'], ['--amber-300', '#fcd34d']],
   spark: [['--amber-400', '#fbbf24'], ['--amber-300', '#fcd34d'], ['--pink-400', '#f472b6'], ['--amber-500', '#f59e0b']]
 };
 const palCache = {};
+/* thème visuel (js/ui/theme-picker.js) : emojis des confettis par défaut ; les couleurs des particules
+   suivent d'elles-mêmes les jetons du thème (le cache est vidé à chaque changement) */
+const CONFETTI = ['🎉', '⭐', '✨', '💛', '🌸'];
+let themeConfetti = null;
+export function setTheme({ confetti: list } = {}) {
+  themeConfetti = Array.isArray(list) && list.length ? list.filter(e => typeof e === 'string' && e).slice(0, 12) : null;
+  if (themeConfetti && !themeConfetti.length) themeConfetti = null;
+  for (const k of Object.keys(palCache)) delete palCache[k];
+}
 /* couleurs lues dans les jetons de base.css (repli sur les mêmes valeurs) */
 function palette(name) {
   if (palCache[name]) return palCache[name];
@@ -472,9 +483,11 @@ export function sparkle(el, { count = 7, colors, dur = 750, delay = 0 } = {}) {
   return fxAdd(parts, delay + dur + 200);
 }
 
-/* pluie d'emojis façon v11 (#confetti) : chute en 2,6 s environ avec rotation et léger balancement */
-export function confetti({ count = 22, emojis = ['🎉', '⭐', '✨', '💛', '🌸'], dur = 2600 } = {}) {
+/* pluie d'emojis façon v11 (#confetti) : chute en 2,6 s environ avec rotation et léger balancement ;
+   emojis par défaut = ceux du thème visuel (setTheme), sinon 🎉 ⭐ ✨ 💛 🌸 */
+export function confetti({ count = 22, emojis, dur = 2600 } = {}) {
   const d = doc();
+  if (!(Array.isArray(emojis) && emojis.length)) emojis = themeConfetti || CONFETTI;
   if (reduced() || !d || !d.body) return Promise.resolve();
   return new Promise(resolve => {
     try {

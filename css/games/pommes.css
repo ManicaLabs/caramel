@@ -3,6 +3,8 @@
    (jetons --ok / --grass mélangés), tronc et panier cernés de brun chaud #4a2c1a (JEUX.md §0), pommes roses
    (--pink-400), dorées (--amber-400) ou corail (mélange --pink-400 / --orange-300) — jamais de rouge vif.
    Pomme-carte : intérieur clair (blanc → rose / ambre / orange très pâles) pour un calcul bien contrasté.
+   Le verger (arbre, pommes, panier, pomme-carte) prend la palette FIXE --n-* : il ne change pas avec le thème
+   visuel ; le cadre, la jauge du sprint, les bulles, le pavé et les choix suivent le thème.
    Mobile d'abord (390 × 844) : scène en haut, bulle d'aide, pavé à portée de pouce, rien ne défile ;
    grand écran : scène à gauche, bulle et pavé à droite. Mouvement réduit / animations douces : décor immobile. */
 
@@ -13,11 +15,11 @@
   --pm-outline: #4a2c1a;
   --pm-sky-1: #bae6fd; --pm-sky-2: #e0f2fe;
   --pm-grass-1: #86efac; --pm-grass-2: #4ade80;
-  --pm-leaf-back: color-mix(in srgb, var(--ok) 74%, var(--ink));
+  --pm-leaf-back: color-mix(in srgb, var(--ok) 74%, var(--n-ink));
   --pm-leaf: color-mix(in srgb, var(--ok) 48%, var(--grass));
   --pm-leaf-hi: var(--pm-grass-1);
-  --pm-bark: var(--ink-4); --pm-bark-dark: var(--ink-3);
-  --pm-wicker: var(--amber-300); --pm-wicker-dark: var(--title); --pm-basket-in: var(--amber-900);
+  --pm-bark: var(--n-ink-4); --pm-bark-dark: var(--n-ink-3);
+  --pm-wicker: var(--n-amber-300); --pm-wicker-dark: var(--n-title); --pm-basket-in: var(--n-amber-900);
   flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--pm-gap);
 }
 
@@ -25,7 +27,7 @@
 .pm-scene {
   position: relative; flex: 1 1 auto; min-height: 190px; overflow: hidden; isolation: isolate;
   border-radius: var(--r-l); border: 3px solid var(--pink-200); box-shadow: var(--shadow-1);
-  background: linear-gradient(180deg, var(--pm-sky-1) 0%, var(--pm-sky-2) 62%, var(--bg-2) 100%);
+  background: linear-gradient(180deg, var(--pm-sky-1) 0%, var(--pm-sky-2) 62%, var(--n-bg-2) 100%);
   -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
 }
 .pm-bg { position: absolute; left: 0; top: 0; overflow: hidden; }
@@ -38,13 +40,12 @@
 .pm-bark { fill: none; stroke: var(--pm-bark-dark); stroke-width: 2; stroke-linecap: round; opacity: .55; }
 .pm-tuft { fill: none; stroke: var(--ok); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; opacity: .42; }
 .pm-petal { fill: var(--card); }
-.pm-flower:nth-of-type(2n) .pm-petal { fill: var(--pink-200); }
-.pm-heart { fill: var(--amber-400); }
-.pm-shadow { fill: var(--pm-outline); opacity: .13; }
+.pm-flower:nth-of-type(2n) .pm-petal { fill: var(--n-pink-200); }
+.pm-heart { fill: var(--n-amber-400); }
 .pm-leaf-back { fill: var(--pm-leaf-back); }
 .pm-leaf-front { fill: var(--pm-leaf); }
 .pm-leaf-hi { fill: var(--pm-leaf-hi); opacity: .5; }
-.pm-a-twig { fill: none; stroke: var(--ink-3); stroke-width: 1.6; stroke-linecap: round; }
+.pm-a-twig { fill: none; stroke: var(--n-ink-3); stroke-width: 1.6; stroke-linecap: round; }
 .pm-twigs { position: absolute; inset: 0; pointer-events: none; }
 .pm-twig { position: absolute; display: block; transform-origin: 50% 2%; animation: pm-sway 3.3s ease-in-out infinite alternate; will-change: transform; }
 .pm-twig svg { display: block; overflow: visible; }
@@ -54,19 +55,19 @@
 /* ---------- petites pommes (décor, panier, pomme qui s'envole : classes globales, hors de .pm) ---------- */
 .pm-fly { display: block; overflow: visible; }
 .pm-a .pm-a-body { stroke: #4a2c1a; stroke-width: 1.2; stroke-linejoin: round; }
-.pm-a.tone-rose .pm-a-body { fill: var(--pink-400); }
-.pm-a.tone-doree .pm-a-body { fill: var(--amber-400); }
-.pm-a.tone-corail .pm-a-body { fill: color-mix(in srgb, var(--pink-400) 55%, var(--orange-300)); }
+.pm-a.tone-rose .pm-a-body { fill: var(--n-pink-400); }
+.pm-a.tone-doree .pm-a-body { fill: var(--n-amber-400); }
+.pm-a.tone-corail .pm-a-body { fill: color-mix(in srgb, var(--n-pink-400) 55%, var(--orange-300)); }
 .pm-a .pm-a-shine { fill: #fff; opacity: .72; }
-.pm-a .pm-a-stem { fill: none; stroke: var(--ink-2); stroke-width: 1.8; stroke-linecap: round; }
+.pm-a .pm-a-stem { fill: none; stroke: var(--n-ink-2); stroke-width: 1.8; stroke-linecap: round; }
 .pm-a .pm-a-leaf { fill: var(--grass); stroke: #4a2c1a; stroke-width: .9; stroke-linejoin: round; }
 
 /* ---------- pomme-carte ---------- */
 .pm-slot { position: absolute; z-index: 2; }
 .pm-card { position: absolute; inset: 0; transform-origin: 50% 0; }
-.pm-card.tone-rose { --pm-rim: var(--pink-400); --pm-s2: var(--pink-50); --pm-s3: var(--pink-100); }
-.pm-card.tone-doree { --pm-rim: var(--amber-400); --pm-s2: #fffbeb; --pm-s3: var(--amber-100); }
-.pm-card.tone-corail { --pm-rim: color-mix(in srgb, var(--pink-400) 55%, var(--orange-300)); --pm-s2: var(--orange-50); --pm-s3: color-mix(in srgb, var(--orange-50) 45%, var(--soft-bg)); }
+.pm-card.tone-rose { --pm-rim: var(--n-pink-400); --pm-s2: var(--n-pink-50); --pm-s3: var(--n-pink-100); }
+.pm-card.tone-doree { --pm-rim: var(--n-amber-400); --pm-s2: var(--n-amber-50); --pm-s3: var(--n-amber-100); }
+.pm-card.tone-corail { --pm-rim: color-mix(in srgb, var(--n-pink-400) 55%, var(--orange-300)); --pm-s2: var(--orange-50); --pm-s3: color-mix(in srgb, var(--orange-50) 45%, var(--soft-bg)); }
 .pm-card-svg { position: absolute; left: 0; top: 0; overflow: visible; filter: drop-shadow(0 6px 8px rgba(180, 83, 9, .16)); }
 .pc-s1 { stop-color: #fff; }
 .pc-s2 { stop-color: var(--pm-s2); }
@@ -76,7 +77,7 @@
 .pc-rim { fill: none; stroke: var(--pm-rim); stroke-width: 6; stroke-linejoin: round; }
 .pc-gloss { fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 0 16 40 9 4 100; opacity: .9; }
 .pc-stem-out { fill: none; stroke: var(--pm-outline); stroke-linecap: round; }
-.pc-stem { fill: none; stroke: var(--ink-2); stroke-linecap: round; }
+.pc-stem { fill: none; stroke: var(--n-ink-2); stroke-linecap: round; }
 .pc-leaf { fill: var(--pm-leaf); stroke: var(--pm-outline); stroke-width: 2; stroke-linejoin: round; }
 .pc-vein { fill: none; stroke: var(--pm-outline); stroke-width: 1.2; stroke-linecap: round; opacity: .35; }
 
@@ -102,7 +103,7 @@
 }
 .pm .pm-hole.answer:not(.right):not(.wrong) { background: #fff; }
 .pm .pm-hole.answer.empty::after { content: '?'; color: var(--ink-5); }
-.pm .pm-hole.pm-revealed { border-style: dashed; border-color: var(--ok); color: var(--ok-ink); background: #f0fdf4; }
+.pm .pm-hole.pm-revealed { border-style: dashed; border-color: var(--ok); color: var(--ok-ink); background: var(--ok-50); }
 .pm-hole-val, .pm .kit-answer-val { white-space: nowrap; }
 
 /* ---------- compagnon ---------- */
@@ -118,7 +119,7 @@
 .pb-handle { fill: none; stroke: var(--pm-wicker-dark); stroke-width: 5; stroke-linecap: round; }
 .pb-inside { fill: var(--pm-basket-in); stroke: var(--pm-outline); stroke-width: 2; }
 .pb-body { fill: var(--pm-wicker); stroke: var(--pm-outline); stroke-width: 2.2; stroke-linejoin: round; }
-.pb-weave { fill: none; stroke: var(--amber-500); stroke-width: 2.2; stroke-linecap: round; opacity: .8; }
+.pb-weave { fill: none; stroke: var(--n-amber-500); stroke-width: 2.2; stroke-linecap: round; opacity: .8; }
 .pb-weave.v { stroke-width: 1.6; opacity: .45; }
 .pb-rim-out { fill: none; stroke: var(--pm-outline); stroke-width: 10; stroke-linecap: round; }
 .pb-rim { fill: none; stroke: var(--pm-wicker-dark); stroke-width: 6.5; stroke-linecap: round; }
@@ -129,7 +130,7 @@
   position: absolute; left: 50%; top: 70%; transform: translate(-50%, -50%);
   min-width: 1.85em; height: 1.85em; padding: 0 .4em; border-radius: var(--r-pill);
   display: grid; place-items: center; font-weight: 700; font-size: 1.05rem; line-height: 1;
-  color: var(--ink); background: var(--bg-2); border: 2px solid var(--pm-outline);
+  color: var(--n-ink); background: var(--n-bg-2); border: 2px solid var(--pm-outline);
   box-shadow: 0 2px 0 rgba(74, 44, 26, .25); font-variant-numeric: tabular-nums;
 }
 
@@ -145,7 +146,7 @@
 .pm-sprint-bar { flex: 1; height: 12px; border-radius: 8px; background: var(--pink-50); border: 2px solid var(--pink-200); overflow: hidden; }
 .pm-sprint-fill { height: 100%; border-radius: 6px; background: var(--amber-400); transform-origin: left center; }
 .pm-sprint-txt { flex: 1; text-align: center; font-weight: 700; font-size: .98rem; color: var(--title); white-space: nowrap; }
-.pm-sprint.is-over { background: #fffbeb; border-color: var(--amber-300); }
+.pm-sprint.is-over { background: var(--amber-50); border-color: var(--amber-300); }
 
 /* ---------- bulle d'aide (grandit vers le haut si l'astuce est longue) ---------- */
 .pm-help { flex: none; position: relative; z-index: 4; height: var(--pm-help-h); }
@@ -175,12 +176,12 @@
 .pm-modes { height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 14px; max-width: 470px; margin: 0 auto; }
 .pm-mode {
   display: flex; align-items: center; gap: 14px; width: 100%; min-height: 96px; padding: 14px 18px;
-  border-radius: var(--r-l); border: 3px solid var(--pink-200); background: #fff; box-shadow: var(--shadow-1);
+  border-radius: var(--r-l); border: 3px solid var(--pink-200); background: var(--card); box-shadow: var(--shadow-1);
   text-align: left; color: var(--ink); transition: transform var(--dur-1) var(--ease-out), box-shadow var(--dur-1);
 }
 .pm-mode:active { transform: scale(.97); }
-.pm-mode.is-calm { border-color: var(--amber-300); background: linear-gradient(160deg, #fffbeb 0%, #fff 72%); }
-.pm-mode.is-sprint { background: linear-gradient(160deg, var(--pink-50) 0%, #fff 72%); }
+.pm-mode.is-calm { border-color: var(--amber-300); background: linear-gradient(160deg, var(--amber-50) 0%, var(--card) 72%); }
+.pm-mode.is-sprint { background: linear-gradient(160deg, var(--pink-50) 0%, var(--card) 72%); }
 .pm-mode-ico { flex: none; width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center; font-size: 2rem; line-height: 1; background: var(--amber-100); }
 .pm-mode.is-sprint .pm-mode-ico { background: var(--pink-100); }
 .pm-mode-txt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }

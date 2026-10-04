@@ -25,7 +25,6 @@ import { MOUNTS } from '../content/companion-data.js';
 import {
   STORIES, WORLDS, OOV, storyById, storyIndex, storiesOf, isUnlocked, totalStarsOf, classBonus, itemFor
 } from '../content/stories/index.js';
-import { mountSVG } from '../ui/mount-svg.js';
 import * as E from './course-engine.js';
 
 const NNBSP = '\u202f';                                    /* espace fine insécable */
@@ -34,6 +33,14 @@ const WIDE = '(min-width: 900px)';                         /* grand écran (tail
 /* monde où commencer la carte (affichage seulement ; même correspondance que classBonus) */
 const CLASS_WORLD = { CP: 'galops', CE1: 'galops', CE2: 'trot', CM1: 'emerite', CM2: 'legende' };
 const SENTENCE_END = /[.!?…»]$/;
+/* bonds et trébuchement du compagnon (keyframes cr-hop / cr-hopbig / cr-stumble de la v11, mêmes hauteurs en px et
+   durées) appliqués au CORPS du rig : u = unités du viewBox par px ; lift = moment où le corps est le plus haut
+   (l'ombre est alors la plus petite) */
+const PONY_FX = {
+  hop: { ms: 300, lift: 0.5, body: u => [{ transform: 'translateY(0px)' }, { transform: `translateY(${(-16 * u).toFixed(2)}px)`, offset: 0.5 }, { transform: 'translateY(0px)' }] },
+  'hop-big': { ms: 500, lift: 0.45, body: u => [{ transform: 'translateY(0px) rotate(0deg)' }, { transform: `translateY(${(-38 * u).toFixed(2)}px) rotate(-8deg)`, offset: 0.45 }, { transform: 'translateY(0px) rotate(0deg)' }] },
+  stumble: { ms: 500, lift: 0, body: u => [{ transform: 'rotate(0deg) translateY(0px)' }, { transform: `rotate(-16deg) translateY(${(4 * u).toFixed(2)}px)`, offset: 0.25 }, { transform: 'rotate(12deg) translateY(0px)', offset: 0.6 }, { transform: 'rotate(0deg) translateY(0px)' }] }
+};
 
 /* libellés du micro (v11 ; points de suspension typographiques) */
 const TXT = {
@@ -122,7 +129,6 @@ function createCourse(root, ctx) {
     endRace();
     const v = setView('list');
     const p = prof();
-    const m = mountOf(p);
     ctx.setTitle(fill('La course de {N}'));
     ctx.onJoker(() => { ctx.kit.toast(frTypo('Choisis d’abord une histoire 📚')); return false; });
 
@@ -131,7 +137,7 @@ function createCourse(root, ctx) {
     const adaptive = !!(p && Array.isArray(p.mclm) && p.mclm.length);
 
     const intro = h('div', { class: 'cr-intro' },
-      h('span', { class: 'cr-intro-mount', 'aria-hidden': 'true', html: mountSVG(m.type, m.worn, wide() ? 84 : 66, '') }),
+      h('span', { class: 'cr-intro-mount', 'aria-hidden': 'true', html: ctx.petSVG(wide() ? 84 : 66, '') }),
       h('div', { class: 'cr-intro-txt' },
         h('p', { class: 'cr-intro-title' }, frTypo('Lis une histoire à voix haute et bats Zip le papillon 🦋 !')),
         h('div', { class: 'cr-chips' },
@@ -331,7 +337,7 @@ function createCourse(root, ctx) {
     }
     const fly = h('span', { class: 'cr-fly' }, '🦋');
     const spark = h('span', { class: 'cr-spark' }, '✨');
-    const pony = h('span', { class: 'cr-pony', html: mountSVG(r.m.type, r.m.worn, r.size, '') });
+    const pony = h('span', { class: 'cr-pony', html: ctx.petSVG(r.size, '') });
     const finish = h('span', { class: 'cr-finish' }, '🏁');
     track.append(fly, spark, pony, finish);
     Object.assign(r.els, { fly, spark, pony, finish });
@@ -369,13 +375,44 @@ function createCourse(root, ctx) {
       if (w.className !== cls) w.className = cls;
     }
   }
-  /* animation du compagnon : on retire, on force un reflow, on remet (v11) */
+  /* v2.1 : le compagnon TROTTE quand il avance (classe walk du rig : pattes, tête, queue) au lieu de glisser ;
+     il s'arrête si l'enfant marque une pause (900 ms sans nouveau mot) ; à l'arrivée, son SVG est remplacé (joie) */
+  function trot(r) {
+    const s = r.els.pony && r.els.pony.querySelector('svg');
+    if (!s) return;
+    s.classList.add('walk');
+    r.trot = drop(r.trot);
+    r.trot = later(() => {
+      r.trot = 0;
+      const s2 = r.els.pony && r.els.pony.querySelector('svg');
+      if (s2) s2.classList.remove('walk');
+    }, 900);
+  }
+  /* animation du compagnon : on retire, on force un reflow, on remet (v11) ; v2.1 : la classe reste un repère, c'est le
+     CORPS du rig (.c-all) qui bondit ou trébuche (mêmes hauteurs et durées que la v11, converties en unités du viewBox :
+     100 unités = largeur du compagnon), en composition « add » sur le trot ; son ombre reste au sol (elle rétrécit
+     pendant un bond) et la vague du dauphin dans l'eau */
   function ponyAnim(r, cls) {
     const pony = r.els.pony;
     if (!pony) return;
     pony.classList.remove('hop', 'hop-big', 'stumble');
     void pony.offsetWidth;
     pony.classList.add(cls);
+    if (reduced()) return;
+    const s = pony.querySelector('svg.c-rig'), body = s && s.querySelector('.c-all'), fx = PONY_FX[cls];
+    if (!body || !fx) return;
+    for (const a of r.ponyFx || []) { try { a.cancel(); } catch (_) {} }
+    const u = 100 / (r.size || 100);
+    const ease = k => k.map(f => Object.assign({ easing: 'ease' }, f));
+    r.ponyFx = [];
+    try { r.ponyFx.push(body.animate(ease(fx.body(u)), { duration: fx.ms, composite: 'add' })); } catch (_) {}
+    const sh = fx.lift && s.getAttribute('data-species') !== 'dolphin' ? s.querySelector('.c-shadow') : null;
+    if (sh) {
+      try {
+        r.ponyFx.push(sh.animate(ease([{ transform: 'scale(1)', opacity: 1 }, { transform: 'scale(.7)', opacity: 0.6, offset: fx.lift },
+          { transform: 'scale(1)', opacity: 1 }]), { duration: fx.ms }));
+      } catch (_) {}
+    }
   }
 
   /* ---------- démarrage de la lecture (micTap v11) ---------- */
@@ -447,7 +484,7 @@ function createCourse(root, ctx) {
           r.els.streak.textContent = frTypo('🔥 série : ' + f.n);
           r.els.spark.style.display = f.n >= 5 ? 'block' : 'none';
           break;
-        case 'move': moveActor(r, 'pony', f.pct); break;
+        case 'move': moveActor(r, 'pony', f.pct); trot(r); break;
         case 'pony': ponyAnim(r, f.cls); break;
         case 'beep': ctx.audio.beep(f.f, f.d, f.g); break;
         case 'scroll': scrollToCurrent(r); break;
@@ -544,7 +581,8 @@ function createCourse(root, ctx) {
     r.els.done.hidden = true;
     setLabel(r, frTypo('🏁 Arrivée !'));
     r.els.heard.textContent = '';
-    r.els.pony.innerHTML = mountSVG(r.m.type, r.m.worn, r.size, 'joy');
+    r.trot = drop(r.trot);
+    r.els.pony.innerHTML = ctx.petSVG(r.size, 'joy');
     const ribbon = h('div', { class: 'cr-arrival' }, h('span', null, frTypo('Arrivée !')));
     r.els.track.appendChild(ribbon);
     r.view.classList.add('is-done');
@@ -561,7 +599,6 @@ function createCourse(root, ctx) {
     const ok = q && Array.isArray(q.choices) && q.choices.length >= 2 && Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.choices.length;
     if (!ok) { showResults(r); return; }
     const v = setView('quiz');
-    const m = r.m;
     const item = { axis: 'fr.comp_ecrit', kind: 'question', key: 'fr.comp_ecrit:' + r.s.id, A: r.s.lvl, leitner: false,
       prompt: fill(q.q), answer: q.answer };
     const Q = r.quiz = { item, tries: 0, hinted: false, hintShown: false, reported: false, fb: null, t0: nowMs() };
@@ -578,7 +615,7 @@ function createCourse(root, ctx) {
     const buddy = h('div', { class: 'cr-q-buddy', 'aria-hidden': 'true' },
       h('div', { class: 'cr-q-buddy-in' },
         h('span', { class: 'cr-q-think' }, '💭'),
-        h('span', { class: 'cr-q-pet', html: mountSVG(m.type, m.worn, wide() ? 130 : 112, '') })));
+        h('span', { class: 'cr-q-pet', html: ctx.petSVG(wide() ? 130 : 112, '') })));
     const help = h('div', { class: 'cr-help' });
     const grid = ctx.kit.choiceGrid(order.map((i, k) => ({ label: labels[k], value: i })), {
       read: true, cols, onPick: (val, btn) => pick(val, btn)
@@ -788,7 +825,7 @@ function createCourse(root, ctx) {
       : frTypo('💯 Tu as lu tous les mots !');
 
     const boxEl = h('div', { class: 'cr-res-box', tabindex: '-1', role: 'group', 'aria-label': 'Résultats de la course' },
-      h('div', { class: 'cr-res-mount', 'aria-hidden': 'true', html: mountSVG(m.type, m.worn, wide() ? 120 : 84, 'joy') }),
+      h('div', { class: 'cr-res-mount', 'aria-hidden': 'true', html: ctx.petSVG(wide() ? 120 : 84, 'joy') }),
       starsEl,
       h('p', { class: 'cr-res-msg' }, msg),
       h('p', { class: 'cr-res-race' }, raceTxt),

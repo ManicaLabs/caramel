@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#fff1f5">
+<title>Caramel 2 · Banc d’essai de la détection du radar</title>
+<base href="../../">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="stylesheet" href="css/base.css">
+<style>
+  /* ---------- banc d'essai uniquement ---------- */
+  .rb { max-width: 1100px; margin: 0 auto; padding: calc(10px + var(--safe-t)) 14px calc(40px + var(--safe-b)); display: grid; gap: 14px; }
+  .rb-head { display: flex; align-items: center; gap: 12px; }
+  .rb-logo { width: 52px; height: 52px; flex: none; display: grid; place-items: center; font-size: 1.7rem; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff 0%, var(--amber-100) 75%); border: 3px solid var(--amber-200); }
+  .rb-head .title { font-size: 1.35rem; }
+  .rb-head .subtitle { font-size: .92rem; }
+  .rb-panel { display: grid; gap: 10px; }
+  .rb-row { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+  .rb-row label { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--ink-2); font-size: .92rem; }
+  .rb-row select, .rb-row input[type=number] { min-height: 44px; padding: 6px 10px; border-radius: var(--r-s); border: 2px solid var(--pink-200); background: #fff; font-size: 16px; }
+  .rb-row input[type=number] { width: 96px; }
+  .rb-row input[type=range] { width: 120px; }
+  .rb-views { display: grid; gap: 14px; }
+  @media (min-width: 900px) { .rb-views { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+  .rb-view { position: relative; background: repeating-conic-gradient(var(--pink-50) 0 25%, #fff 0 50%) 0 0 / 22px 22px;
+    border: 3px solid var(--pink-200); border-radius: var(--r-m); overflow: hidden; min-height: 200px; }
+  .rb-view canvas { display: block; width: 100%; height: auto; }
+  .rb-cap { font-size: .82rem; color: var(--ink-3); padding: 4px 8px; }
+  .rb-out { font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; background: #fff; border: 2px solid var(--amber-200);
+    border-radius: var(--r-m); padding: 10px 12px; max-height: 60vh; overflow: auto; color: var(--ink); }
+  .rb-ok { color: var(--ok-ink); font-weight: 700; } .rb-ko { color: var(--soft-ink); font-weight: 700; }
+  .rb-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  .rb-table th, .rb-table td { padding: 5px 6px; border-bottom: 1px solid var(--pink-100); text-align: left; }
+  .rb-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .rb-bad { background: var(--orange-50); }
+</style>
+</head>
+<body>
+<!-- Banc d'essai de js/ui/radar-detect.js.
+     1. Génère des FICHES SYNTHÉTIQUES au style des fiches Repères 2026 (maquettes DEPP), vérité terrain connue ;
+     2. « Photo simulée » : rotation, échelle, perspective (maillage), éclairage inégal, ombre, flou, bruit, JPEG ;
+     3. Analyse (fiche générée ou photo choisie) : superposition du résultat (cercles, axes, sommets lus) et écarts.
+     Pilotage automatisé : window.radarBench = { ready, render(spec) → { url, truth }, photo(url, truth, opts) → { url, truth },
+       detectURL(url, opts) → résultat, run(n, seed) → bilan } -->
+<div class="rb">
+  <div class="rb-head">
+    <div class="rb-logo" aria-hidden="true">🔍</div>
+    <div>
+      <h1 class="title">Détection du radar</h1>
+      <p class="subtitle">Fiches synthétiques au style Repères, photos simulées et analyse.</p>
+    </div>
+  </div>
+  <div class="card rb-panel">
+    <div class="rb-row">
+      <label>Classe <select id="classe"><option>CP</option><option>CE1</option><option>CE2</option><option>CM1</option><option selected>CM2</option></select></label>
+      <label>Matière <select id="subject"><option value="fr">Français</option><option value="ma">Maths</option></select></label>
+      <label>Graine <input id="seed" type="number" value="1" min="1"></label>
+      <label>Style <select id="style"><option value="pdf">PDF</option><option value="print">Imprimé</option><option value="faded">Délavé</option><option value="mix" selected>Au hasard</option></select></label>
+      <button type="button" class="btn small" id="gen">Nouvelle fiche</button>
+    </div>
+    <div class="rb-row">
+      <label>Rotation <input id="rot" type="range" min="-25" max="25" value="6"></label>
+      <label>Largeur du radar <input id="scale" type="range" min="25" max="95" value="60"></label>
+      <label>Biais <input id="persp" type="range" min="0" max="10" value="4"></label>
+      <label>Lumière <input id="light" type="range" min="0" max="10" value="5"></label>
+      <label>Flou <input id="blur" type="range" min="0" max="10" value="3"></label>
+      <button type="button" class="btn white small" id="sim">Photo simulée</button>
+      <button type="button" class="btn small" id="detect">Analyser</button>
+      <button type="button" class="btn white small" id="pick">Analyser une photo…</button>
+      <input id="file" type="file" accept="image/*" hidden>
+    </div>
+  </div>
+  <div class="rb-views">
+    <div><div class="rb-view"><canvas id="src" width="10" height="10"></canvas></div><p class="rb-cap" id="srcCap">Image analysée</p></div>
+    <div><div class="rb-view"><canvas id="rect" width="10" height="10"></canvas></div><p class="rb-cap">Radar redressé et lecture (pastille verte : sûr ; orange : à vérifier ; croix grise : vérité)</p></div>
+  </div>
+  <div class="rb-out" id="out">Prêt.</div>
+</div>
+
+<script type="module">
+import { CLASSES, ficheTemplate } from './js/core/axes.js';
+import { makeRng } from './js/core/rng.js';
+import { detectRadar, rectify, projectPoint, RINGS } from './js/ui/radar-detect.js';
+
+const $ = id => document.getElementById(id);
+const TAU = Math.PI * 2, RAD = Math.PI / 180;
+
+/* ============ COULEURS (relevées sur les maquettes 2026) ============ */
+const PAL = {
+  fr: { fills: ['#a9dee2', '#b9dee6', '#86d1d6', '#9fd6dc'], z1: '#d7ecef', z2: '#def0f2', z3: '#e9f4f6', halo: '#f4f9fa',
+        arc: '#a7dce0', pict: '#b7dfe2', outline: '#4b5e6b', ray: '#8f9aa3', ring: '#6c7b86', light: '#d5edef' },
+  ma: { fills: ['#ffc095', '#f8b280', '#fbb98a', '#ffc79f'], z1: '#fee8da', z2: '#feecde', z3: '#fef0e7', halo: '#fef5ee',
+        arc: '#febe93', pict: '#fbc59c', outline: '#5a5552', ray: '#9b958f', ring: '#7a746f', light: '#fde3cf' }
+};
+const NAVY = '#2e3a63';
+const hex = c => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
+const css = a => 'rgb(' + a.map(v => Math.max(0, Math.min(255, Math.round(v)))).join(',') + ')';
+/* « impression » : désaturation, virage de teinte vers le gris-vert / le saumon, contraste */
+function inkTransform(c, t) {
+  let [r, g, b] = hex(c);
+  const l = 0.3 * r + 0.59 * g + 0.11 * b;
+  r = l + (r - l) * (1 - t.desat); g = l + (g - l) * (1 - t.desat); b = l + (b - l) * (1 - t.desat);
+  r += t.shift[0]; g += t.shift[1]; b += t.shift[2];
+  const k = t.gamma;
+  return css([255 * Math.pow(r / 255, k), 255 * Math.pow(g / 255, k), 255 * Math.pow(b / 255, k)]);
+}
+
+/* ============ FICHE SYNTHÉTIQUE ============
+   Mise en page relevée sur la maquette CM2 français (590 × 838) : centre (298 ; 375), R = 174,5.
+   Cercles + / ++ / +++ à 0,5104 / 0,7553 / 1 R (mesuré), disque du cartable 0,19 R, halo jusqu'à 1,065 R,
+   bande des familles 1,08 → 1,19 R, pictogrammes Ø 0,19 R centrés à 1,13 R, pastilles Ø 0,04 R. */
+export function makeSpec(seed, over = {}) {
+  const rng = makeRng('fiche-' + seed);
+  const classe = over.classe || rng.pick(CLASSES);
+  const subject = over.subject || rng.pick(['fr', 'ma']);
+  const tpl = ficheTemplate(classe, subject);
+  const n = tpl.axes.length;
+  const nAbs = over.absent != null ? over.absent : rng.weighted([0, 1, 2, 3], [5, 3, 1.5, 0.5]);
+  const absIdx = new Set(rng.sample([...Array(n).keys()], nAbs));
+  const values = tpl.axes.map((a, i) => {
+    if (absIdx.has(i)) return null;
+    const u = rng.next();
+    if (u < 0.22) return 3;
+    if (u < 0.27) return rng.pick([1, 2]);
+    return Math.round(rng.float(0.45, 2.98) * 100) / 100;
+  });
+  const style = over.style && over.style !== 'mix' ? over.style : rng.weighted(['pdf', 'print', 'faded'], [4, 4, 2]);
+  const ink = style === 'pdf' ? { desat: rng.float(0, 0.12), shift: [0, 0, 0], gamma: rng.float(0.97, 1.03) }
+    : style === 'print' ? { desat: rng.float(0.2, 0.5), shift: subject === 'fr' ? [rng.float(-6, 8), rng.float(-4, 4), rng.float(-14, -2)] : [rng.float(-4, 4), rng.float(-6, 6), rng.float(-10, 4)], gamma: rng.float(0.95, 1.12) }
+    : { desat: rng.float(0.45, 0.75), shift: [rng.float(-6, 6), rng.float(-6, 6), rng.float(-8, 4)], gamma: rng.float(0.88, 1.0) };
+  return {
+    seed, classe, subject, values, style, ink,
+    fill: rng.pick(PAL[subject].fills),
+    lw: rng.float(0.85, 1.25),
+    dot: rng.float(0.88, 1.15),
+    name: rng.chance(0.5) ? 'Prénom de l’enfant' : Array.from({ length: 13 }, () => '0123456789abcdef'[rng.int(0, 15)]).join(''),
+    textSeed: rng.int(1, 1e9),
+    ...over
+  };
+}
+
+function wrapWords(text, max) {
+  const out = []; let line = '';
+  for (const w of text.split(' ')) {
+    if ((line + ' ' + w).trim().length > max && line) { out.push(line); line = w; } else line = (line + ' ' + w).trim();
+  }
+  if (line) out.push(line);
+  return out;
+}
+
+/* dessine la page (largeur W px) → vérité terrain { cx, cy, R, values, angles } en px de la page */
+export function drawFiche(ctx, W, spec) {
+  const H = Math.round(W * 838 / 590);
+  const u = W / 590;
+  const rng = makeRng('txt-' + spec.textSeed);
+  const P = PAL[spec.subject];
+  const C = c => inkTransform(c, spec.ink);
+  const tpl = ficheTemplate(spec.classe, spec.subject);
+  const n = tpl.axes.length;
+  const cx = 298 * u, cy = 375 * u, R = 174.5 * u;
+  const lw = spec.lw;
+  const pt = (ang, f) => [cx + f * R * Math.sin(ang * RAD), cy - f * R * Math.cos(ang * RAD)];
+  ctx.save();
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const font = (px, w = 600, it = false) => (it ? 'italic ' : '') + w + ' ' + (px * u).toFixed(2) + 'px "Fredoka", "Segoe UI", system-ui, sans-serif';
+  const text = (s, x, y, px, { w = 600, it = false, color = NAVY, align = 'left', base = 'alphabetic' } = {}) => {
+    ctx.font = font(px, w, it); ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = base; ctx.fillText(s, x * u, y * u);
+  };
+  const rrect = (x, y, w, h, r) => { ctx.beginPath(); ctx.roundRect(x * u, y * u, w * u, h * u, r * u); };
+
+  /* ---------- en-tête ---------- */
+  ctx.fillStyle = '#1f4ea8'; ctx.fillRect(40 * u, 28 * u, 11 * u, 14 * u);
+  ctx.fillStyle = '#e3373d'; ctx.fillRect(62 * u, 28 * u, 11 * u, 14 * u);
+  text('MINISTÈRE', 40, 58, 11.5, { w: 700, color: '#111' });
+  text('DE L’ÉDUCATION', 40, 70, 11.5, { w: 700, color: '#111' });
+  text('NATIONALE', 40, 82, 11.5, { w: 700, color: '#111' });
+  text('Liberté', 40, 94, 6.5, { it: true, color: '#111' }); text('Égalité', 40, 102, 6.5, { it: true, color: '#111' }); text('Fraternité', 40, 110, 6.5, { it: true, color: '#111' });
+  /* deux enfants (formes simples) */
+  for (const [x, skin, hair, shirt] of [[188, '#7a4b2a', '#2b1d14', '#3d8fd1'], [228, '#f2c9a5', '#9c3b2c', '#5eb26a']]) {
+    ctx.fillStyle = shirt; rrect(x - 16, 72, 32, 40, 9); ctx.fill();
+    ctx.fillStyle = hair; ctx.beginPath(); ctx.arc(x * u, 52 * u, 19 * u, 0, TAU); ctx.fill();
+    ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(x * u, 56 * u, 15 * u, 0, TAU); ctx.fill();
+    ctx.strokeStyle = NAVY; ctx.lineWidth = 1.6 * u;
+    for (const d of [-6, 6]) { ctx.beginPath(); ctx.arc((x + d) * u, 55 * u, 4.5 * u, 0, TAU); ctx.stroke(); }
+    ctx.fillStyle = '#c0392b'; ctx.beginPath(); ctx.arc(x * u, 64 * u, 3 * u, 0, Math.PI); ctx.fill();
+  }
+  text('ÉVALUATION REPÈRES', 255, 58, 27, { w: 700 });
+  ctx.fillStyle = C(P.light); rrect(255, 70, 95, 18, 2); ctx.fill();
+  text(spec.name.length > 16 ? '6a56a6919da09' : spec.name, 302, 82, 7, { color: '#5c6a80', align: 'center', w: 500 });
+  ctx.strokeStyle = C(P.arc); ctx.lineWidth = 2.2 * u; rrect(360, 70, 128, 24, 2); ctx.stroke();
+  text(spec.subject === 'fr' ? 'FRANÇAIS' : 'MATHÉMATIQUES', 424, 87, 12.5, { w: 700, align: 'center' });
+  ctx.fillStyle = NAVY; rrect(498, 70, 46, 24, 2); ctx.fill();
+  text(spec.classe, 521, 88, 14, { w: 700, color: '#fff', align: 'center' });
+  text('Fiche de restitution', 245, 119, 13.5, { w: 700 });
+  ctx.strokeStyle = NAVY; ctx.lineWidth = 1.6 * u; ctx.beginPath(); ctx.moveTo(388 * u, 114 * u); ctx.lineTo(522 * u, 114 * u); ctx.stroke();
+  CLASSES.forEach((c, i) => {
+    ctx.beginPath(); ctx.arc((388 + i * 26.8) * u, 114 * u, 6 * u, 0, TAU);
+    ctx.fillStyle = c === spec.classe ? NAVY : '#fff'; ctx.fill(); ctx.stroke();
+  });
+  text('Septembre 2026', 245, 140, 10, { it: true, w: 500, color: '#3b4a6b' });
+
+  /* ---------- radar ---------- */
+  const fill = C(spec.fill);
+  /* halo et anneaux teintés */
+  ctx.fillStyle = C(P.halo); ctx.beginPath(); ctx.arc(cx, cy, 1.065 * R, 0, TAU); ctx.fill();
+  ctx.fillStyle = C(P.z3); ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.fill();
+  ctx.fillStyle = C(P.z2); ctx.beginPath(); ctx.arc(cx, cy, RINGS[1] * R, 0, TAU); ctx.fill();
+  ctx.fillStyle = C(P.z1); ctx.beginPath(); ctx.arc(cx, cy, RINGS[0] * R, 0, TAU); ctx.fill();
+  /* bande des familles (un arc par rubrique, extrémités arrondies) */
+  const groups = [];
+  tpl.axes.forEach((a, i) => {
+    const g = groups[groups.length - 1];
+    if (g && g.domain === a.domain) g.to = a.angle; else groups.push({ domain: a.domain, from: a.angle, to: a.angle });
+  });
+  if (groups.length > 1 && groups[0].domain === groups[groups.length - 1].domain) { const last = groups.pop(); groups[0].from = last.from - 360; }
+  const step = 360 / n;
+  ctx.strokeStyle = C(P.arc); ctx.lineWidth = 0.105 * R; ctx.lineCap = 'round';
+  const arcText = (label, midDeg, maxDeg) => {
+    /* mot en lettres blanches le long de l'arc, centré sur midDeg, resserré pour tenir dans maxDeg */
+    let px = 7.4;
+    ctx.font = font(px, 700);
+    let widths = [...label].map(ch => ctx.measureText(ch).width + 1.1 * u);
+    let total = widths.reduce((s, w) => s + w, 0);
+    const room = maxDeg * RAD * 1.135 * R;
+    if (total > room) { const k = room / total; px *= Math.max(0.62, k); ctx.font = font(px, 700); widths = [...label].map(ch => ctx.measureText(ch).width + 1.1 * u * k); total = widths.reduce((s, w) => s + w, 0); }
+    const flip = Math.cos(midDeg * RAD) < -0.2;
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    let acc = -total / 2;
+    for (let k = 0; k < label.length; k++) {
+      const off = (acc + widths[k] / 2) / (1.135 * R) / RAD * (flip ? -1 : 1);
+      acc += widths[k];
+      const ang = (midDeg + off) * RAD;
+      ctx.save();
+      ctx.translate(cx + 1.135 * R * Math.sin(ang), cy - 1.135 * R * Math.cos(ang));
+      ctx.rotate(ang + (flip ? Math.PI : 0));
+      ctx.fillText(label[k], 0, 0.2 * u);
+      ctx.restore();
+    }
+  };
+  const PICT = 5.6;     /* demi-largeur angulaire d'un pictogramme sur la bande (°) */
+  for (const g of groups) {
+    const d0 = g.from - step / 2 + 7, d1 = g.to + step / 2 - 7;
+    ctx.strokeStyle = C(P.arc); ctx.lineWidth = 0.105 * R; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(cx, cy, 1.135 * R, d0 * RAD - Math.PI / 2, Math.max(d0 + 3, d1) * RAD - Math.PI / 2); ctx.stroke();
+    /* intervalles libres entre les pictogrammes du groupe */
+    const picts = [];
+    for (let a = g.from; a <= g.to + 0.01; a += step) picts.push(a);
+    const gaps = [];
+    let cur = d0;
+    for (const a of picts) { if (a - PICT - cur > 3) gaps.push([cur, a - PICT]); cur = a + PICT; }
+    if (d1 - cur > 3) gaps.push([cur, d1]);
+    const words = g.domain.split(' ');
+    if (!gaps.length) continue;
+    if (gaps.length >= words.length) {
+      /* un mot par intervalle (les plus grands, dans l'ordre) */
+      const chosen = gaps.map((gp, i) => ({ gp, i, len: gp[1] - gp[0] })).sort((x, y) => y.len - x.len).slice(0, words.length).sort((x, y) => x.i - y.i);
+      chosen.forEach((c, i) => arcText(words[i], (c.gp[0] + c.gp[1]) / 2, c.gp[1] - c.gp[0] - 1.5));
+    } else {
+      const big = gaps.reduce((x, y) => (y[1] - y[0] > x[1] - x[0] ? y : x));
+      arcText(g.domain, (big[0] + big[1]) / 2, big[1] - big[0] - 1.5);
+    }
+  }
+  ctx.lineCap = 'round';
+  /* polygone de l'élève (aplat) */
+  const vtx = tpl.axes.map((a, i) => (spec.values[i] === null ? [cx, cy] : pt(a.angle, fracOf(spec.values[i]))));
+  ctx.fillStyle = fill;
+  ctx.beginPath(); vtx.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); ctx.fill();
+  /* cercles pointillés */
+  ctx.strokeStyle = C(P.ring); ctx.lineWidth = 1.05 * u * lw;
+  [[RINGS[0], [4.2, 3.2]], [RINGS[1], [4.2, 3.2]], [1, [1.4, 2.2]]].forEach(([f, dash]) => {
+    ctx.setLineDash(dash.map(d => d * u)); ctx.beginPath(); ctx.arc(cx, cy, f * R, 0, TAU); ctx.stroke();
+  });
+  ctx.setLineDash([]);
+  /* axes (flèche au bout) ou mention d'absence le long de l'axe */
+  tpl.axes.forEach((a, i) => {
+    const [x0, y0] = pt(a.angle, 0.19), [x1, y1] = pt(a.angle, 1.05);
+    if (spec.values[i] === null) {
+      ctx.save();
+      ctx.translate(...pt(a.angle, 0.6));
+      const ang = (a.angle - 90) * RAD;
+      const flip = Math.sin(a.angle * RAD) < 0;
+      ctx.rotate(ang + (flip ? Math.PI : 0));
+      text('Pas de positionnement : absence *', 0, 0, 7.6, { w: 500, color: '#4a5560', align: 'center', base: 'middle' });
+      ctx.restore();
+      return;
+    }
+    ctx.strokeStyle = C(P.ray); ctx.lineWidth = 1.25 * u * lw;
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+    const [ax, ay] = pt(a.angle, 1.075), s = Math.sin(a.angle * RAD), c = Math.cos(a.angle * RAD);
+    ctx.fillStyle = C(P.ray); ctx.beginPath();
+    ctx.moveTo(ax, ay); ctx.lineTo(x1 - 3 * u * c, y1 - 3 * u * s); ctx.lineTo(x1 + 3 * u * c, y1 + 3 * u * s); ctx.closePath(); ctx.fill();
+  });
+  /* contour du polygone puis pastilles blanches cerclées */
+  ctx.strokeStyle = C(P.outline); ctx.lineWidth = 1.55 * u * lw;
+  ctx.beginPath(); vtx.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); ctx.stroke();
+  vtx.forEach(([x, y], i) => {
+    if (spec.values[i] === null) return;
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = C(P.outline); ctx.lineWidth = 1.3 * u * lw;
+    ctx.beginPath(); ctx.arc(x, y, 3.3 * u * spec.dot, 0, TAU); ctx.fill(); ctx.stroke();
+  });
+  /* repères ⊕ sur l'axe vertical : 1 sur +, 2 sur ++, 3 sur +++ */
+  const glyph = (x, y) => {
+    ctx.fillStyle = NAVY; ctx.beginPath(); ctx.arc(x, y, 4.1 * u, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.3 * u; ctx.lineCap = 'butt';
+    ctx.beginPath(); ctx.moveTo(x - 2.3 * u, y); ctx.lineTo(x + 2.3 * u, y); ctx.moveTo(x, y - 2.3 * u); ctx.lineTo(x, y + 2.3 * u); ctx.stroke();
+    ctx.lineCap = 'round';
+  };
+  glyph(cx, cy - RINGS[0] * R);
+  for (const d of [-7.1, 7.1]) glyph(cx + d * u, cy - RINGS[1] * R);
+  for (const d of [-14.2, 0, 14.2]) glyph(cx + d * u, cy - R);
+  /* disque du cartable (pointillé), cartable, étiquette du prénom */
+  ctx.fillStyle = C(P.z1); ctx.beginPath(); ctx.arc(cx, cy, 0.19 * R, 0, TAU); ctx.fill();
+  ctx.strokeStyle = C(P.ring); ctx.lineWidth = 1 * u; ctx.setLineDash([3 * u, 2.5 * u]);
+  ctx.beginPath(); ctx.arc(cx, cy, 0.19 * R, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+  const bx = cx - 0.11 * R, by = cy - 0.15 * R, bw = 0.2 * R, bh = 0.25 * R;
+  ctx.strokeStyle = '#7b4a8f'; ctx.lineWidth = 3 * u; ctx.beginPath(); ctx.arc(bx + bw * 0.62, by + bh * 0.1, bw * 0.28, Math.PI, 0); ctx.stroke();
+  ctx.fillStyle = '#7d7f8f'; ctx.beginPath(); ctx.roundRect(bx + bw * 0.55, by + bh * 0.05, bw * 0.45, bh * 0.9, 6 * u); ctx.fill();
+  ctx.fillStyle = '#b4523f'; ctx.beginPath(); ctx.roundRect(bx, by + bh * 0.05, bw * 0.66, bh * 0.85, 7 * u); ctx.fill();
+  ctx.fillStyle = '#e09a4a'; ctx.fillRect(bx + 2 * u, by + bh * 0.62, bw * 0.62, bh * 0.25);
+  ctx.fillStyle = '#6b3fa0'; ctx.fillRect(bx + bw * 0.14, by + bh * 0.42, 3 * u, bh * 0.3); ctx.fillRect(bx + bw * 0.42, by + bh * 0.42, 3 * u, bh * 0.3);
+  ctx.strokeStyle = '#2b2550'; ctx.lineWidth = 1.2 * u; ctx.beginPath(); ctx.roundRect(bx, by + bh * 0.05, bw * 0.66, bh * 0.85, 7 * u); ctx.stroke();
+  ctx.fillStyle = '#fff'; ctx.strokeStyle = NAVY; ctx.lineWidth = 1.2 * u;
+  ctx.beginPath(); ctx.roundRect(cx - 0.21 * R, cy + 0.065 * R, 0.42 * R, 0.07 * R, 2 * u); ctx.fill(); ctx.stroke();
+  ctx.save(); ctx.translate(cx, cy + 0.1 * R);
+  text(spec.name, 0, 0, 6.6, { w: 600, align: 'center', base: 'middle', color: '#3b4a6b' });
+  ctx.restore();
+
+  /* pictogrammes et libellés */
+  const ICONS = ['bubble', 'book', 'pencil', 'letter', 'digits', 'puzzle', 'head', 'cards'];
+  tpl.axes.forEach((a, i) => {
+    const [px, py] = pt(a.angle, 1.13);
+    ctx.fillStyle = C(P.pict); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2 * u;
+    ctx.beginPath(); ctx.arc(px, py, 0.095 * R, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = NAVY; ctx.strokeStyle = NAVY; ctx.lineWidth = 1.6 * u;
+    const ic = ICONS[(i * 3 + spec.textSeed) % ICONS.length], r = 0.05 * R;
+    if (ic === 'bubble') { ctx.beginPath(); ctx.ellipse(px, py - r * 0.2, r, r * 0.65, 0, 0, TAU); ctx.fill(); ctx.fillStyle = '#fff'; ctx.fillRect(px - r * 0.6, py - r * 0.3, r * 1.2, r * 0.18); }
+    else if (ic === 'book') { ctx.fillRect(px - r, py - r * 0.6, r * 0.9, r * 1.2); ctx.fillRect(px + r * 0.1, py - r * 0.6, r * 0.9, r * 1.2); }
+    else if (ic === 'pencil') { ctx.save(); ctx.translate(px, py); ctx.rotate(0.7); ctx.fillRect(-r * 1.1, -r * 0.22, r * 2.2, r * 0.44); ctx.restore(); }
+    else if (ic === 'letter') { text('A', px / u, py / u + 5, 15, { w: 700, align: 'center' }); }
+    else if (ic === 'digits') { ctx.lineWidth = 1.2 * u; ctx.beginPath(); ctx.arc(px, py, r * 0.8, 0, TAU); ctx.stroke(); text('3', px / u, py / u + 3.5, 10, { w: 700, align: 'center' }); }
+    else if (ic === 'puzzle') { ctx.fillRect(px - r * 0.8, py - r * 0.6, r * 0.75, r * 0.75); ctx.fillRect(px + r * 0.05, py - r * 0.1, r * 0.75, r * 0.75); text('?', px / u + 4, py / u - 2, 10, { w: 700 }); }
+    else if (ic === 'head') { ctx.beginPath(); ctx.arc(px, py, r * 0.75, 0, TAU); ctx.fill(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(px + r * 0.2, py - r * 0.1, r * 0.25, 0, TAU); ctx.fill(); }
+    else { ctx.lineWidth = 1.2 * u; ctx.strokeRect(px - r * 0.9, py - r * 0.5, r * 0.8, r); ctx.strokeRect(px + r * 0.1, py - r * 0.5, r * 0.8, r); }
+    /* libellé */
+    const s = Math.sin(a.angle * RAD), c = Math.cos(a.angle * RAD);
+    const [lx, ly] = pt(a.angle, 1.3);
+    const lines = wrapWords(a.label, s > 0.95 || s < -0.95 ? 14 : 20);
+    const align = s > 0.3 ? 'left' : s < -0.3 ? 'right' : 'center';
+    const dx = align === 'left' ? -0.12 * R : align === 'right' ? 0.12 * R : 0;
+    const y0 = ly - (lines.length - 1) * 5.5 * u + (c < -0.5 ? 0.06 * R : c > 0.5 ? -0.05 * R : 0);
+    lines.forEach((t, k) => text(t, (lx + dx) / u, (y0 / u) + k * 11, 8.6, { it: true, w: 600, align, base: 'middle', color: '#2f3b5c' }));
+  });
+
+  /* ---------- pied de page ---------- */
+  ctx.strokeStyle = C(P.arc); ctx.lineWidth = 1.6 * u; rrect(100, 632, 372, 40, 3); ctx.stroke();
+  ctx.fillStyle = C(P.light); ctx.beginPath(); ctx.arc(122 * u, 652 * u, 16 * u, 0, TAU); ctx.fill();
+  text('i', 122, 660, 22, { w: 700, align: 'center', it: true, color: '#3b4a6b' });
+  text('Plus les points se rapprochent de l’extérieur du cercle, plus les compétences sont maîtrisées par votre enfant.', 148, 648, 5.4, { it: true, w: 500, color: '#3b4a6b' });
+  text('*  Lorsque l’élève est absent à un exercice de la dimension évaluée, le score n’est pas calculé.', 148, 660, 5.4, { it: true, w: 500, color: '#3b4a6b' });
+  ctx.fillStyle = C(P.arc); rrect(100, 706, 246, 22, 2); ctx.fill();
+  text('Que puis-je faire pour aider mon enfant à progresser ?', 112, 721, 9, { it: true, w: 700, color: '#fff' });
+  ['L’encourager et demeurer confiant en ses capacités seront les', 'meilleures manières de l’accompagner dans ses apprentissages', 'et sa réussite à l’école.', '', 'N’hésitez pas à échanger avec son professeur afin de',
+    'mettre en place ensemble l’accompagnement le plus', 'adapté pour votre enfant.'].forEach((t, k) => text(t, 135, 748 + k * 11, 7.6, { it: true, w: 500, color: '#3b4a6b' }));
+  ctx.strokeStyle = C(P.arc); ctx.lineWidth = 2.2 * u; rrect(372, 700, 178, 104, 2); ctx.stroke();
+  text('Découvrez le descriptif complet', 384, 718, 9, { it: true, w: 500, color: '#3b4a6b' });
+  text('des exercices sur :', 384, 730, 9, { it: true, w: 500, color: '#3b4a6b' });
+  text('http://www.education.gouv.fr/', 384, 746, 8.6, { w: 700, color: '#2f3b5c' });
+  text('evaluations-fiches', 384, 757, 8.6, { w: 700, color: '#2f3b5c' });
+  ctx.fillStyle = '#111';
+  for (let yy = 0; yy < 21; yy++) for (let xx = 0; xx < 21; xx++) {
+    const finder = (xx < 7 && yy < 7) || (xx > 13 && yy < 7) || (xx < 7 && yy > 13);
+    if (finder ? ((xx % 6 === 0 || yy % 6 === 0 || (xx > 13 && (xx - 14) % 6 === 0) || (yy > 13 && (yy - 14) % 6 === 0)) || ((xx % 7 >= 2 && xx % 7 <= 4) && (yy % 7 >= 2 && yy % 7 <= 4))) : rng.chance(0.5))
+      ctx.fillRect((430 + xx * 2.1) * u, (762 + yy * 2.1) * u, 2.15 * u, 2.15 * u);
+  }
+  /* illustration (adulte + enfant + livre) */
+  ctx.fillStyle = '#d35400'; ctx.save(); ctx.translate(35 * u, 800 * u); ctx.rotate(-0.25); ctx.fillRect(0, 0, 34 * u, 26 * u); ctx.restore();
+  ctx.fillStyle = '#8e44ad'; rrect(30, 760, 46, 60, 16); ctx.fill();
+  ctx.fillStyle = '#6d3b1f'; ctx.beginPath(); ctx.arc(52 * u, 738 * u, 20 * u, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#f2c9a5'; ctx.beginPath(); ctx.arc(52 * u, 742 * u, 15 * u, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#e67e22'; ctx.beginPath(); ctx.arc(88 * u, 770 * u, 15 * u, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#f2c9a5'; ctx.beginPath(); ctx.arc(88 * u, 774 * u, 11 * u, 0, TAU); ctx.fill();
+  ctx.restore();
+  return { cx, cy, R, H, angles: tpl.axes.map(a => a.angle), values: spec.values.slice(), classe: spec.classe, subject: spec.subject };
+}
+/* θ → fraction du rayon sur la fiche officielle (cercles mesurés : 0,5104 / 0,7553 / 1) */
+function fracOf(t) {
+  const K = [[0, 0.0212], [1, RINGS[0]], [2, RINGS[1]], [3, 1]];
+  t = Math.max(0, Math.min(3, t));
+  for (let k = 1; k < K.length; k++) if (t <= K[k][0]) { const [t0, f0] = K[k - 1], [t1, f1] = K[k]; return f0 + (f1 - f0) * (t - t0) / (t1 - t0); }
+  return 1;
+}
+
+/* ============ PHOTO SIMULÉE ============
+   Page posée sur une table, photographiée de biais : homographie appliquée par un maillage de triangles
+   (chaque triangle = transformation affine), éclairage inégal + ombre portée, flou, bruit, compression JPEG. */
+function homography(src, dst) {
+  /* 4 correspondances → H (8 inconnues) */
+  const A = [], b = [];
+  for (let i = 0; i < 4; i++) {
+    const [x, y] = src[i], [X, Y] = dst[i];
+    A.push([x, y, 1, 0, 0, 0, -X * x, -X * y]); b.push(X);
+    A.push([0, 0, 0, x, y, 1, -Y * x, -Y * y]); b.push(Y);
+  }
+  const h = solve(A, b);
+  return [h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7], 1];
+}
+function solve(A, b) {
+  const n = b.length, M = A.map((r, i) => [...r, b[i]]);
+  for (let c = 0; c < n; c++) {
+    let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+    [M[c], M[p]] = [M[p], M[c]];
+    for (let r = 0; r < n; r++) if (r !== c) { const f = M[r][c] / M[c][c]; for (let k = c; k <= n; k++) M[r][k] -= f * M[c][k]; }
+  }
+  return M.map((r, i) => r[n] / r[i]);
+}
+const applyH = (H, x, y) => { const w = H[6] * x + H[7] * y + H[8]; return [(H[0] * x + H[1] * y + H[2]) / w, (H[3] * x + H[4] * y + H[5]) / w]; };
+
+export async function simulatePhoto(pageCanvas, truth, o = {}) {
+  const rng = makeRng('photo-' + (o.seed || 1));
+  const W = pageCanvas.width, Hh = pageCanvas.height;
+  const outW = o.outW || 1200, outH = o.outH || Math.round(outW * (o.landscape ? 0.75 : 1.333));
+  /* largeur du radar (bande des familles comprise, 2,38 R) = scale × largeur de l'image */
+  const radarW = 2.38 * truth.R;
+  const k = (o.scale || 0.6) * outW / radarW;
+  const rot = (o.rot || 0) * RAD;
+  const pc = [outW / 2 + (o.dx || 0) * outW, outH / 2 + (o.dy || 0) * outH];
+  /* coins de la page après similitude centrée sur le radar */
+  const sim = (x, y) => {
+    const X = (x - truth.cx) * k, Y = (y - truth.cy) * k;
+    return [pc[0] + X * Math.cos(rot) - Y * Math.sin(rot), pc[1] + X * Math.sin(rot) + Y * Math.cos(rot)];
+  };
+  const corners = [[0, 0], [W, 0], [W, Hh], [0, Hh]];
+  const p = o.persp || 0;
+  const jit = () => (rng.next() * 2 - 1) * p * radarW * k;
+  const dst = corners.map(([x, y]) => { const [X, Y] = sim(x, y); return [X + jit(), Y + jit()]; });
+  const Hm = homography(corners, dst);
+  const out = document.createElement('canvas'); out.width = outW; out.height = outH;
+  const c = out.getContext('2d');
+  /* table */
+  const table = o.table || rng.pick(['#8b6b4a', '#a3a3a3', '#5d6d7e', '#c9b79c', '#3e3e3e', '#e8e2d6']);
+  c.fillStyle = table; c.fillRect(0, 0, outW, outH);
+  for (let i = 0; i < 40; i++) { c.fillStyle = 'rgba(0,0,0,' + (rng.next() * 0.05) + ')'; c.fillRect(0, rng.next() * outH, outW, rng.next() * 8 + 1); }
+  /* maillage */
+  const G = 24;
+  for (let gy = 0; gy < G; gy++) for (let gx = 0; gx < G; gx++) {
+    const x0 = gx * W / G, x1 = (gx + 1) * W / G, y0 = gy * Hh / G, y1 = (gy + 1) * Hh / G;
+    for (const tri of [[[x0, y0], [x1, y0], [x1, y1]], [[x0, y0], [x1, y1], [x0, y1]]]) {
+      const d = tri.map(([x, y]) => applyH(Hm, x, y));
+      /* affine exacte sur les 3 sommets */
+      const [[sx0, sy0], [sx1, sy1], [sx2, sy2]] = tri, [[dx0, dy0], [dx1, dy1], [dx2, dy2]] = d;
+      const den = (sx1 - sx0) * (sy2 - sy0) - (sx2 - sx0) * (sy1 - sy0);
+      const a = ((dx1 - dx0) * (sy2 - sy0) - (dx2 - dx0) * (sy1 - sy0)) / den;
+      const b2 = ((dy1 - dy0) * (sy2 - sy0) - (dy2 - dy0) * (sy1 - sy0)) / den;
+      const cc = ((dx2 - dx0) * (sx1 - sx0) - (dx1 - dx0) * (sx2 - sx0)) / den;
+      const dd = ((dy2 - dy0) * (sx1 - sx0) - (dy1 - dy0) * (sx2 - sx0)) / den;
+      const e = dx0 - a * sx0 - cc * sy0, f = dy0 - b2 * sx0 - dd * sy0;
+      /* triangle légèrement élargi (pas de jointures visibles) */
+      const mx = (dx0 + dx1 + dx2) / 3, my = (dy0 + dy1 + dy2) / 3, grow = q => [q[0] + (q[0] - mx) * 0.02 + Math.sign(q[0] - mx) * 0.4, q[1] + (q[1] - my) * 0.02 + Math.sign(q[1] - my) * 0.4];
+      c.save(); c.beginPath(); const g0 = grow(d[0]), g1 = grow(d[1]), g2 = grow(d[2]);
+      c.moveTo(g0[0], g0[1]); c.lineTo(g1[0], g1[1]); c.lineTo(g2[0], g2[1]); c.closePath(); c.clip();
+      c.setTransform(a, b2, cc, dd, e, f); c.drawImage(pageCanvas, 0, 0); c.restore();
+    }
+  }
+  /* éclairage inégal + ombre */
+  const L = o.light || 0;
+  if (L > 0) {
+    const g = c.createLinearGradient(rng.next() * outW, 0, rng.next() * outW, outH);
+    g.addColorStop(0, 'rgba(255,250,235,0)'); g.addColorStop(1, 'rgba(40,30,20,' + (0.05 + 0.05 * L * rng.next()) + ')');
+    c.fillStyle = g; c.fillRect(0, 0, outW, outH);
+    if (rng.chance(0.6)) {
+      const sx = rng.next() * outW, sy = rng.next() * outH, sr = (0.2 + rng.next() * 0.4) * outW;
+      const rg = c.createRadialGradient(sx, sy, sr * 0.2, sx, sy, sr);
+      rg.addColorStop(0, 'rgba(20,15,10,' + (0.04 * L * rng.next()) + ')'); rg.addColorStop(1, 'rgba(20,15,10,0)');
+      c.fillStyle = rg; c.fillRect(0, 0, outW, outH);
+    }
+    c.globalCompositeOperation = 'multiply';
+    c.fillStyle = css([255, 255 - rng.next() * 3 * L, 255 - rng.next() * 5 * L]); c.fillRect(0, 0, outW, outH);
+    c.globalCompositeOperation = 'source-over';
+  }
+  /* flou + bruit + JPEG */
+  let res = out;
+  if (o.blur > 0) {
+    res = document.createElement('canvas'); res.width = outW; res.height = outH;
+    const r2 = res.getContext('2d'); r2.filter = 'blur(' + o.blur.toFixed(2) + 'px)'; r2.drawImage(out, 0, 0);
+  }
+  const rc = res.getContext('2d');
+  const id = rc.getImageData(0, 0, outW, outH), dd = id.data, amp = o.noise || 0;
+  if (amp > 0) for (let i = 0; i < dd.length; i += 4) { const nz = (rng.next() + rng.next() + rng.next() - 1.5) * amp; dd[i] += nz; dd[i + 1] += nz; dd[i + 2] += nz; }
+  rc.putImageData(id, 0, 0);
+  const url = res.toDataURL('image/jpeg', o.quality || 0.82);
+  /* vérité dans l'image : centre, R moyen, rotation (direction du « haut » de la fiche) */
+  const toImg = (x, y) => applyH(Hm, x, y);
+  const [Cx, Cy] = toImg(truth.cx, truth.cy);
+  let Rs = 0;
+  for (let i = 0; i < 360; i++) { const [x, y] = toImg(truth.cx + truth.R * Math.sin(i * RAD), truth.cy - truth.R * Math.cos(i * RAD)); Rs += Math.hypot(x - Cx, y - Cy); }
+  const [ux, uy] = toImg(truth.cx, truth.cy - truth.R * 0.5);
+  return { url, truth: { ...truth, cx: Cx, cy: Cy, R: Rs / 360, rotation: Math.atan2(ux - Cx, -(uy - Cy)) / RAD, W: outW, H: outH, H3: Hm } };
+}
+
+/* ============ ANALYSE ============ */
+function loadImage(url) {
+  return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = url; });
+}
+function imageData(img, max = 1600) {
+  const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  const w = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k);
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(img, 0, 0, w, h);
+  return { data: x.getImageData(0, 0, w, h), scale: k, canvas: c };
+}
+export async function detectURL(url, opts = {}) {
+  const img = await loadImage(url);
+  const { data, scale } = imageData(img, opts.max || 1600);
+  const classe = opts.classe || 'CM2';
+  const t0 = performance.now();
+  const r = detectRadar({ width: data.width, height: data.height, data: data.data },
+    { templates: { fr: ficheTemplate(classe, 'fr'), ma: ficheTemplate(classe, 'ma') }, subject: opts.subject || null });
+  r.wallMs = performance.now() - t0;
+  r.scale = scale;
+  return r;
+}
+
+/* ============ INTERFACE ============ */
+let cur = null;     /* { pageCanvas, truth, url, photoTruth } */
+async function generate() {
+  const spec = makeSpec(Number($('seed').value) || 1, { classe: $('classe').value, subject: $('subject').value, style: $('style').value });
+  const page = document.createElement('canvas'); page.width = 1180; page.height = Math.round(1180 * 838 / 590);
+  try { await document.fonts.load('600 20px "Fredoka"'); } catch (_) {}
+  const truth = drawFiche(page.getContext('2d'), page.width, spec);
+  cur = { page, truth, spec, url: page.toDataURL('image/png'), photoTruth: { ...truth, rotation: 0, W: page.width, H: page.height } };
+  await show(cur.url, cur.photoTruth);
+  $('out').textContent = 'Fiche ' + spec.classe + ' ' + spec.subject + ' (graine ' + spec.seed + ', style ' + spec.style + ') — valeurs : ' + spec.values.map(v => (v === null ? 'abs' : v.toFixed(2))).join(' · ');
+}
+async function simulate() {
+  if (!cur) await generate();
+  const o = { seed: Number($('seed').value) || 1, rot: Number($('rot').value), scale: Number($('scale').value) / 100, persp: Number($('persp').value) / 100,
+    light: Number($('light').value), blur: Number($('blur').value) / 6, noise: 6, quality: 0.8 };
+  const { url, truth } = await simulatePhoto(cur.page, cur.truth, o);
+  cur.url = url; cur.photoTruth = truth;
+  await show(url, truth);
+}
+async function show(url, truth, result) {
+  const img = await loadImage(url);
+  const cv = $('src'); const k = Math.min(1, 1400 / Math.max(img.naturalWidth, img.naturalHeight));
+  cv.width = Math.round(img.naturalWidth * k); cv.height = Math.round(img.naturalHeight * k);
+  const c = cv.getContext('2d'); c.drawImage(img, 0, 0, cv.width, cv.height);
+  if (result && result.center) {
+    const s = k / (result.scale || 1);
+    c.lineWidth = 2; c.strokeStyle = result.ok ? '#16a34a' : '#ea580c';
+    for (const f of RINGS) {
+      c.beginPath();
+      for (let a = 0; a <= 360; a += 3) {
+        const p = projectPoint(result, f, a); a ? c.lineTo(p[0] * s, p[1] * s) : c.moveTo(p[0] * s, p[1] * s);
+      }
+      c.stroke();
+    }
+    for (const ax of result.axes) {
+      const p0 = projectPoint(result, 0.19, ax.angle), p1 = projectPoint(result, 1.05, ax.angle);
+      c.strokeStyle = 'rgba(157,23,77,.7)'; c.beginPath(); c.moveTo(p0[0] * s, p0[1] * s); c.lineTo(p1[0] * s, p1[1] * s); c.stroke();
+      if (ax.theta !== null) {
+        const p = projectPoint(result, ax.r, ax.angle);
+        c.fillStyle = ax.confidence >= 0.6 ? '#16a34a' : '#f59e0b'; c.beginPath(); c.arc(p[0] * s, p[1] * s, 6, 0, TAU); c.fill();
+      }
+    }
+  }
+  if (truth && truth.cx) {
+    const s = k * (truth.W ? cv.width / k / truth.W : 1);
+    c.strokeStyle = 'rgba(80,80,80,.9)'; c.lineWidth = 1.5;
+    c.beginPath(); c.moveTo(truth.cx * s - 8, truth.cy * s); c.lineTo(truth.cx * s + 8, truth.cy * s); c.moveTo(truth.cx * s, truth.cy * s - 8); c.lineTo(truth.cx * s, truth.cy * s + 8); c.stroke();
+  }
+}
+async function analyse(url, truth) {
+  const tplOpts = { classe: truth && truth.classe || $('classe').value, subject: truth && truth.subject || $('subject').value };
+  const r = await detectURL(url, tplOpts);
+  await show(url, truth, r);
+  /* vue redressée */
+  const rc = $('rect');
+  if (r.ok || r.homography) {
+    const img = await loadImage(url);
+    const { data } = imageData(img, 1600);
+    const S = 520, view = rectify({ width: data.width, height: data.height, data: data.data }, r, { size: S });
+    rc.width = S; rc.height = S;
+    const x = rc.getContext('2d'); x.putImageData(new ImageData(view.data, S, S), 0, 0);
+    const Rr = view.R, c0 = S / 2;
+    x.lineWidth = 1.5; x.strokeStyle = 'rgba(157,23,77,.65)';
+    for (const f of RINGS) { x.beginPath(); x.arc(c0, c0, f * Rr, 0, TAU); x.stroke(); }
+    r.axes.forEach((ax, i) => {
+      const a = ax.angle * RAD;
+      x.strokeStyle = 'rgba(157,23,77,.5)'; x.beginPath(); x.moveTo(c0, c0); x.lineTo(c0 + 1.05 * Rr * Math.sin(a), c0 - 1.05 * Rr * Math.cos(a)); x.stroke();
+      if (truth && truth.values && truth.values[i] !== undefined) {
+        const tv = truth.values[i];
+        const f = tv === null ? 0 : fracOf(tv);
+        const px = c0 + f * Rr * Math.sin(a), py = c0 - f * Rr * Math.cos(a);
+        x.strokeStyle = '#555'; x.lineWidth = 2; x.beginPath(); x.moveTo(px - 6, py - 6); x.lineTo(px + 6, py + 6); x.moveTo(px + 6, py - 6); x.lineTo(px - 6, py + 6); x.stroke();
+      }
+      if (ax.theta !== null) {
+        const px = c0 + ax.r * Rr * Math.sin(a), py = c0 - ax.r * Rr * Math.cos(a);
+        x.fillStyle = ax.confidence >= 0.6 ? 'rgba(22,163,74,.85)' : 'rgba(245,158,11,.9)';
+        x.beginPath(); x.arc(px, py, 5, 0, TAU); x.fill();
+      }
+    });
+  } else { rc.width = 10; rc.height = 10; }
+  const lines = [];
+  lines.push((r.ok ? '✓ trouvé' : '✗ non trouvé') + ' · confiance ' + (r.confidence || 0).toFixed(2) + ' · ' + r.ms.toFixed(0) + ' ms · matière ' + (r.subject || '?') +
+    ' (couleur du radar : ' + (r.subjectColor || '?') + ')' + (r.reason ? ' · ' + r.reason : '') + (r.hint ? ' · conseil : ' + r.hint : ''));
+  if (r.debug && r.debug.stats) lines.push('contrôles : axes retrouvés ' + Math.round(100 * r.debug.stats.ray) + ' % · cercles ' + Math.round(100 * r.debug.stats.ring) + ' % · haut ' + (r.debug.up || '?') +
+    ' · repères ⊕ ' + (r.debug.nGlyphs != null ? r.debug.nGlyphs + '/6' : '?'));
+  if (r.center) lines.push('centre ' + r.center.x.toFixed(1) + ', ' + r.center.y.toFixed(1) + ' · R ' + r.R.toFixed(1) + ' · rotation ' + r.rotation.toFixed(1) + '°');
+  if (truth && truth.cx && r.center) {
+    const s = r.scale || 1;
+    lines.push('vérité : centre ' + (truth.cx * s).toFixed(1) + ', ' + (truth.cy * s).toFixed(1) + ' · R ' + (truth.R * s).toFixed(1) + ' · rotation ' + (truth.rotation || 0).toFixed(1) + '°' +
+      ' → écart centre ' + (100 * Math.hypot(r.center.x - truth.cx * s, r.center.y - truth.cy * s) / (truth.R * s)).toFixed(1) + ' % R, R ' + (100 * (r.R / (truth.R * s) - 1)).toFixed(1) + ' %');
+  }
+  (r.axes || []).forEach((ax, i) => {
+    const tv = truth && truth.values ? truth.values[i] : undefined;
+    lines.push(String(i + 1).padStart(2) + '. ' + (ax.theta === null ? 'absent' : ax.theta.toFixed(1)).padEnd(7) + ' conf ' + ax.confidence.toFixed(2) +
+      (tv !== undefined ? '   vérité ' + (tv === null ? 'absent' : tv.toFixed(2)) + (tv !== null && ax.theta !== null ? '  Δ ' + (ax.theta - tv).toFixed(2) : '') : ''));
+  });
+  $('out').textContent = lines.join('\n');
+  return r;
+}
+
+$('gen').addEventListener('click', () => generate());
+$('sim').addEventListener('click', () => simulate());
+$('detect').addEventListener('click', async () => { if (!cur) await generate(); analyse(cur.url, cur.photoTruth); });
+$('pick').addEventListener('click', () => $('file').click());
+$('file').addEventListener('change', async e => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  const url = URL.createObjectURL(f);
+  cur = null;
+  await show(url, null);
+  analyse(url, null);
+});
+
+/* pilotage automatisé (puppeteer) */
+window.radarBench = {
+  ready: true,
+  async render(specOver = {}, width = 1180) {
+    try { await document.fonts.load('600 20px "Fredoka"'); } catch (_) {}
+    const spec = makeSpec(specOver.seed || 1, specOver);
+    const page = document.createElement('canvas'); page.width = width; page.height = Math.round(width * 838 / 590);
+    const truth = drawFiche(page.getContext('2d'), width, spec);
+    window.__lastPage = page;
+    return { url: page.toDataURL('image/png'), truth: { ...truth, W: page.width, Hp: page.height, rotation: 0, spec } };
+  },
+  async photo(o = {}) {
+    const page = window.__lastPage;
+    const { truth } = o;
+    return simulatePhoto(page, truth, o);
+  },
+  detectURL,
+  async analyse(url, truth) { return analyse(url, truth); }
+};
+generate();
+</script>
+</body>
+</html>

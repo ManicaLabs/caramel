@@ -1,6 +1,6 @@
 /* ============ RADAR : composant SVG réutilisable (CDC §4.2, §4.3, §8.2, §9 ; JEUX.md §8) ============
-   Rendu calqué sur la fiche Repères : 3 cercles pointillés à 0,5 R / 0,75 R / R (repères « + », « ++ »,
-   « +++ » sur l'axe vertical), rayons, cartable 🎒 au centre, pastilles blanches cerclées aux sommets,
+   Rendu calqué sur la fiche Repères : 3 cercles pointillés à 0,5 R / 0,75 R / R (repères ⊕, ⊕⊕, ⊕⊕⊕
+   sur l'axe vertical), rayons, cartable 🎒 au centre, pastilles blanches cerclées aux sommets,
    polygone actuel plein (couleur de la matière), polygone de référence en pointillés, étoiles ✨ qui
    scintillent sur les axes en progrès, libellés autour (retour à la ligne propre, jamais coupés).
 
@@ -15,6 +15,8 @@
      dim: [axes],         libellé grisé + « bientôt » (axes sans jeu en v2.0)
      nullLabel,           mention d'un axe null : chaîne ou fn(id, i) → chaîne (défaut « absent »)
      showValues,          pastille « ⊕⊕ 2,4 » sous chaque libellé (espace parents, saisie manuelle)
+     bridgeNull,          axe sans valeur posé sur la corde entre ses voisins renseignés au lieu du centre
+                          (radar de l'enfant : jamais de creux à zéro sous ses yeux ; défaut false)
      animate,             morphing d'ouverture de la référence (ou du centre) vers l'actuel (défaut true)
      title,               nom accessible du graphique
      interactive: false | { onChange(i, θ | null | undefined, valeurs), onSelect(i), snap: 0.1, absent: true,
@@ -31,7 +33,10 @@
    poignée seulement), aimantées à `snap`, θ = thetaFromFrac(distance / R) ; clavier : flèches ±0,1,
    Page ±0,5, Début / Fin, Suppr = absent. Panneau de réglage (‹ › − + Absent) pour l'axe choisi.
    Valeurs : nombre (θ 0-3), null (absent : point au centre + mention), undefined (non renseigné : poignée
-   « garée » près du centre, contour pointillé). */
+   « garée » près du centre, contour pointillé).
+   Notation unique, celle des repères de la fiche (disques foncés barrés d'un + blanc, cf. radar-detect.js) :
+   ⊕ (θ ≥ 1), ⊕⊕ (θ ≥ 2 : attendu de la classe), ⊕⊕⊕ (θ = 3), « sous ⊕ » en dessous de 1 — sur les cercles, les
+   pastilles, le tableau et la légende des parents (un « + » nu devant un nombre se lirait « plus 1,4 »). */
 
 import { h, svg, clear, fmtNum, loadCSS } from '../core/util.js';
 import { AXES } from '../core/axes.js';
@@ -42,7 +47,7 @@ import * as audio from '../core/audio.js';
 const G = globalThis;
 const EPS = 1e-9;
 const PARK = 0.3;                       /* fraction du rayon d'une poignée non renseignée */
-const RINGS = [{ t: 1, mark: '+' }, { t: 2, mark: '++' }, { t: 3, mark: '+++' }];
+const RINGS = [{ t: 1, mark: '⊕' }, { t: 2, mark: '⊕⊕' }, { t: 3, mark: '⊕⊕⊕' }];
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
 const has = (o, k) => o !== null && o !== undefined && Object.prototype.hasOwnProperty.call(o, k);
 const clampT = t => Math.min(3, Math.max(0, t));
@@ -70,11 +75,32 @@ export function levelMarks(t) {
   const v = r1(clampT(t));
   return v >= 3 - EPS ? '⊕⊕⊕' : v >= 2 - EPS ? '⊕⊕' : v >= 1 - EPS ? '⊕' : '';
 }
-/* « ⊕⊕ 2,4 » · « sous ⊕ 0,7 » */
+/* « ⊕⊕ 2,4 » · « sous ⊕ 0,7 » (affichage) */
 export function levelText(t) {
   if (!isNum(t)) return '';
   const m = levelMarks(t);
-  return (m || 'sous ⊕') + '\u00A0' + fmtTheta(t);
+  return (m || 'sous\u00A0⊕') + '\u00A0' + fmtTheta(t);
+}
+/* même valeur pour un lecteur d'écran : « 2,4 sur 3 » (les symboles ⊕ se lisent mal) */
+export function levelSpeech(t) { return isNum(t) ? fmtTheta(t) + ' sur 3' : ''; }
+/* icône d'un axe côté enfant : celle du référentiel, sauf « Les tables », dont le ✖️ se lit « faux » ou « fermer »
+   (cheval du Galop des tables, en attendant la correction du référentiel js/core/axes.js) */
+const CHILD_EMOJI = { 'ma.faits': '🏇' };
+export function axisEmoji(id) {
+  const def = AXES[id];
+  return CHILD_EMOJI[id] || (def && def.emoji) || '';
+}
+
+/* intersection du rayon [C → U] (U : bout du rayon d'un axe) et du segment [A, B] (sommets voisins) → [x, y] ou null
+   (parallèles, ou intersection hors du rayon / du segment). Sert à bridgeNull : C + t·u = A + s·(B − A). */
+export function chordPoint(C, A, B, U) {
+  const u = [U[0] - C[0], U[1] - C[1]], d = [B[0] - A[0], B[1] - A[1]], w = [A[0] - C[0], A[1] - C[1]];
+  const det = d[0] * u[1] - u[0] * d[1];
+  if (Math.abs(det) <= 1e-9) return null;
+  const t = (d[0] * w[1] - w[0] * d[1]) / det;
+  const s = (u[0] * w[1] - u[1] * w[0]) / det;
+  if (t > 0 && t <= 1 + 1e-9 && s >= -1e-9 && s <= 1 + 1e-9) return [C[0] + t * u[0], C[1] + t * u[1]];
+  return null;
 }
 
 /* valeur lue → θ borné, null (absent) ou undefined (non renseigné / illisible) */
@@ -188,7 +214,7 @@ export function renderRadar(container, opts = {}) {
 
   function buildLabel(a, i) {
     const def = AXES[a.id];
-    const emo = labelMode === 'child' && def && def.emoji ? h('span', { class: 'rl-emo', 'aria-hidden': 'true' }, def.emoji) : null;
+    const emo = labelMode === 'child' && def && axisEmoji(a.id) ? h('span', { class: 'rl-emo', 'aria-hidden': 'true' }, axisEmoji(a.id)) : null;
     const txt = h('span', { class: 'rl-txt' }, labelMode === 'child' && def ? def.child : (a.label || (def ? def.label : a.id)));
     const chip = h('span', { class: 'rl-chip' });
     const el = h(inter ? 'button' : 'div', {
@@ -217,9 +243,11 @@ export function renderRadar(container, opts = {}) {
     clear(desc);
     axes.forEach((a, i) => {
       const extra = dimSet.has(a.id) ? ' (bientôt)' : '';
-      const rf = st.ref && isNum(st.ref[i]) ? ' ; fiche : ' + levelText(st.ref[i]) : '';
+      const rf = st.ref && isNum(st.ref[i]) ? ' ; fiche : ' + levelSpeech(st.ref[i]) : '';
       const v = st.vals[i];
-      const cur = isNum(v) ? (showValues || inter ? levelText(v) : 'renseigné') : statusText(i);
+      /* côté enfant (ni valeurs ni saisie) : jamais de niveau ni de note, seulement « tu progresses » (étincelles) */
+      const cur = isNum(v) ? (showValues || inter ? levelSpeech(v) : twinkleSet.has(a.id) && !dimSet.has(a.id) ? 'tu progresses' : 'sur ton radar')
+        : statusText(i);
       desc.appendChild(h('li', null, axisName(i) + ' : ' + cur + (showValues || inter ? rf : '') + extra));
     });
     return changed;
@@ -236,7 +264,26 @@ export function renderRadar(container, opts = {}) {
     return 0;
   }
   const ptsStr = arr => arr.map(p => (Math.round(p[0] * 100) / 100) + ',' + (Math.round(p[1] * 100) / 100)).join(' ');
-  function polyPts(vals) { return axes.map((a, i) => pt(i, fracOf(vals ? vals[i] : undefined, false))); }
+  function polyPts(vals) {
+    const pts = axes.map((a, i) => pt(i, fracOf(vals ? vals[i] : undefined, false)));
+    return opts.bridgeNull && !inter ? bridge(vals, pts) : pts;
+  }
+  /* bridgeNull : un sommet sans valeur (absent, non renseigné) se pose à l'intersection de son rayon et du segment
+     qui relie ses voisins renseignés (précédent et suivant, en boucle) ; à défaut, à la moyenne de leurs rayons.
+     Le nombre de sommets ne change pas (le morphing reste point à point). */
+  function bridge(vals, pts) {
+    const num = axes.map((a, i) => isNum(vals ? vals[i] : undefined));
+    if (num.filter(Boolean).length < 2) return pts;
+    const C = [st.cx, st.cy];
+    return pts.map((P, i) => {
+      if (num[i]) return P;
+      let p = i, q = i;
+      do { p = (p - 1 + n) % n; } while (!num[p]);
+      do { q = (q + 1) % n; } while (!num[q]);
+      const X = chordPoint(C, pts[p], pts[q], pt(i, 1));
+      return X || pt(i, (rFrac(vals[p]) + rFrac(vals[q])) / 2);
+    });
+  }
 
   function renderGeom({ morphFrom = null, dur = 900 } = {}) {
     if (!st.R) return Promise.resolve();
@@ -297,7 +344,7 @@ export function renderRadar(container, opts = {}) {
         hd.g.classList.toggle('is-sel', i === st.sel);
         hd.g.setAttribute('aria-label', axisName(i));
         hd.g.setAttribute('aria-valuenow', isNum(v) ? String(r1(v)) : '0');
-        hd.g.setAttribute('aria-valuetext', statusText(i));
+        hd.g.setAttribute('aria-valuetext', isNum(v) ? levelSpeech(v) : statusText(i));
       }
     });
     gHandles.setAttribute('display', inter ? 'inline' : 'none');

@@ -154,7 +154,7 @@ test('defaultProfile : profil complet, réglages par défaut', () => {
     pet: { faim: 80, forme: 80, joie: 80, last: 0, brushLast: 0, walkDay: '' }, stage: 1, minutes: 0 });
   assert.deepEqual(p.wallet, { apples: 0, stars: {} });
   assert.deepEqual(p.streak, { count: 0, last: '', freezes: 1, freezeWeek: '' });
-  assert.deepEqual(p.settings, { sessionMin: 15, timers: false, sound: true, motion: 'full' });
+  assert.deepEqual(p.settings, { sessionMin: 15, timers: false, sound: true, motion: 'full', theme: 'caramel' });
   assert.deepEqual(p.settings, DEFAULT_SETTINGS);
   assert.notEqual(p.settings, DEFAULT_SETTINGS, 'copie, pas la référence partagée');
   assert.deepEqual(p.stats, { minutes: 0, sessions: 0, items: 0 });
@@ -251,7 +251,7 @@ test('normalizeProfile : invariants (bornes, ids, un objet par emplacement, plaf
   /* divers */
   assert.equal(p.today, null);
   assert.deepEqual(p.legacy, { from: 'v11', mclm: null, stars: 12 });
-  assert.deepEqual(p.settings, { sessionMin: 15, timers: false, sound: true, motion: 'full' });
+  assert.deepEqual(p.settings, { sessionMin: 15, timers: false, sound: true, motion: 'full', theme: 'caramel' });
   assert.deepEqual(p.stats, { minutes: 0, sessions: 2, items: 0 });
   assert.deepEqual(p.champFutur, [1, 2, 3]);
 });
@@ -265,7 +265,7 @@ test('normalizeProfile : idempotente, sans effet sur un profil sain', () => {
   q.history.push({ d: TODAY, t: 1759400000000, g: 'tables', ax: 'ma.faits', n: 10, ok: 8, hint: 1, ms: 180000, th: 1.62, mode: 'balade' });
   q.mclm.push({ d: TODAY, t: 1759400000000, s: 'pomme', v: 92, p: 95, z: 88 });
   q.today = { d: TODAY, idx: 0, done: false, rewarded: false, blocks: [{ kind: 'echauffement', game: 'tables', axis: 'ma.faits', count: 7, offset: -0.6, done: false, result: null }] };
-  q.settings = { sessionMin: 20, timers: true, sound: false, motion: 'soft' };
+  q.settings = { sessionMin: 20, timers: true, sound: false, motion: 'soft', theme: 'ocean' };
   assert.equal(JSON.stringify(normalizeProfile(q, '2030-01-01')), JSON.stringify(q));
   /* entrée non objet → profil par défaut */
   for (const bad of [null, undefined, 42, 'texte', [1, 2]]) {
@@ -360,4 +360,35 @@ test('newProfileId et toDay', () => {
   assert.equal(toDay(new Date(2026, 9, 2, 12).getTime()), '2026-10-02');
   assert.ok(/^\d{4}-\d{2}-\d{2}$/.test(toDay('n’importe quoi')));
   assert.ok(/^\d{4}-\d{2}-\d{2}$/.test(toDay()));
+});
+
+/* ---------- médailles gardées (v2.1) : une mise à jour ne retire jamais une médaille déjà montrée ---------- */
+import { legacyMedals, MEDAL_TIERS } from '../js/core/profiles.js';
+const EVAL_CM2 = { src: 'reperes', date: '2026-09', classe: 'CM2', added: TODAY, precision: '',
+  fr: { 'fr.vocab': 2.8, 'fr.fluence': 1.6, 'fr.conjug': 1.2 }, ma: { 'ma.ligne': 2.3, 'ma.faits': null } };
+
+test('médailles : un profil neuf n’en a aucune (champ présent et vide)', () => {
+  const p = defaultProfile({ id: 'p1', name: 'Léa', classe: 'CM2', today: TODAY });
+  assert.deepEqual(p.medals, {});
+  const n = normalizeProfile({ ...deepClone(p), evals: [deepClone(EVAL_CM2)] }, TODAY);
+  assert.deepEqual(n.medals, {}, 'une fiche importée en 2.1 ne donne pas de médaille sans jouer');
+});
+
+test('médailles : un profil d’avant la 2.1 garde celles que la v2.0 montrait (fiche comprise)', () => {
+  const old = deepClone(defaultProfile({ id: 'p1', name: 'Léa', classe: 'CM2', today: TODAY }));
+  delete old.medals;
+  old.evals = [deepClone(EVAL_CM2)];
+  const n = normalizeProfile(old, TODAY);
+  assert.deepEqual(n.medals, { 'fr.vocab': 'or', 'fr.fluence': 'bronze', 'ma.ligne': 'argent' });
+  assert.deepEqual(legacyMedals(n), n.medals, 'même règle que la v2.0');
+  const again = normalizeProfile(n, TODAY);
+  assert.deepEqual(again.medals, n.medals, 'idempotent');
+});
+
+test('médailles : valeurs illisibles écartées, niveaux connus seulement', () => {
+  const p = deepClone(defaultProfile({ id: 'p1', name: 'Léa', classe: 'CM2', today: TODAY }));
+  p.medals = { 'ma.faits': 'or', 'fr.vocab': 'platine', '': 'or', 'ma.ligne': 3, __proto__x: 'bronze' };
+  const n = normalizeProfile(p, TODAY);
+  assert.deepEqual(n.medals, { 'ma.faits': 'or', __proto__x: 'bronze' });
+  assert.deepEqual([...MEDAL_TIERS], ['bronze', 'argent', 'or']);
 });

@@ -14,7 +14,7 @@ export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 export const START = '/* ASSETS:START */';
 export const END = '/* ASSETS:END */';
 const ICON = /^(icon|favicon|apple-touch-icon)[\w.-]*\.(png|svg|ico|webp)$/;
-const PRECACHE_BUDGET = 2 * 1024 * 1024;       /* CDC §18 : ≈ 1,6 Mo non minifié accepté (≈ 0,45 Mo compressé) ; alerte au-delà de 2 Mo */
+const PRECACHE_BUDGET = 2.5 * 1024 * 1024;     /* CDC §14 : v2.1 ≈ 2,1 Mo non minifié (≈ 0,75 Mo compressé) ; alerte au-delà de 2,5 Mo */
 
 const byPath = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
@@ -91,7 +91,7 @@ function main() {
   if (r.index !== null && r.nextIndex !== r.index) writeFileSync(r.indexPath, r.nextIndex);
   console.log((stale.length ? '✓ mis à jour (' + stale.join(', ') + ')' : '✓ déjà à jour') + ' : ' +
     r.assets.length + ' fichiers précachés, ' + size + ' (hors modèle), version ' + r.version);
-  if (r.bytes > PRECACHE_BUDGET) console.log('⚠ précache au-delà de 2 Mo (CDC §18 : budget hors modèle)');
+  if (r.bytes > PRECACHE_BUDGET) console.log('⚠ précache au-delà de 2,5 Mo (CDC §14 : budget hors modèle)');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

@@ -14,7 +14,7 @@
 }
 .gh-joker, .gh-apples {
   flex: none; display: inline-flex; align-items: center; gap: 4px; min-height: 48px; padding: 4px 10px;
-  border-radius: var(--r-pill); background: #fff; border: 2px solid var(--amber-200);
+  border-radius: var(--r-pill); background: var(--card); border: 2px solid var(--amber-200);
   font-weight: 700; font-size: 1rem; color: var(--amber-900); box-shadow: var(--shadow-1);
 }
 .gh-joker { font-size: 1.2rem; transition: transform var(--dur-1) var(--ease-out), opacity var(--dur-2); }

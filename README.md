@@ -13,8 +13,14 @@ ni niveau affiché, avec indice puis nouvelle chance à chaque erreur.
   **Pommes express** (calcul rapide), **Le Chef d'orchestre** (conjugaison et accord du verbe),
   **L'Atelier des opérations** (opérations posées guidées, soustraction par compensation ou par cassage).
 - **Mes progrès** : radars calqués sur les fiches des évaluations nationales Repères ; un adulte peut saisir la fiche
-  de l'enfant (photo, saisie ou fichier) pour adapter le parcours.
+  de l'enfant (photo lue automatiquement, saisie ou fichier) pour adapter le parcours.
 - **Espace parents** : détail par compétence, courbe de lecture, réglages, sauvegardes à télécharger.
+- **Un compagnon vivant** : huit animaux qui respirent, regardent l'enfant, jouent tout seuls, dorment la nuit,
+  réagissent quand on les nourrit, les brosse ou les promène, et grandissent avec le temps d'apprentissage.
+- **En famille** : plusieurs enfants sur le même téléphone, chacun sa progression ; classements de la semaine
+  (effort et régularité, jamais le niveau), concours de compagnons et défi à tour de rôle où chacun répond
+  à des questions de son niveau.
+- **Huit thèmes visuels** au choix (Caramel, Licorne, Princesse, Super-héros, Dinosaures, Bolides, Espace, Océan).
 
 Les contenus suivent les programmes en vigueur (cycle 2 : BO n°41 du 31/10/2024 ; cycle 3 : BO n°16 du 17/04/2025)
 et les formats des évaluations Repères. Tous les textes sont originaux.

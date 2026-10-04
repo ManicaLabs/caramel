@@ -15,7 +15,7 @@
 .gs-sum { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
 .gs-purse {
   position: absolute; top: -2px; right: -4px; display: inline-flex; align-items: center; gap: 4px; min-height: 34px; padding: 3px 11px;
-  border-radius: var(--r-pill); background: #fff; border: 2px solid var(--pink-200); box-shadow: var(--shadow-1);
+  border-radius: var(--r-pill); background: var(--card); border: 2px solid var(--pink-200); box-shadow: var(--shadow-1);
   font-weight: 700; color: var(--ink); font-size: .95rem; font-variant-numeric: tabular-nums;
 }
 .gs-sum-pet { min-height: 101px; display: grid; place-items: end center; line-height: 0; margin-top: 2px; }
@@ -30,7 +30,7 @@
   background: var(--amber-100); border: 2px solid var(--amber-200); color: var(--amber-900);
 }
 .gs-bonus.is-day { background: var(--pink-50); border-color: var(--pink-200); color: var(--pink-800); }
-.gs-bonus.is-ice { background: #fff; border-color: var(--sky); color: var(--ink-2); }
+.gs-bonus.is-ice { background: var(--card); border-color: var(--sky); color: var(--ink-2); }
 
 /* ---------- échec de chargement ---------- */
 .gs-fail { margin: auto; width: 100%; max-width: 380px; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 24px 6px 48px; text-align: center; }

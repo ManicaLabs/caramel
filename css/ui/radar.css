@@ -15,16 +15,16 @@
 .radar-ray { stroke: var(--pink-200); stroke-width: 1.2; }
 .radar-ray.is-sel { stroke: var(--rc); stroke-width: 2.5; }
 .radar-scale, .radar-tick { stroke: var(--ink-5); stroke-width: 1.2; }
-.radar-mark { font-family: var(--font-ui); font-weight: 700; font-size: 10px; fill: var(--ink-3); }
+.radar-mark { font-family: var(--font-ui); font-weight: 700; font-size: 11px; fill: var(--ink-3); }
 
 /* ---------- polygones, sommets, étoiles ---------- */
 .radar-cur-fill { fill: var(--rf); fill-opacity: .85; stroke: none; }
 .radar-cur { fill: none; stroke: var(--rc); stroke-width: 2.5; stroke-linejoin: round; }
 .radar-ref { fill: none; stroke: var(--ink-3); stroke-width: 1.8; stroke-dasharray: 5 4; stroke-linejoin: round; }
-.radar-dot { fill: #fff; stroke: var(--rc); stroke-width: 2.2; }
+.radar-dot { fill: var(--card); stroke: var(--rc); stroke-width: 2.2; }
 .radar-dots { transition: opacity var(--dur-2) ease-out; }
 .radar-dots.is-hidden { opacity: 0; }
-.radar-bag-disc { fill: #fff; stroke: var(--rc); stroke-width: 2; }
+.radar-bag-disc { fill: var(--card); stroke: var(--rc); stroke-width: 2; }
 .radar-bag-emo { pointer-events: none; }
 .radar-star {
   font-size: 15px; pointer-events: none; transform-box: fill-box; transform-origin: center;
@@ -51,9 +51,11 @@
   background: var(--pink-50); border: 1px solid var(--pink-200); color: var(--ink-3);
 }
 .rl-chip[hidden] { display: none; }
+/* espace parents (libellés officiels) : valeurs « ++ 2,1 » en 11 px au lieu de 0,8 em (≈ 10 px) */
+.radar--official .rl-chip { font-size: 11px; }
 .rl-chip.is-soon { background: none; border: 1px dashed var(--ink-5); color: var(--ink-3); font-weight: 500; }
-.rl-chip.is-val { background: #fff; border-color: var(--rc); color: var(--ink); font-variant-numeric: tabular-nums; }
-.rl-chip.is-unset { background: #fff; border-style: dashed; border-color: var(--ink-5); color: var(--ink-3); }
+.rl-chip.is-val { background: var(--card); border-color: var(--rc); color: var(--ink); font-variant-numeric: tabular-nums; }
+.rl-chip.is-unset { background: var(--card); border-style: dashed; border-color: var(--ink-5); color: var(--ink-3); }
 /* largeur fixe des pastilles quand elles changent souvent (saisie) : aucune remise en page pendant un glisser */
 .radar.is-interactive .rl-chip { min-width: 5.4em; text-align: center; }
 
@@ -63,7 +65,7 @@
 .radar.is-interactive .radar-label.is-selected { background: var(--pink-100); box-shadow: 0 0 0 2px var(--pink-200); color: var(--pink-800); }
 .radar-handle { cursor: grab; outline: none; }
 .radar-hit { fill: transparent; touch-action: none; }
-.radar-knob { fill: #fff; stroke: var(--rc); stroke-width: 3; transform-box: fill-box; transform-origin: center;
+.radar-knob { fill: var(--card); stroke: var(--rc); stroke-width: 3; transform-box: fill-box; transform-origin: center;
   transition: transform var(--dur-1) var(--ease-out); }
 .radar-handle.is-sel .radar-knob { stroke: var(--title); stroke-width: 3.5; transform: scale(1.18); }
 .radar-handle.is-unset .radar-knob { fill: var(--pink-50); stroke: var(--ink-4); stroke-dasharray: 3 3; stroke-width: 2.5; transform: scale(.72); }
@@ -78,7 +80,7 @@
 .radar.is-fixed .radar-ring { stroke: var(--pink-800); stroke-width: 1.6; opacity: .9; }
 .radar.is-fixed .radar-ray { stroke: var(--pink-400); stroke-width: 1.4; opacity: .9; }
 .radar.is-fixed .radar-ray.is-sel { stroke: var(--title); stroke-width: 3; }
-.radar.is-fixed .radar-mark { fill: var(--pink-800); font-size: 11px; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
+.radar.is-fixed .radar-mark { fill: var(--pink-800); font-size: 11px; paint-order: stroke; stroke: var(--card); stroke-width: 3px; }
 .radar.is-fixed .radar-cur-fill { fill-opacity: .32; }
 .radar.is-fixed .radar-scale, .radar.is-fixed .radar-tick { stroke: var(--pink-800); stroke-width: 1.6; }
 .radar.is-fixed .radar-bag-disc { fill-opacity: .7; }
@@ -86,7 +88,7 @@
 /* ---------- panneau de réglage de l'axe choisi ---------- */
 .radar-editor {
   display: grid; gap: 8px; margin-top: 10px; padding: 8px; border-radius: var(--r-m);
-  background: #fff; border: 2px solid var(--pink-200); box-shadow: var(--shadow-1);
+  background: var(--card); border: 2px solid var(--pink-200); box-shadow: var(--shadow-1);
 }
 .radar-editor[hidden] { display: none; }
 .re-head { display: flex; align-items: center; gap: 6px; }
@@ -97,11 +99,11 @@
 }
 .re-nav:active { transform: scale(.92); background: var(--pink-100); }
 .re-title { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; text-align: center; }
-.re-idx { font-size: .78rem; font-weight: 600; color: var(--ink-4); font-variant-numeric: tabular-nums; }
+.re-idx { font-size: .78rem; font-weight: 600; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .re-name { font-weight: 700; color: var(--ink); line-height: 1.2; font-size: 1rem; }
 .re-row { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
 .re-step {
-  width: 54px; height: 48px; border-radius: 14px; background: #fff; border: 2px solid var(--pink-200);
+  width: 54px; height: 48px; border-radius: 14px; background: var(--card); border: 2px solid var(--pink-200);
   box-shadow: 0 3px 0 var(--pink-200); font-size: 1.6rem; font-weight: 700; line-height: 1; color: var(--ink);
   transition: transform 90ms var(--ease-out), box-shadow 90ms;
 }
@@ -110,7 +112,7 @@
 .re-val { min-width: 96px; text-align: center; font-weight: 700; font-size: 1.15rem; color: var(--ink); font-variant-numeric: tabular-nums; }
 .re-val.is-null, .re-val.is-unset { color: var(--ink-3); font-weight: 600; }
 .re-absent {
-  min-height: 48px; padding: 6px 16px; border-radius: var(--r-pill); background: #fff; border: 2px solid var(--pink-200);
+  min-height: 48px; padding: 6px 16px; border-radius: var(--r-pill); background: var(--card); border: 2px solid var(--pink-200);
   font-weight: 600; color: var(--ink-3); transition: background var(--dur-1), border-color var(--dur-1);
 }
 .re-absent.on { background: var(--orange-50); border-color: var(--orange-300); color: var(--soft-ink); }
@@ -122,5 +124,10 @@
 }
 
 /* ---------- mouvement réduit / animations douces ---------- */
+/* La règle globale de base.css (« transition-duration: 1ms » sur tout, propriété par défaut : all) ferait glisser
+   left / top / transform / max-width des libellés : la mise en page automatique, qui écrit puis mesure aussitôt,
+   lirait les anciennes valeurs (libellés empilés hors du cadre, débordement à 360 px). Les libellés et la scène du
+   radar n'ont donc jamais de transition. */
+.radar-stage, .radar-labels, .radar-label, .radar-label * { transition: none !important; }
 @media (prefers-reduced-motion: reduce) { .radar-star { animation: none; } }
 html.motion-soft .radar-star { animation: none; }
