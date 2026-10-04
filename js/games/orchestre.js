@@ -38,6 +38,7 @@ let S = null;                                   /* instance montée */
 export default {
   id: 'orchestre', title: 'Le Chef d’orchestre', icon: '🎻', axes: ['fr.conjug'],
   css: 'css/games/orchestre.css',
+  intro: true,                                  /* se présente lui-même (showIntro) : pas de phrase d'accueil de la coquille */
 
   async mount(root, ctx) {
     if (S) S.destroy();
@@ -115,12 +116,17 @@ function createGame(root, ctx) {
     clear(promptEl); clear(tagsEl); clear(help); clear(answers);
     modelEl.hidden = true;
     card.classList.add('is-intro');
-    promptEl.append(h('span', { class: 'orc-intro-title' }, frTypo('L’orchestre t’attend ! 🎻')));
+    const title = frTypo('L’orchestre t’attend ! 🎻');
+    const story = frTypo(ctx.fill('{N} dirige les musiciens. À chaque bonne réponse, une note s’ajoute à ta mélodie : à la fin, l’orchestre la joue pour toi !'));
+    promptEl.append(h('span', { class: 'orc-intro-title' }, title));
     clear(sentEl);
-    sentEl.append(frTypo(ctx.fill('{N} dirige les musiciens. À chaque bonne réponse, une note s’ajoute à ta mélodie : à la fin, l’orchestre la joue pour toi !')));
+    sentEl.append(story);
+    /* petits lecteurs : l'intro est dite (et 🔊 la relit) ; le texte reste affiché */
+    say(title + ' ' + story);
     const go = h('button', { type: 'button', class: 'btn big block orc-go' }, frTypo('C’est parti ! 🎶'));
     go.addEventListener('click', () => {
       if (!my.alive || my.phase !== 'intro') return;
+      hush();
       try { audio.unlock(); } catch (_) {}
       card.classList.remove('is-intro');
       for (const m of stage.mus) motion.pop(m.body, { scale: 1.08, dur: 320 });

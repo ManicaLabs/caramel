@@ -2,7 +2,8 @@
    1. profil actif requis (sinon onboarding), jeu connu et accessible à la classe (sinon accueil) ;
    2. en-tête commun tout de suite (← · pastilles · joker 💡, sur une ligne), petit écran d'attente animé si le
       chargement traîne : générateurs des axes du jeu, module du jeu, sa feuille de style ;
-   3. ctx (js/ui/game-ctx.js) avec une manche neuve (createManche) → game.mount(body, ctx) ;
+   3. ctx (js/ui/game-ctx.js) avec une manche neuve (createManche) → game.mount(body, ctx) ; à la 1re partie d'un jeu
+      pour cet enfant (v2.2.1), le compagnon l'explique d'abord en une phrase (GAME_HELLO, « C'est parti ▶ ») ;
    4. fin : bilan en feuille centrale, UN bouton (phrase d'encouragement, UN nombre « 🍎 +N » qui grandit avec
       les bonus de série et de balade, sans le total du porte-monnaie à côté : un seul nombre à lire) ;
       jamais d'erreur comptée ni de « 7/10 », jamais de « 🍎 +0 ».
@@ -23,7 +24,7 @@ import * as router from '../router.js';
 import * as motion from '../core/motion.js';
 import * as audio from '../core/audio.js';
 import * as kit from './kit.js';
-import { fillTemplate } from '../core/profiles.js';
+import { fillTemplate, hasSeen, markSeen } from '../core/profiles.js';
 import { createManche } from '../core/manche.js';
 import { swapBlock } from '../core/session.js';
 import { loadGenerator, hasGenerator } from '../content/index.js';
@@ -39,8 +40,28 @@ const WAIT_SHOW_MS = 160;                   /* l'écran d'attente n'apparaît qu
 const ssGet = k => { try { return sessionStorage.getItem(k); } catch (_) { return null; } };
 const ssSet = (k, v) => { try { sessionStorage.setItem(k, v); } catch (_) {} };
 const depth = () => { try { return history.state && Number.isInteger(history.state.caramel) ? history.state.caramel : 0; } catch (_) { return 0; } };
+const wideScreen = () => { try { return matchMedia('(min-width: 900px)').matches; } catch (_) { return false; } };
 
 let st = null;
+
+/* 1re partie d'un jeu (v2.2.1) : le compagnon l'explique en UNE phrase ({N} = son nom ; dite aux petits lecteurs, toujours
+   écrite), une seule fois par jeu et par enfant (profile.seen). Un jeu qui se présente lui-même (export intro: true,
+   l'orchestre) n'en a pas besoin, ni un enfant qui y a déjà joué (playedBefore). */
+export const GAME_HELLO = Object.freeze({
+  course: 'Lis l’histoire à voix haute : à chaque mot que tu lis, j’avance !',
+  cloture: 'Chaque piquet de la clôture a son nombre : aide-moi à trouver le bon, je saute jusqu’à lui !',
+  tables: 'Trouve le résultat du calcul, tape-le ou dis-le avec 🎤, et je saute l’obstacle !',
+  pommes: 'Calcule dans ta tête : chaque bonne réponse fait tomber une pomme dans le panier !',
+  operations: 'On pose l’opération, et tu trouves les chiffres un par un, colonne par colonne.'
+});
+/* l'enfant a déjà joué à ce jeu : une partie dans son historique, ou pour la course une histoire déjà lue (⭐ de la v11
+   comprises). Les profils d'avant la 2.2.1 n'ont pas de « déjà vu » : la phrase ne leur est pas montrée pour autant. */
+export function playedBefore(profile, id) {
+  if (!profile) return false;
+  if (Array.isArray(profile.history) && profile.history.some(x => x && x.g === id)) return true;
+  const stars = id === 'course' && profile.wallet && profile.wallet.stars;
+  return !!stars && typeof stars === 'object' && Object.keys(stars).length > 0;
+}
 
 /* phrase positive du bilan : uniquement ce qui a été réussi (g = genre du héros, pour l'accord) */
 export function praise(summary, g = 'f') {
@@ -137,10 +158,61 @@ export default {
     header.setTitle(ctx.fill(game.title), ctx.fill(game.short || game.title));
     my.mounted = true;
     clear(body);
+    let greeted = false;
+    const seenBy = store.getProfile() || p;
+    if (!mod.intro && GAME_HELLO[id] && !hasSeen(seenBy, 'game:' + id)) {
+      if (playedBefore(seenBy, id) && !(seenBy.seen && seenBy.seen.again === true)) {
+        /* déjà joué (profil d'avant la 2.2.1) : pas de phrase ni de toucher en plus, noté « déjà vu » ; sauf après
+           « Revoir la visite guidée » (espace parents : seen.again) */
+        try { store.mutateProfile(pp => { markSeen(pp, 'game:' + id); }); } catch (e) { console.error('Déjà vu', e); }
+      } else {
+        await hello(GAME_HELLO[id]);
+        if (st !== my) return;
+        clear(body);
+        greeted = true;
+      }
+    }
     try {
       await mod.mount(body, ctx);
     } catch (e) {
       if (st === my) fail(e);
+    }
+    /* « C'est parti » a disparu avec la phrase : si le jeu n'a pas placé le focus, il va au titre du jeu (comme à
+       l'arrivée sur un écran : le lecteur d'écran annonce le jeu) */
+    if (greeted && st === my) {
+      const a = document.activeElement;
+      const t = header.el.querySelector('h1');
+      if (t && (!a || a === document.body || !a.isConnected)) {
+        if (!t.hasAttribute('tabindex')) t.tabIndex = -1;
+        try { t.focus({ preventScroll: true }); } catch (_) {}
+      }
+    }
+
+    /* la phrase du compagnon avant la 1re partie : bulle, compagnon, « C'est parti ▶ » (le jeu n'est monté qu'après :
+       sa première question ne coupe pas la phrase) */
+    function hello(phrase) {
+      return new Promise(resolve => {
+        const q = store.getProfile() || p;
+        const text = frTypo(fillTemplate(phrase, q));
+        const say = h('p', { class: 'gs-hello-say read', id: 'gs-hello-t' }, text);
+        const pet = h('div', { class: 'gs-hello-pet', 'aria-hidden': 'true', html: ctx.petSVG(wideScreen() ? 170 : 150, '', { expr: 'happy' }) });
+        /* lecteur d'écran : la phrase est la description du bouton qui reçoit le focus (lue une seule fois) */
+        const go = h('button', { type: 'button', class: 'btn play block gs-hello-go', 'aria-describedby': 'gs-hello-t' },
+          h('span', null, frTypo('C’est parti')), h('span', { class: 'btn-play-ico', 'aria-hidden': 'true' }, '▶'));
+        const box = h('div', { class: 'gs-hello' }, say, pet, go);
+        body.appendChild(box);
+        motion.enter(box, { from: 'scale', dur: 340 });
+        ctx.voice.say(text);
+        try { go.focus({ preventScroll: true }); } catch (_) {}
+        go.addEventListener('click', () => {
+          if (st !== my) return;
+          audio.tap();
+          voice.hush();
+          try { store.mutateProfile(pp => { markSeen(pp, 'game:' + id); }); } catch (e) { console.error('Déjà vu', e); }
+          /* la voix coupée a repris son souffle avant le jeu (qui peut ouvrir le micro : Chrome Android) */
+          voice.settle().then(resolve, resolve);
+        }, { once: true });
+      });
     }
     if (st === my && !ctx.ended) watchBack();
 

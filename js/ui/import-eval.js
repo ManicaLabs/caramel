@@ -439,10 +439,37 @@ function renderPhotoStart(err) {
   };
   inCam.addEventListener('change', onFile);
   inGal.addEventListener('change', onFile);
+  /* l'appareil photo ne s'est pas ouvert (Chrome sans l'autorisation « Appareil photo » d'Android) ou rien n'a été
+     photographié : rien ne le disait. On le dit, avec le contournement (photo avec l'appli Appareil photo puis
+     « Choisir une image ») et le chemin de l'autorisation — seulement dans ce cas, pour ne pas charger l'écran. */
+  let camWatch = null;
+  const stopCamWatch = () => {
+    if (!camWatch) return;
+    clearTimeout(camWatch.timer); clearTimeout(camWatch.back);
+    document.removeEventListener('visibilitychange', camWatch.onVis);
+    camWatch = null;
+  };
+  const camHint = () => {
+    stopCamWatch();
+    if (!inCam.isConnected) return;                 /* une photo est arrivée : l’écran a déjà changé */
+    renderPhotoStart('L’appareil photo ne s’est pas ouvert ? Prenez la photo avec l’appli Appareil photo du téléphone, puis touchez « 🖼️ Choisir une image ». (Pour l’autoriser ici : Paramètres › Applications › Chrome › Autorisations › Appareil photo.)');
+  };
+  const watchCam = () => {
+    stopCamWatch();
+    const w = camWatch = { hidden: false, timer: 0, back: 0, onVis: null };
+    w.onVis = () => {
+      if (document.visibilityState === 'hidden') { w.hidden = true; clearTimeout(w.timer); return; }
+      if (w.hidden) { clearTimeout(w.back); w.back = setTimeout(camHint, 1500); }   /* revenu sans photo */
+    };
+    document.addEventListener('visibilitychange', w.onVis);
+    w.timer = setTimeout(() => { if (camWatch === w && !w.hidden) camHint(); }, 4000);   /* rien ne s'est ouvert */
+  };
+  inCam.addEventListener('change', stopCamWatch);
   const ask = input => () => {
     if (!classe) { kit.gentleWrong(cam); say('Choisissez d’abord la classe de la fiche.'); return; }
     audio.tap();
-    try { input.click(); } catch (_) {}
+    if (input === inCam) watchCam(); else stopCamWatch();
+    try { input.click(); } catch (_) { if (input === inCam) camHint(); }
   };
   const cam = h('button', { type: 'button', class: 'btn big block im-cam', on: { click: ask(inCam) } }, h('span', { 'aria-hidden': 'true' }, '📷'), 'Prendre la photo');
   const gal = h('button', { type: 'button', class: 'btn white block im-gal', on: { click: ask(inGal) } }, h('span', { 'aria-hidden': 'true' }, '🖼️'), 'Choisir une image');

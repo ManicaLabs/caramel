@@ -10,9 +10,12 @@
      🍎 qui vole ; le calcul suivant arrive dès la réception (D1-20).
    - Faux : petit trébuchement, bulle d'indice (stratégie item.hint) + panneau de points pour les petits faits,
      nouvel essai ; 2e erreur : réponse dans la case + explication + « J’ai compris ✓ » (contrat §7.3).
-   - Voix (bouton 🎤 dans la case libre du pavé) : grammarFor(1000) tel quel, parseSpoken ; juste dès qu'il est
-     entendu, autre nombre stable 1,5 s = essai faux (« J’ai entendu 54… ») ; coupée pour les réponses décimales
-     ou > 1 000 (data.voice) ; resetTranscript à chaque item ; écoute coupée au démontage.
+   - Voix (bouton 🎤 dans la case libre du pavé) : grammaire L.voiceGrammar() (nombres + mots d'appoint), parseSpoken ;
+     juste dès qu'il est entendu, autre nombre stable 1,5 s = essai faux (« J’ai entendu 54… ») ; jamais faux : les
+     nombres de l'énoncé, la réponse du calcul précédent (l'enfant la répète pendant que le suivant arrive), « un »
+     (hésitations) ; coupée pour les réponses décimales ou > 1 000 (data.voice) ; resetTranscript à chaque item ;
+     « 🎤 Micro en pause » tant que la réponse montrée attend « J’ai compris » ; micro sourd (aucun résultat de Vosk
+     pendant DEAF_MS, ex. Android qui suspend l'audio) → écoute relancée proprement ; écoute coupée au démontage.
    - Micro impossible (refusé, absent, hors ligne) : une phrase d'enfant (ctx.mic.trouble), le pavé reste là (D4-04).
    Logique pure (énoncé, saisie, juge de la voix, vitesses) : js/games/tables-logic.js (tests/tables.test.mjs). */
 
@@ -26,6 +29,9 @@ const WRONG_CLEAR_MS = 650;     /* la saisie fausse reste visible, puis la case 
 const REVEAL_MS = 420;          /* 2e erreur : la bonne réponse apparaît après la petite secousse */
 const SOFT_NEXT_MS = 900;       /* mouvement réduit : délai avant l'item suivant */
 const VIS_SCALE = 1.45;        /* dessin d'indice : taille naturelle des points (1 unité = 1,45 px) */
+const DEAF_MS = 3000;           /* Vosk rend un résultat partiel par bloc audio (~4 par seconde, silence compris) : 3 s sans
+                                   rien = micro sourd (Android : AudioContext suspendu, flux coupé…) → écoute relancée */
+const MAX_REVIVE = 3;           /* relances sans geste par partie ; au-delà, le micro s'arrête et le dit */
 const NNBSP = '\u{202f}';
 
 let inst = null;
@@ -172,7 +178,8 @@ function createTables(root, ctx) {
   root.appendChild(box);
 
   /* ---------- voix ---------- */
-  const voice = { supported: false, wanted: false, on: false, starting: false, pct: null, heard: null, judge: null, timer: 0, err: '' };
+  const voice = { supported: false, wanted: false, on: false, starting: false, pct: null, heard: null, judge: null, timer: 0, err: '',
+    engine: null, beat: 0, watch: 0, revives: 0 };
   try { voice.supported = !!(ctx.speech && ctx.speech.speechSupported()); } catch (_) { voice.supported = false; }
   const micBtn = h('button', { type: 'button', class: 'tb-mic', 'aria-pressed': 'false', 'aria-label': 'Répondre à voix haute' },
     h('span', { class: 'tb-mic-ico', 'aria-hidden': 'true' }, '🎤'));
@@ -197,6 +204,7 @@ function createTables(root, ctx) {
   /* ---------- état de l'item ---------- */
   let cur = null;               /* { item, parts, info, tries, hinted, resolved, locked, t0, hintShown, boardShown } */
   let ended = false, started = false, firstGallop = true, clip = null, index = 0;
+  let prevAnswer = null;        /* réponse du calcul précédent : jamais comptée fausse sur le suivant (répétition, écho) */
 
   /* ---------- monde : vitesse, obstacle, saut ---------- */
   const world = { rate: 0, applied: -1, raf: 0, last: 0, inLoop: false, phase: 'idle', cruise: 1, x: 0, visible: false, layers: [], legs: null };
@@ -553,6 +561,7 @@ function createTables(root, ctx) {
     if (!alive || ended) return;
     const item = safe(() => ctx.nextItem());
     if (!item) { finish(); return; }
+    prevAnswer = cur && Number.isFinite(cur.info.value) ? cur.info.value : null;
     index++;
     const parts = L.promptParts(item);
     const info = L.answerInfo(item);
@@ -626,8 +635,10 @@ function createTables(root, ctx) {
       later(() => { if (cur === c && !c.resolved && !c.locked) { kp.clear(); kp.setState(null); } }, WRONG_CLEAR_MS);
       return;
     }
-    /* 2e erreur : la bonne réponse est montrée, avec l'explication (la jauge du chrono s'efface) */
+    /* 2e erreur : la bonne réponse est montrée, avec l'explication (la jauge du chrono s'efface) ; la voix attend
+       « J’ai compris » (« 🎤 Micro en pause » : l'oreille ne dit plus « Je t’écoute ») */
     c.locked = true;
+    renderVoice();
     kp.disable(true);
     hideGauge();
     later(() => {
@@ -698,7 +709,8 @@ function createTables(root, ctx) {
   function resetVoiceForItem() {
     cancelVoiceTimer();
     voice.heard = null;
-    voice.judge = cur && cur.info.voice ? L.createVoiceJudge({ answer: cur.info.value, ignore: L.shownNumbers(cur.parts) }) : null;
+    const ignore = L.shownNumbers(cur ? cur.parts : []).concat(prevAnswer === null ? [] : [prevAnswer]);
+    voice.judge = cur && cur.info.voice ? L.createVoiceJudge({ answer: cur.info.value, ignore }) : null;
     resetTranscript();
   }
   function resetVoiceAfterTry() {
@@ -709,7 +721,7 @@ function createTables(root, ctx) {
     renderVoice();
   }
   function renderVoice() {
-    const voiceOk = !!(cur && cur.info.voice);
+    const voiceOk = !!(cur && cur.info.voice && !cur.locked);
     micBtn.classList.toggle('is-on', voice.on);
     micBtn.classList.toggle('is-starting', voice.starting);
     micBtn.classList.toggle('is-paused', voice.on && !voiceOk);
@@ -731,13 +743,16 @@ function createTables(root, ctx) {
     ear.classList.toggle('is-hidden', !text);
     if (was !== !!text && started) layout();      /* le panneau change de hauteur : hauteur du saut à revoir */
   }
-  async function startVoice() {
+  async function startVoice(revive = false) {
     if (!voice.supported || voice.wanted || !alive) return;
     hush();                                       /* le micro n'entend que l'enfant : le compagnon se tait */
     voice.wanted = true; voice.starting = true; voice.pct = null; voice.err = '';
     stopClip();
     renderVoice();
     try { ctx.speech.ensureVosk(p => { if (alive && voice.starting) { voice.pct = p; renderVoice(); } }); } catch (_) {}
+    /* Android : la voix du compagnon et le micro se disputent le son ; on attend qu'elle se soit tue (v2.2.1) */
+    try { if (ctx.voice && ctx.voice.settle) await ctx.voice.settle(); } catch (_) {}
+    if (!alive || !voice.wanted) { voice.starting = false; renderVoice(); return; }
     let r = null;
     try {
       r = await ctx.speech.startListening({ grammar: L.voiceGrammar(), onText: onVoiceText, onError: onVoiceError });
@@ -753,16 +768,44 @@ function createTables(root, ctx) {
       return;
     }
     voice.on = true;
+    voice.engine = r.engine;
     hush();                                       /* au cas où une phrase courrait encore : le micro écoute */
     /* le temps de chargement du micro ne compte pas dans la vitesse de réponse */
     if (cur && !cur.resolved && cur.tries === 0) cur.t0 = nowMs();
     resetVoiceForItem();
     renderVoice();
     refreshIdle();
-    announce('Le micro t’écoute.');
+    if (!revive) announce('Le micro t’écoute.');
+    voice.beat = nowMs();
+    watchVoice();
+  }
+  /* veille du moteur Vosk (Web Speech ne donne rien dans le silence : pas de veille) : plus aucun résultat depuis
+     DEAF_MS → l'écoute est relancée (nouveau flux, nouvel AudioContext), comme un arrêt / reprise du 🎤 par l'enfant */
+  function watchVoice() {
+    voice.watch = cancel(voice.watch);
+    if (!voice.on || voice.engine !== 'vosk') return;
+    voice.watch = later(() => {
+      voice.watch = 0;
+      if (!voice.on || voice.engine !== 'vosk') return;
+      let hidden = false;
+      try { hidden = !!document.hidden; } catch (_) {}
+      if (hidden) voice.beat = nowMs();           /* en arrière-plan, on attend le retour de l'enfant */
+      else if (nowMs() - voice.beat > DEAF_MS) { reviveVoice(); return; }
+      watchVoice();
+    }, 1000);
+  }
+  function reviveVoice() {
+    if (!alive || !voice.on) return;
+    stopVoice();
+    if (++voice.revives > MAX_REVIVE) {
+      showVoiceProblem(frTypo('Le micro ne m’entend plus 😕 Touche 🎤 pour réessayer, ou tape la réponse.'));
+      return;
+    }
+    startVoice(true);
   }
   function stopVoice() {
-    voice.wanted = false; voice.on = false; voice.starting = false; voice.pct = null; voice.heard = null;
+    voice.wanted = false; voice.on = false; voice.starting = false; voice.pct = null; voice.heard = null; voice.engine = null;
+    voice.watch = cancel(voice.watch);
     cancelVoiceTimer();
     try { ctx.speech.stopListening(); } catch (_) {}
     renderVoice();
@@ -783,6 +826,7 @@ function createTables(root, ctx) {
     showVoiceProblem(text);
   }
   function onVoiceText(text, isFinal) {
+    voice.beat = nowMs();                         /* le moteur vit (veille : watchVoice) */
     if (!alive || !voice.on || !cur || cur.resolved || cur.locked || !voice.judge) return;
     handleVoice(voice.judge.feed(text, isFinal, nowMs()));
   }

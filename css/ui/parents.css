@@ -405,3 +405,18 @@ html.kit-lock:has(.pa-screen) .kit-toast { top: calc(14px + var(--safe-t)); bott
 @media (prefers-reduced-motion: reduce) { .pa-tip { transform: none; } .pa-details > summary::before, .pa-axes-sum::before { transition: none; } .pa-pin-dot { transition: none; } }
 html.motion-soft .pa-tip { transform: none; }
 html.motion-soft .pa-pin-dot.on { transform: none; }
+
+/* « ▶ Tester la voix » (v2.2.1) : le bouton, puis le résultat — ✓ vert, ou ce qui ne va pas (orange doux, jamais rouge)
+   et la marche à suivre pour cet appareil */
+.pa-voice { display: grid; gap: 8px; justify-items: start; }
+.pa-voice-btn { gap: 8px; }
+.pa-voice-out { display: grid; gap: 4px; width: 100%; padding: 10px 12px; border-radius: var(--r-m);
+  background: var(--amber-50); border: 2px solid var(--amber-200); }
+.pa-voice-out:empty { display: none; }
+.pa-voice-out.is-ok { background: var(--ok-50); border-color: var(--ok-300); }
+.pa-voice-out.is-ko { background: var(--orange-50); border-color: var(--orange-300); }
+.pa-voice-res { font-weight: 700; color: var(--ink); line-height: 1.3; }
+.pa-voice-out.is-ok .pa-voice-res { color: var(--ok-ink); }
+.pa-voice-out.is-ko .pa-voice-res { color: var(--soft-ink); }
+.pa-voice-out .pa-help { color: var(--ink-2); }
+.pa-tour-btn { justify-self: start; gap: 8px; }

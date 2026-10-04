@@ -222,14 +222,15 @@ test('resetTranscript : la fin de la phrase en cours ne revient pas', () => {
     const r2 = lastRec();
     r2.fire('partialresult', { partial: 'cinquante-six' });
     speech.resetTranscript();
-    assert.equal(r2.finals, 1, 'FinalResult demandé à Kaldi');
-    r2.fire('partialresult', { partial: 'cinquante-six' });   /* morceau audio d'avant le reset */
-    r2.fire('result', { text: 'cinquante-six' });            /* clôture de la phrase oubliée */
+    /* la phrase n'est plus coupée (FinalResult au milieu d'un mot : fin reconnue seule) : ignorée jusqu'à sa fin naturelle */
+    assert.equal(r2.finals, 0, 'pas de FinalResult demandé à Kaldi');
+    r2.fire('partialresult', { partial: 'cinquante-six' });   /* suite de la phrase oubliée */
+    r2.fire('result', { text: 'cinquante-six' });            /* fin naturelle de la phrase oubliée */
     r2.fire('partialresult', { partial: 'quarante-deux' });
     r2.fire('result', { text: 'quarante-deux' });
     assert.deepEqual(texts.map(t => t.trim()), ['cinquante-six', '', '', 'quarante-deux', 'quarante-deux']);
     speech.resetTranscript();                                  /* hors phrase : rien à ignorer */
-    assert.equal(r2.finals, 1);
+    assert.equal(r2.finals, 0);
     r2.fire('partialresult', { partial: 'cinquante-six' });
     assert.equal(texts.at(-1).trim(), 'cinquante-six');
   });

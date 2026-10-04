@@ -12,7 +12,8 @@
    - voix (CDC §1 principe 7, js/ui/voice.js) : ctx.voice.say(texte) confie au compagnon la phrase du moment (question,
      indice, explication) : elle est lue à voix haute pour les petits lecteurs (réglage parent « Lire les consignes à
      voix haute » : CP-CE1 par défaut) et 🔊 dans l'en-tête la relit ; jamais pendant que le micro écoute.
-     Chaque jeu choisit ce qu'il confie (aucune bulle n'est interceptée) ; ctx.voice.on dit si la voix est active.
+     Chaque jeu choisit ce qu'il confie (aucune bulle n'est interceptée) ; ctx.voice.on dit si la voix est active ;
+     ctx.voice.settle() (v2.2.1) → Promise résolue quand la voix s'est tue (à attendre avant d'ouvrir le micro).
    - micro impossible (D1-01, D4-04) : ctx.mic.trouble(code) → phrase courte pour l'enfant (tutoiement) et marche à
      suivre pour l'adulte (vouvoiement, adaptée à l'appli installée) ; ctx.mic.help(code, { onRetry }) ouvre la feuille
      de l'adulte. ctx.changeGame() : la coquille remplace l'étape de balade par un autre jeu (partie libre : choix d'un
@@ -178,7 +179,10 @@ export function buildCtx({ game, makeManche, manche: first, mode = 'libre', head
         if (header && header.setLine) header.setLine(text, on);
         return on && !quiet ? voice.speak(text) : Promise.resolve(false);
       },
-      hush() { voice.hush(); }
+      hush() { voice.hush(); },
+      /* → Promise : la voix s'est tue et le moteur a repris son souffle (v2.2.1) — à attendre après hush() avant d'ouvrir
+         le micro (Chrome Android : synthèse et reconnaissance se disputent le son juste après un cancel()) */
+      settle() { return voice.settle(); }
     },
     get applesEl() { return header ? header.applesEl : null; },
     /* micro impossible : textes (enfant, adulte) et feuille d'aide pour l'adulte (onRetry : « Réessayer 🎤 ») */

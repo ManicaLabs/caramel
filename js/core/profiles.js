@@ -137,10 +137,46 @@ export function normalizeProfile(p, today) {
     stats: normStats(src.stats)
   };
   if (has(src, 'trophies')) out.trophies = normTrophies(src.trophies);   /* facultatif (v2.1, « En famille ») */
+  if (has(src, 'seen')) out.seen = normSeen(src.seen);                   /* facultatif (v2.2.1, « déjà vu ») */
   /* médailles gagnées (v2.1) : jamais retirées ; un profil d'avant la 2.1 (champ absent) garde celles que la v2.0
      lui montrait (legacyMedals), même si la nouvelle règle ne les donnerait plus (CDC §1 : aucune perte) */
   out.medals = has(src, 'medals') ? normMedals(src.medals) : legacyMedals(out);
   return withExtras(out, src);
+}
+
+/* ---------- « déjà vu » (v2.2.1) ----------
+   profile.seen = { tour: true, games: { <id de jeu>: true } } : la visite guidée de l'accueil et la phrase du compagnon à
+   la 1re partie de chaque jeu ne viennent qu'UNE fois par enfant. Champ facultatif : absent = rien vu (les profils
+   d'avant la 2.2.1 voient la visite une fois, l'accueil ayant changé en 2.2 ; la phrase d'un jeu déjà joué, elle,
+   n'est pas montrée : game-shell.js, playedBefore). Clés : 'tour' | 'game:<id>'.
+   again (facultatif) = true : un parent a demandé « Revoir la visite guidée » ; les phrases des jeux reviennent alors
+   aussi pour les jeux déjà joués. */
+const SEEN_ID_RE = /^[a-z][a-z0-9_-]{0,23}$/;
+function normSeen(v) {
+  const s = isObj(v) ? v : {};
+  const games = {};
+  if (isObj(s.games)) for (const [k, x] of Object.entries(s.games)) if (SEEN_ID_RE.test(k) && x === true) games[k] = true;
+  const out = { tour: s.tour === true, games };
+  if (has(s, 'again')) out.again = s.again === true;
+  return withExtras(out, s);
+}
+export function hasSeen(p, key) {
+  const s = isObj(p) && isObj(p.seen) ? p.seen : null;
+  if (!s) return false;
+  const k = String(key || '');
+  if (k === 'tour') return s.tour === true;
+  const m = /^game:(.+)$/.exec(k);
+  return !!(m && isObj(s.games) && s.games[m[1]] === true);
+}
+/* à appeler dans store.mutateProfile ; on = false oublie (« Revoir la visite guidée ») */
+export function markSeen(p, key, on = true) {
+  if (!isObj(p)) return p;
+  const s = p.seen = normSeen(p.seen);
+  const k = String(key || '');
+  if (k === 'tour') { s.tour = !!on; return p; }
+  const m = /^game:(.+)$/.exec(k);
+  if (m && SEEN_ID_RE.test(m[1])) { if (on) s.games[m[1]] = true; else delete s.games[m[1]]; }
+  return p;
 }
 
 /* ---------- médailles (Mes progrès) ----------

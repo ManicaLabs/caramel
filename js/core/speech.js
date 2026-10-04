@@ -28,7 +28,10 @@
 
    AJOUTS (appli à écrans, absents de la v11) : un double appui pendant le chargement partage le même
    démarrage ; stopListening() pendant le démarrage annule proprement (le micro ne s'ouvre pas en
-   arrière-plan) ; resetTranscript() oublie aussi la phrase en cours (pour enchaîner des réponses courtes) ;
+   arrière-plan) ; resetTranscript() oublie aussi la phrase en cours (pour enchaîner des réponses courtes) : depuis
+   la dictée des tables (retour terrain 2.2), elle est ignorée jusqu'à sa fin naturelle au lieu d'être coupée net
+   (coupée au bout de SKIP_MAX_MS si elle ne finit pas), et Web Speech oublie aussi les résultats finals déjà reçus ;
+   un AudioContext du micro suspendu par le système (Android) est relancé aussitôt ;
    statut « reconnaissance Google en secours » aussi quand Vosk est prêt mais ne démarre pas et que Web Speech prend
    le relais (l'espace parents le signale : la voix passe alors par les serveurs de Google) ; « chargement… » en
    points de suspension typographiques. Le choix du moteur ne change pas.
@@ -49,8 +52,10 @@ let statut = '';
 const statusFns = new Set(), pctFns = new Set();
 /* démarrages : session++ à chaque arrêt (un démarrage d'une ancienne session s'annule) */
 let session = 0, inflight = null;
-/* resetTranscript au milieu d'une phrase : live = phrase en cours, skipVosk / wsSkip = ce qu'il faut ignorer */
-let live = '', skipVosk = false, wsSkip = 0, wsLen = 0;
+/* resetTranscript au milieu d'une phrase : live = phrase en cours, skipVosk / wsSkip = ce qu'il faut ignorer,
+   skipAt = début de l'oubli (Vosk) : au-delà de SKIP_MAX_MS, la phrase est coupée (retrieveFinalResult) */
+let live = '', skipVosk = false, skipAt = 0, wsSkip = 0, wsLen = 0;
+const SKIP_MAX_MS = 2500;
 
 /* message de showCompat() v11, sans HTML */
 export const COMPAT_MSG = 'Ce navigateur ne peut pas faire de reconnaissance vocale. Essaie avec Chrome à jour 😊';
@@ -140,6 +145,15 @@ async function startVoskEngine(words){
   try{ audio.ctx = new Ctx({ sampleRate: 16000 }); }  /* fréquence native du modèle */
   catch(_){ audio.ctx = new Ctx(); }
   try{ await audio.ctx.resume(); }catch(_){}
+  /* AJOUT (retour terrain 2.2, Android) : un AudioContext suspendu par le système (focus audio, appel, veille) n'envoie plus rien à
+     Vosk : le micro restait sourd jusqu'à un arrêt / reprise du 🎤. On le relance dès qu'il se suspend. */
+  const micCtx = audio.ctx;
+  try{
+    micCtx.addEventListener('statechange', ()=>{
+      if(!running || audio.ctx !== micCtx || (micCtx.state !== 'suspended' && micCtx.state !== 'interrupted')) return;
+      try{ const p = micCtx.resume(); if(p && p.catch) p.catch(()=>{}); }catch(_){}
+    });
+  }catch(_){}
   let rec;
   if(Array.isArray(words) && words.length){
     /* Grammaire : la reco ne connaît que les mots fournis (déjà normalisés par l'appelant) → précision maximale */
@@ -158,7 +172,7 @@ async function startVoskEngine(words){
   audio.recognizer = rec;
   rec.on('result', (m)=>{
     if(!running) return;
-    if(skipVosk){ skipVosk = false; live = ''; emit(finalTranscript, true); return; }   /* fin de la phrase oubliée */
+    if(skipVosk){ skipVosk = false; skipAt = 0; live = ''; emit(finalTranscript, true); return; }   /* fin de la phrase oubliée */
     live = '';
     const t = (m && m.result && m.result.text) || '';
     if(t) finalTranscript += t + ' ';
@@ -168,7 +182,11 @@ async function startVoskEngine(words){
     if(!running) return;
     const p = (m && m.result && m.result.partial) || '';
     live = p;
-    if(skipVosk){ emit(finalTranscript, false); return; }
+    if(skipVosk){
+      /* AJOUT (dictée des tables) : phrase oubliée qui ne finit pas (bruit, parole sans pause) → coupée maintenant, son résultat est ignoré */
+      if(skipAt && Date.now() - skipAt > SKIP_MAX_MS){ skipAt = 0; try{ rec.retrieveFinalResult(); }catch(_){} }
+      emit(finalTranscript, false); return;
+    }
     emit(finalTranscript + ' ' + p, false);
   });
   audio.source = audio.ctx.createMediaStreamSource(stream);
@@ -243,7 +261,7 @@ async function begin(grammar, my){
   if(my !== session) return { engine: null };                 /* arrêté pendant le chargement */
   running = true;
   engine = null;
-  finalTranscript = ''; live = ''; skipVosk = false; wsSkip = wsLen = 0;
+  finalTranscript = ''; live = ''; skipVosk = false; skipAt = 0; wsSkip = wsLen = 0;
 
   if(voskOk){
     try{
@@ -301,19 +319,23 @@ export function stopListening(){
   stopWebSpeech();
   stopVoskEngine();
   engine = null;
-  live = ''; skipVosk = false; wsSkip = wsLen = 0;
+  live = ''; skipVosk = false; skipAt = 0; wsSkip = wsLen = 0;
   textCb = errCb = null;
 }
 
 /* oublie tout ce qui a été entendu, y compris la fin de la phrase en cours */
 export function resetTranscript(){
   finalTranscript = '';
-  if(!running || !live.trim()) return;
+  if(!running) return;
+  /* AJOUT (dictée des tables) : Web Speech oublie aussi les résultats déjà finals (Chrome Android renvoie parfois toute la liste depuis
+     l'indice 0 : la réponse précédente revenait sur le calcul suivant) */
+  if(engine === 'webspeech') wsSkip = wsLen;
+  if(!live.trim()) return;
   if(engine === 'vosk' && audio.recognizer){
-    /* FinalResult clôt la phrase côté Kaldi : la suivante repart de zéro ; on ignore ce résultat-là */
-    try{ audio.recognizer.retrieveFinalResult(); skipVosk = true; }catch(_){}
-  } else if(engine === 'webspeech'){
-    wsSkip = wsLen;
+    /* CHANGÉ (dictée des tables) : la phrase en cours est ignorée (partiels et résultat final) jusqu'à sa fin naturelle. Avant, retrieveFinalResult
+       la coupait net : au milieu d'un mot, la fin était reconnue seule (« …vingt-un » → « quatre-vingts », « …huit » →
+       « huit ») et jugée sur le calcul suivant. Comme Web Speech (wsSkip), qui ne peut pas couper. */
+    if(!skipVosk){ skipVosk = true; skipAt = Date.now(); }
   }
   live = '';
 }

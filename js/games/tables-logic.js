@@ -3,10 +3,14 @@
    - promptParts(item)  : énoncé en jetons selon data.op / data.hole / data.reversed (la case « … » devient
                           la zone de réponse du panneau) ; promptText / promptAria / shownNumbers ;
    - answerInfo(item)   : réponse décimale ? voix possible ? ; checkTyped(saisie, item) : validation du pavé ;
+   - voiceGrammar()     : nombres jusqu'à 1 000 + mots d'appoint (hésitations, « oui », « je sais pas », énoncé lu à
+                          voix haute) : sans eux, la grammaire fermée changeait toute parole en nombre ;
    - createVoiceJudge() : décision de la voix — juste dès qu'il est entendu (résultat final, ou partiel resté
                           le même CONFIRM_MS : « quarante » ne vaut pas tant que l'enfant dit « quarante-cinq »),
                           un autre nombre stable STABLE_MS = essai faux, nombres de l'énoncé ignorés (l'enfant relit
-                          souvent le calcul à voix haute : « sept fois huit… ») ;
+                          souvent le calcul à voix haute : « sept fois huit… »), « un » jamais compté faux (c'est
+                          ainsi que Vosk entend « euh », « hein », « attends ») ; un nombre qui disparaît du texte
+                          (résultat partiel corrigé) n'est plus en attente ;
    - hintVisual(item)   : petit dessin d'indice (quadrillage de points groupé selon la stratégie, boîtes de 10) ;
    - cruiseRate / brakeRate / rushRate : vitesse du monde (1 = galop normal) pendant l'approche de l'obstacle. */
 
@@ -21,8 +25,19 @@ export const GROUND_SPEED = 160;               /* px/s du sol à la vitesse 1 (g
 export const BRAKE_PX = 56;                    /* distance de freinage devant le compagnon */
 export const EPS = 1e-9;
 
-/* grammaire Vosk du jeu : EXACTEMENT les mots de grammarFor (formes du lexique, sans re-normalisation) */
-export function voiceGrammar() { return grammarFor(VOICE_MAX); }
+/* Mots d'appoint de la grammaire (tous dans le lexique du modèle : tests/tables.test.mjs). Avec les seuls nombres, Vosk
+   rendait n'importe quelle parole en nombre (mesuré, voix Piper : « euh » → « seize », « oui » → « huit », « non » →
+   « neuf », « je sais pas » → « sept », « voilà » → « vingt-trois », « sept fois huit » → « sept vingt-huit ») : autant
+   de faux essais au bout de 1,5 s. parseSpoken les traite en séparateurs. Écartés : les mots trop proches d'un nombre
+   (« de »/deux, « le », « est », « ça »/cent, « quoi »/trois, « ben »/vingt, « hein »/un).
+   2.2.1 : « crois », « que », « pense », « réfléchis », « trop », « dur » (sinon « je crois que c'est » → « je
+   quarante-deux sais », « c'est trop dur » → « sais trente-deux » : faux essais « J'ai entendu 47… » en CP) ; les
+   nombres restent reconnus (Piper : 50 sur 51 avant comme après). */
+export const VOICE_FILLERS = Object.freeze(['euh', 'heu', 'hum', 'hm', 'mmh', 'bah', 'bon', 'alors', 'attends', 'oui', 'non',
+  'ouais', 'voilà', 'je', 'sais', 'pas', 'fois', 'plus', 'moins', 'égale', 'divisé', 'par', 'double', 'moitié', 'combien',
+  "c'est", 'facile', 'oh', 'ah', 'oups', 'zut', 'crois', 'que', 'pense', 'réfléchis', 'trop', 'dur']);
+/* grammaire Vosk du jeu : les mots de grammarFor (formes du lexique, sans re-normalisation) + les mots d'appoint */
+export function voiceGrammar() { return grammarFor(VOICE_MAX).concat(VOICE_FILLERS); }
 
 /* ---------- énoncé ---------- */
 const num = v => ({ k: 'num', text: fmtNum(v), value: v });
@@ -106,12 +121,17 @@ export function heardLabel(v) {
   return fmtNum(v);
 }
 
+/* « un » n'est jamais un essai faux : c'est ainsi que la grammaire entend les hésitations (« euh », « hein », « hum »,
+   « attends » : mesuré), et l'enfant attend ensuite, ce qui le rendait stable 1,5 s. Juste s'il est la réponse. */
+export const NEVER_WRONG = Object.freeze([1]);
+
 /* Juge de la voix (un par item). feed(texteCumulé, final, t) et tick(t) → événement :
    { kind: 'none' } | { kind: 'heard', value, ignored?, due? } | { kind: 'right', value, at } | { kind: 'wrong', value, at }
-   due = instant où rappeler tick() ; at = instant où le nombre a été entendu pour la première fois. */
+   due = instant où rappeler tick() ; at = instant où le nombre a été entendu pour la première fois.
+   ignore : nombres jamais comptés faux (ceux de l'énoncé, la réponse du calcul précédent, NEVER_WRONG). */
 export function createVoiceJudge({ answer, ignore = [], confirmMs = CONFIRM_MS, stableMs = STABLE_MS } = {}) {
   const target = Number(answer);
-  const ign = new Set((ignore || []).filter(Number.isFinite));
+  const ign = new Set((ignore || []).filter(Number.isFinite).concat(NEVER_WRONG));
   let last = null, since = 0, done = false;
   const isRight = v => v !== null && Number.isFinite(target) && Math.abs(v - target) < EPS;
   const judge = (t, isFinal) => {
@@ -131,7 +151,8 @@ export function createVoiceJudge({ answer, ignore = [], confirmMs = CONFIRM_MS, 
     feed(text, isFinal, t) {
       if (done) return { kind: 'none' };
       const v = parseSpoken(String(text ?? ''));
-      if (v === null) return { kind: 'none' };
+      /* plus aucun nombre dans le texte (résultat partiel corrigé : « un » → « attends ») : rien n'est plus en attente */
+      if (v === null) { last = null; since = 0; return { kind: 'none' }; }
       if (v !== last) { last = v; since = t; }
       return judge(t, !!isFinal);
     },

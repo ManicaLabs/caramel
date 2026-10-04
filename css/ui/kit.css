@@ -129,3 +129,74 @@ html.motion-soft .kit-bubble { animation: kit-fade-in var(--dur-1) ease-out both
 html.motion-soft .kit-toast { animation: kit-fade-in var(--dur-1) ease-out both; }
 html.motion-soft .kit-toast.is-out { animation: kit-fade-out var(--dur-1) ease-in both; }
 html.motion-soft .kit-choices .choice.right { animation: none; }
+
+/* ---------- 🔊 « Écouter encore » (js/ui/voice.js, listenButton) : rond de 48 px, vagues pendant la lecture ----------
+   Voix en panne sur cet appareil (html.vx-quiet, posé par voice.js) : le bouton se fait discret (bord gris pointillé,
+   icône en gris) mais reste touchable — un autre essai peut marcher. */
+.vx-listen {
+  position: relative; flex: none; width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--card); border: 2px solid var(--pink-200); box-shadow: var(--shadow-1); font-size: 1.2rem; line-height: 1;
+  transition: transform var(--dur-1) var(--ease-out), border-color var(--dur-1);
+}
+.vx-listen[hidden] { display: none; }
+.vx-listen:active { transform: scale(.92); }
+.vx-listen:focus-visible { border-radius: 50%; }
+.vx-ico { position: relative; z-index: 1; }
+.vx-wave { position: absolute; inset: -2px; border-radius: 50%; border: 2px solid var(--pink-400); opacity: 0; pointer-events: none; }
+.vx-listen.is-speaking { border-color: var(--pink-400); }
+.vx-listen.is-speaking .vx-wave { animation: vx-wave 1.2s var(--ease-out) infinite; }
+@keyframes vx-wave { from { opacity: .8; transform: scale(1); } to { opacity: 0; transform: scale(1.35); } }
+@media (prefers-reduced-motion: reduce) { .vx-listen.is-speaking .vx-wave { animation: none; opacity: .8; } }
+html.motion-soft .vx-listen.is-speaking .vx-wave { animation: none; opacity: .8; }
+/* is-call : la phrase attend un premier geste pour être dite (visite guidée à l'ouverture de l'appli) : 🔊 appelle */
+.vx-listen.is-call { border-color: var(--pink-400); animation: vx-call 1.6s var(--ease-out) infinite; }
+@keyframes vx-call { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--pink-400) 55%, transparent), var(--shadow-1); }
+  60% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--pink-400) 0%, transparent), var(--shadow-1); } }
+@media (prefers-reduced-motion: reduce) { .vx-listen.is-call { animation: none; box-shadow: 0 0 0 4px var(--pink-200), var(--shadow-1); } }
+html.motion-soft .vx-listen.is-call { animation: none; box-shadow: 0 0 0 4px var(--pink-200), var(--shadow-1); }
+html.vx-quiet .vx-listen { background: transparent; border-style: dashed; border-color: var(--ink-3); box-shadow: none; }
+html.vx-quiet .vx-listen .vx-ico { filter: grayscale(1); opacity: .75; }
+
+/* ---------- visite guidée (kit.tour) : projecteur doux sur UN élément, le reste atténué ----------
+   Le voile est l'ombre portée du projecteur (une seule couche) ; anneau clair puis anneau de focus du thème autour de
+   l'élément ; bulle du compagnon (phrase en police de lecture), gros « Suivant ▶ », petit « Passer ». */
+.kit-tour { --tour-dim: color-mix(in srgb, var(--ink) 58%, transparent); position: fixed; inset: 0; z-index: 75; }
+.kit-tour-hole {
+  position: absolute; left: 0; top: 0; width: 0; height: 0; border-radius: 18px; pointer-events: none;
+  box-shadow: 0 0 0 4px var(--card), 0 0 0 7px var(--focus), 0 0 26px 12px color-mix(in srgb, var(--card) 45%, transparent),
+    0 0 0 200vmax var(--tour-dim);
+}
+.kit-tour.is-ready .kit-tour-hole {
+  transition: transform 420ms var(--ease-out), width 420ms var(--ease-out), height 420ms var(--ease-out), border-radius 420ms var(--ease-out);
+}
+.kit-tour-card {
+  position: absolute; left: 0; top: 0; width: min(380px, calc(100vw - 24px)); padding: 14px 14px 6px;
+  background: var(--card); border: 3px solid var(--amber-200); border-radius: var(--r-xl); box-shadow: var(--shadow-2);
+}
+.kit-tour.is-ready .kit-tour-card { transition: transform 420ms var(--ease-out); }
+/* le compagnon parle : son visage, et son 🔊 juste dessous ; la phrase prend toute la largeur restante */
+.kit-tour-say { display: grid; grid-template-columns: 60px minmax(0, 1fr); column-gap: 12px; row-gap: 8px; align-items: center; }
+.kit-tour-who {
+  grid-column: 1; grid-row: 1; width: 60px; height: 60px; border-radius: 50%; overflow: hidden; display: grid; place-items: end center;
+  background: linear-gradient(180deg, var(--n-sky-2) 0 56%, var(--n-grass-1) 56% 100%); border: 3px solid var(--card);
+  box-shadow: 0 0 0 2px var(--pink-200);
+}
+.kit-tour-who svg { width: 100%; height: 100%; }
+.kit-tour-text { grid-column: 2; grid-row: 1 / span 2; min-width: 0; margin: 0; font-family: var(--font-read); font-weight: 600; font-size: 1.2rem; line-height: 1.35; color: var(--ink); }
+.kit-tour-say .vx-listen { grid-column: 1; grid-row: 2; justify-self: center; }
+.kit-tour-next { margin-top: 12px; gap: 12px; }
+.kit-tour-next-ico { font-size: 1.1rem; line-height: 1; }
+.kit-tour-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; }
+.kit-tour-dots { display: flex; gap: 6px; padding-left: 6px; }
+.kit-tour-dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--card); border: 2px solid color-mix(in srgb, var(--ink-3) 80%, var(--card)); }
+.kit-tour-dots i.is-done { background: var(--ink-3); border-color: var(--ink-3); }
+.kit-tour-dots i.is-now { background: var(--amber-400); border-color: var(--title); }
+.kit-tour-skip {
+  min-height: 48px; min-width: 72px; padding: 0 12px; border-radius: var(--r-pill); background: none;
+  color: var(--ink-3); font-weight: 600; font-size: 1rem; text-decoration: underline; text-underline-offset: 3px;
+}
+.kit-tour-skip:active { background: var(--pink-100); }
+@media (prefers-reduced-motion: reduce) {
+  .kit-tour.is-ready .kit-tour-hole, .kit-tour.is-ready .kit-tour-card { transition: none; }
+}
+html.motion-soft .kit-tour.is-ready .kit-tour-hole, html.motion-soft .kit-tour.is-ready .kit-tour-card { transition: none; }

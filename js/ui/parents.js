@@ -36,7 +36,7 @@ import { radarTemplate, AXES, CLASSES, SUBJECTS } from '../core/axes.js';
 import { currentValues, referenceValues, inProgress } from '../core/radar-model.js';
 import { mclmExpected, mclmTarget } from '../core/levels.js';
 import { weakKeys } from '../core/leitner.js';
-import { setClasse, offerNextClasse, sanitizeName, SESSION_MINUTES } from '../core/profiles.js';
+import { setClasse, offerNextClasse, sanitizeName, SESSION_MINUTES, fillTemplate, markSeen } from '../core/profiles.js';
 import { totalStars } from '../core/economy.js';
 import { GAMES } from '../games/index.js';
 import { MOUNTS } from '../content/companion-data.js';
@@ -50,6 +50,7 @@ import * as backup from './backup.js';
 import { normalizeTheme, themeOf } from '../core/themes.js';
 import { themeGrid, swapTheme } from './theme-picker.js';
 import { mountReady, avatarOf, setAvatar } from './companion.js';
+import * as voice from './voice.js';
 
 /* crédits et retours (v11.1, déplacés de l'accueil de l'enfant : un adulte seulement sort vers LinkedIn) */
 const LINKEDIN_PROFILE = 'https://www.linkedin.com/in/cedric-delalande-57bb7860/';
@@ -1338,6 +1339,87 @@ const SUB_HELP = {
 const READ_ALOUD_READY = true;
 const READ_ALOUD = ['auto', 'on', 'off'];
 const readAloudOf = s => (READ_ALOUD.includes(s && s.readAloud) ? s.readAloud : s && s.readAloud === true ? 'on' : s && s.readAloud === false ? 'off' : 'auto');
+/* « ▶ Tester la voix » (v2.2.1, retour d'un parent : « 🔊 ne fait rien » sur un Android) : la voix de l'appareil dit une
+   phrase, puis le résultat s'affiche — « La voix fonctionne ✓ » (et ce qui, dans les réglages de l'enfant, la ferait
+   taire), ou ce qui ne va pas et la marche à suivre pour CET appareil. */
+const VOICE_FIX = {
+  android: 'Sur Android : Paramètres › Accessibilité › Synthèse vocale (ou cherchez « synthèse vocale » dans les Paramètres). Choisissez le moteur Google, la langue Français (France), et téléchargez la voix si on vous le propose. Revenez ensuite ici et touchez ▶ Tester la voix.',
+  ios: 'Sur iPhone ou iPad : Réglages › Accessibilité › Contenu énoncé › Voix › Français, puis téléchargez une voix. Revenez ensuite ici et touchez ▶ Tester la voix.',
+  other: 'Installez une voix française dans les réglages de langue (synthèse vocale) de l’appareil, puis touchez ▶ Tester la voix. Sinon, ouvrez Caramel dans Chrome ou Safari à jour.'
+};
+function devicePlatform() {
+  try {
+    const n = globalThis.navigator;
+    if (/Android/i.test(n.userAgent)) return 'android';
+    if (/iP(hone|ad|od)/.test(n.userAgent) || (n.platform === 'MacIntel' && n.maxTouchPoints > 1)) return 'ios';
+  } catch (_) {}
+  return 'other';
+}
+function voiceTest(p) {
+  const id = p.id;
+  const out = h('div', { class: 'pa-voice-out', role: 'status' });
+  const btn = h('button', { type: 'button', class: 'btn small white pa-voice-btn', 'data-fk': 'voice-test' },
+    h('span', { 'aria-hidden': 'true' }, '▶'), 'Tester la voix');
+  let busy = false;
+  btn.addEventListener('click', async () => {
+    if (busy) return;
+    busy = true;
+    btn.setAttribute('aria-busy', 'true');
+    clear(out);
+    out.className = 'pa-voice-out is-wait';
+    out.append(h('p', { class: 'pa-voice-res' }, frTypo('Écoutez…')));
+    const q = store.getProfile(id) || p;
+    let r = { ok: false, reason: 'error' };
+    try { r = await voice.test(frTypo(fillTemplate('Bonjour {P} ! Je suis {N}, et je lis les consignes à voix haute.', q))); } catch (_) {}
+    busy = false;
+    btn.removeAttribute('aria-busy');
+    if (!out.isConnected) return;
+    clear(out);
+    const qs = (store.getProfile(id) || q).settings || {};
+    const notes = [];
+    if (r.ok) {
+      out.className = 'pa-voice-out is-ok';
+      out.append(h('p', { class: 'pa-voice-res' }, frTypo('La voix fonctionne ✓')));
+      notes.push('Rien entendu ? Montez le volume des médias de l’appareil.');
+      if (qs.sound === false) notes.push('Les sons ' + deNom(q.name) + ' sont coupés : la voix se tait tant qu’ils le sont.');
+      if (!voice.readAloud(store.getProfile(id) || q)) {
+        const que = (deNom(q.name).startsWith('d’') ? 'qu’' : 'que ') + q.name;     /* même élision que deNom */
+        notes.push(readAloudOf(qs) === 'off' ? 'La lecture à voix haute est réglée sur « Jamais » pour ' + q.name + '.'
+          : 'En automatique, la voix ne lit qu’en CP et en CE1 : choisissez « Toujours » pour ' + que + ' l’entende.');
+      }
+    } else {
+      out.className = 'pa-voice-out is-ko';
+      const why = r.reason === 'no-api' ? 'Ce navigateur ne sait pas lire à voix haute.'
+        : r.reason === 'no-fr-voice' ? 'Aucune voix française n’est installée sur cet appareil.'
+          : r.reason === 'mic' ? 'Le micro écoute en ce moment : la voix attend qu’il s’arrête.'
+            : 'La voix n’a pas pu parler sur cet appareil.';
+      out.append(h('p', { class: 'pa-voice-res' }, frTypo(why)));
+      if (r.reason === 'no-api') notes.push('Ouvrez Caramel dans Chrome (Android, ordinateur) ou dans Safari (iPhone, iPad), à jour.');
+      else if (r.reason !== 'mic') notes.push(VOICE_FIX[devicePlatform()]);
+    }
+    for (const n of notes) out.append(h('p', { class: 'pa-help' }, frTypo(n)));
+  });
+  return h('div', { class: 'pa-voice' }, btn, out);
+}
+/* « Revoir la visite guidée » : la visite de l'accueil (et la phrase du compagnon à la 1re partie de chaque jeu)
+   revient à la prochaine ouverture de l'accueil de cet enfant */
+function tourRow(p) {
+  const btn = h('button', { type: 'button', class: 'btn small white pa-tour-btn', 'data-fk': 'tour-replay' },
+    h('span', { 'aria-hidden': 'true' }, '🔁'), 'Revoir la visite guidée');
+  btn.addEventListener('click', () => {
+    store.mutateProfile(q => {
+      markSeen(q, 'tour', false);
+      for (const g of Object.keys((q.seen && q.seen.games) || {})) markSeen(q, 'game:' + g, false);
+      q.seen.again = true;          /* les phrases reviennent aussi pour les jeux déjà joués (game-shell.js, playedBefore) */
+    }, p.id);
+    audio.tap();
+    done(frTypo('La visite guidée reviendra à la prochaine ouverture de l’accueil ✓'));
+  });
+  return h('div', { class: 'pa-row' },
+    h('div', { class: 'pa-row-label' }, 'Visite guidée'),
+    btn,
+    h('p', { class: 'pa-help' }, frTypo('Le compagnon présente l’accueil à ' + p.name + ' (et chaque jeu, à la première partie), une seule fois. Ce bouton la fait revenir à la prochaine ouverture de l’accueil.')));
+}
 function settingsCard(p) {
   const id = p.id;
   const s = p.settings || {};
@@ -1374,7 +1456,9 @@ function settingsCard(p) {
     h('div', { class: 'pa-row-label' }, 'Lire les consignes à voix haute'),
     seg([['auto', 'Automatique (CP-CE1)'], ['on', 'Toujours'], ['off', 'Jamais']], readAloudOf(s),
       v => set(x => { x.readAloud = v; }), 'Lire les consignes à voix haute'),
-    h('p', { class: 'pa-help' }, frTypo('La voix de l’appareil lit les consignes et les indices des jeux (quand les sons sont activés) ; le texte reste affiché. En automatique : en CP et en CE1 seulement.'))));
+    h('p', { class: 'pa-help' }, frTypo('La voix de l’appareil lit les consignes, les indices des jeux et la visite guidée (quand les sons sont activés) ; le texte reste affiché. En automatique : en CP et en CE1 seulement.')),
+    voiceTest(p)));
+  card.appendChild(tourRow(p));
 
   card.appendChild(switchRow('Chronomètre dans les jeux', 'Une jauge de temps douce s’affiche dans certains jeux (Galop des tables, Pommes express). Jamais d’échec quand le temps est écoulé.',
     !!s.timers, on => set(x => { x.timers = on; })));

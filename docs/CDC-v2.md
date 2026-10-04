@@ -416,6 +416,12 @@ docs/CDC-v2.md
 
 ## 18. Journal de livraison
 
+### v2.2.1 (04/10/2026) — retours du terrain (voix et dictée)
+**Corrigé** (essais du parent sur deux téléphones Android) : la **dictée des réponses** des tables se déréglait après la 1re réponse (la grammaire ne connaissait que des nombres : « euh » → 16, « je sais pas » → 7, comptés faux ; phrase coupée entre deux calculs ; micro rendu sourd par Android) ; le **🔊** restait muet (aucune phrase à relire hors tables et clôture, ou téléphone sans voix française — cas d'une ROM chinoise sans services Google) ; l'appareil photo de l'import ne s'ouvrait pas sans le dire (autorisation Android de Chrome) : message et contournement par « Choisir une image ».
+**Ajouté** : **visite guidée parlée** de l'accueil au premier passage (une fois par enfant, profils existants compris) ; présentation de chaque jeu en une phrase à la 1re partie ; « ▶ Tester la voix » et « Revoir la visite guidée » dans l'espace parents.
+**Vérifié** : dictée de 8 à 10 calculs d'affilée avec hésitations, en CP et en CM2, avec le vrai moteur Vosk et une voix Piper en faux micro (0 faux essai, micro jamais relancé ; Android simulé : AudioContext suspendu, piste coupée) ; non-régression de la course (38/38 mots, 6/6 pauses, 3 ⭐) ; ≈ 480 tests.
+**Limites** : la voix de synthèse du téléphone reste plate (phrases enregistrées avec une voix neuronale libre — Siwis, choisie par le parent — en 2.2.2) ; « bah » dit seul est encore entendu « vingt » ; le comportement exact d'Android (focus audio) n'est vérifiable que sur un vrai téléphone.
+
 ### v2.2 (04/10/2026) — simple, étape par étape
 **Livré** :
 - **accueil « un seul gros bouton »** (proposition arbitrée par un jury de 3 pistes — un seul bouton, le compagnon guide, une zone = une chose — et validée par le parent) : il tient sur un écran (58 → 6 mots pour un CP, 1 700 → 844 px), un seul bouton principal par écran enfant ;

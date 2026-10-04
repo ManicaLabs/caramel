@@ -1,4 +1,4 @@
-# Caramel 2 — Architecture & contrat des modules (v2.2)
+# Caramel 2 — Architecture & contrat des modules (v2.2.1)
 
 > Document technique compagnon du **CDC v2** (`docs/CDC-v2.md`, la spec produit).
 > Il fixe les **interfaces exactes** entre modules : toute personne (ou agent) qui écrit un module
@@ -110,11 +110,12 @@ docs/CDC-v2.md  docs/ARCHITECTURE.md  docs/archive/CDC-v11.md
       mclm: [ { d: '2026-10-02', t: 1759400000000, s: 'pomme', v: 92, p: 95, z: 88 } ],   // ≤ 300 ; s = histoire, v = MCLM, p = précision %, z = vitesse de Zip
       today: null,              // plan de la balade du jour (§5.6) ou null
       legacy: null,             // { from: 'v11', mclm: 78, stars: 45 } : estimation de fluence en attente de la classe
-      settings: { sessionMin: 15, timers: false, sound: true, motion: 'full', subMethod: 'compensation', theme: 'caramel' },   // motion : 'full' | 'soft' ; subMethod : technique de soustraction posée de l'école, 'compensation' | 'cassage' (BO n°41 2024 : un seul algorithme par école, CE1→CM2) ; theme : thème visuel (§8.5, id inconnu → 'caramel')
+      settings: { sessionMin: 15, timers: false, sound: true, motion: 'full', subMethod: 'compensation', theme: 'caramel', readAloud: 'auto' },   // motion : 'full' | 'soft' ; subMethod : technique de soustraction posée de l'école, 'compensation' | 'cassage' (BO n°41 2024 : un seul algorithme par école, CE1→CM2) ; theme : thème visuel (§8.5, id inconnu → 'caramel') ; readAloud (v2.2) : lecture des consignes à voix haute, 'auto' (CP et CE1) | 'on' | 'off' (§8.8)
       stats: { minutes: 0, sessions: 0, items: 0,
                week: { w: '2026-W40', minutes: 12.5, apples: 40, items: 30 } },   // v2.1, facultatif : effort de la semaine ISO (§5.2)
-      trophies: [ { k: 'defi', d: '2026-10-03', w: '2026-W40', n: 3, pts: 640 } ]     // v2.1, facultatif, ≤ 300 : 'defi' | 'concours'
-      medals: { 'ma.faits': 'or', 'fr.vocab': 'argent' }   // v2.1 : meilleure médaille déjà montrée par axe, JAMAIS retirée ; absent = profil d'avant la 2.1 → legacyMedals (règle v2.0)
+      trophies: [ { k: 'defi', d: '2026-10-03', w: '2026-W40', n: 3, pts: 640 } ],    // v2.1, facultatif, ≤ 300 : 'defi' | 'concours'
+      medals: { 'ma.faits': 'or', 'fr.vocab': 'argent' },  // v2.1 : meilleure médaille déjà montrée par axe, JAMAIS retirée ; absent = profil d'avant la 2.1 → legacyMedals (règle v2.0)
+      seen: { tour: true, games: { tables: true } }        // v2.2.1, facultatif : « déjà vu » (§5.1) — visite guidée de l'accueil, phrase du compagnon à la 1re partie de chaque jeu ; again: true après « Revoir la visite guidée »
     }
   }
 }
@@ -179,9 +180,12 @@ export function setClasse(profile, classe, today)           // + classeSince, + 
 export function nextClasse(classe) → classe | null          // CM2 → null
 export function offerNextClasse(profile, today) → classe | null   // juillet-septembre si classeSince < 1er juillet de l'année
 export function newProfileId(data) → 'p2', 'p3'…
-export const DEFAULT_SETTINGS   // { sessionMin: 15, timers: false, sound: true, motion: 'full', theme: 'caramel' }
+export const DEFAULT_SETTINGS   // { sessionMin: 15, timers: false, sound: true, motion: 'full', theme: 'caramel', readAloud: 'auto' }
+export function hasSeen(profile, key) → boolean             // v2.2.1 : key = 'tour' | 'game:<id>'
+export function markSeen(profile, key, on = true)           // v2.2.1 : dans store.mutateProfile ; on = false oublie
 ```
 v2.1 : `settings.theme` normalisé par `normalizeTheme` ; `stats.week` gardé seulement si sa semaine est lisible (`AAAA-Www`) ; `trophies` normalisés (types connus, ≤ 300).
+v2.2.1 : **« déjà vu »** `profile.seen = { tour, games: { <id>: true }, again? }` — la visite guidée de l'accueil (§8.6 bis) et la phrase du compagnon à la 1re partie de chaque jeu (§7.1, `GAME_HELLO`) ne viennent qu'une fois par enfant. Champ facultatif, jamais ajouté d'office : absent = rien vu. Un profil d'avant la 2.2.1 voit donc la visite une fois (l'accueil a changé en 2.2), mais pas la phrase d'un jeu auquel il a déjà joué (`playedBefore` de `js/ui/game-shell.js` : une partie dans `history`, ou pour la course une histoire dans `wallet.stars`, v11 comprise) ; le jeu est alors noté vu sans rien montrer. Normalisation : `tour` booléen, `games` ne garde que les valeurs `true` dont l'id suit `/^[a-z][a-z0-9_-]{0,23}$/` (jamais `__proto__`), `again` gardé seulement s'il était présent (booléen), clés inconnues conservées. « 🔁 Revoir la visite guidée » (espace parents) remet `tour` et `games` à zéro et pose `again: true` : les phrases reviennent alors aussi pour les jeux déjà joués.
 `tplMap` reprend **exactement** le dictionnaire v11 (`MOUNTS[type].g` pour le genre de la monture, `profile.g` pour le héros, `companion.name` pour `{N}`, `name` pour `{P}`).
 
 ### 5.2 Économie (`js/core/economy.js`)
@@ -360,10 +364,12 @@ Ids v11 **inchangés** (les ⭐ migrées y sont attachées). Mondes : « Premier
 export default {
   id: 'tables', title: 'Le Galop des tables', icon: '🏇', axes: ['ma.faits'],
   css: 'css/games/tables.css',       // chargé par le shell avant mount
+  intro: true,                       // v2.2.1, facultatif : le jeu se présente lui-même (l'orchestre)
   async mount(root, ctx) { … },      // construit son DOM dans root, pilote la manche
   unmount() { … }                    // stoppe minuteries, écouteurs, sons, micro
 }
 ```
+1re partie (v2.2.1, `js/ui/game-shell.js`) : avant `mount`, le compagnon présente le jeu en UNE phrase (`GAME_HELLO[id]`, tutoiement, `{N}` = son nom) avec « C'est parti ▶ », une seule fois par jeu et par enfant (`profile.seen`, §5.1) ; la phrase est toujours écrite et dite aux petits lecteurs (§8.8). Le jeu n'est monté qu'au toucher, une fois la voix tue (`voice.hush()` puis `voice.settle()` : le jeu peut ouvrir le micro aussitôt). Pas de phrase pour un jeu qui exporte `intro: true`, ni pour un enfant qui y a déjà joué (`playedBefore`, sauf après « Revoir la visite guidée »). Un nouveau jeu sans `intro` ajoute sa phrase à `GAME_HELLO` (`tests/voix.test.mjs` le vérifie).
 
 ### 7.2 Contexte `ctx` (fourni par `js/ui/game-shell.js`)
 ```js
@@ -383,6 +389,9 @@ ctx = {
   leave(),                       // sortir sans bilan (balade → #/balade, libre → #/home)
   quit(),                        // abandon doux (← / retour Android) : manche.abort() puis sortie
   motion, audio, tts, speech, kit,
+  voice,                         // v2.2 : { on, say(texte, { quiet }) → Promise<boolean>, hush(), settle() → Promise (v2.2.1) } — §8.8
+  mic,                           // v2.2 : { trouble(code) → { code, hard, title, sub, adultTitle, adult }, help(code, { onRetry, onClose }) } — micro impossible (D1-01, D4-04)
+  changeGame(), nextStep(),      // v2.2 : balade — remplacer l'étape par un autre jeu (micro impossible) ; étape suivante après les résultats de la course
   rng,
   onJoker(fn),                   // fn(itemCourant) appelé quand l'enfant touche 💡 ; renvoyer false si aucun indice montré
   announce(text),                // annonce aria-live (lecteurs d'écran)
@@ -392,6 +401,7 @@ ctx = {
   petAnchors(opts?)              // v2.1 : mountAnchors du compagnon à son stade (bouche, yeux, sommet… unités du viewBox 100 × 84)
 }
 ```
+`ctx.voice.say(texte)` confie au compagnon la phrase du moment (question, indice, explication) : le 🔊 de l'en-tête la relit (il n'apparaît que si la voix est active), elle est dite aux petits lecteurs, jamais micro ouvert ; `{ quiet: true }` la confie au 🔊 sans la dire (micro demandé). `ctx.voice.settle()` (v2.2.1) se résout quand la voix s'est tue et que le moteur a repris son souffle (≈ 250 ms après un `cancel()`) : à attendre après `hush()` avant d'ouvrir le micro (Chrome Android : synthèse et reconnaissance se disputent le son).
 Les jeux ne dessinent le compagnon que par `ctx.petSVG` (jamais `mountSVG` en direct) : espèce, accessoires et stade (petit / junior / champion) sont ainsi les mêmes qu'à l'accueil ; un jeu qui pose sa propre ombre au sol passe `{ shadow: false }`.
 `outcome` = `{ correct, hinted, ms, tries }` (course : cf. §5.7). Les pastilles se mettent à jour **automatiquement** à chaque `report` ('done' du premier coup sans aide, sinon 'helped') ; un jeu qui appelle `ctx.progress(...)` reprend la main. Implémentation : `js/ui/game-ctx.js`.
 Extensions d'API constatées en phase 1 (compatibles) : voir les rapports d'agents ; notamment `manche.useHint(item?)`, `report` → `{ …, hinted, wallet }` (course : `stars`, `best`, `newBest`, `obs`), bilan → `{ …, streakCount, usedFreeze, dayBonus, aborted, race }`, `speech.startListening` → `onText(texte, final)`, `kit.keypad(...).answer` (élément d'affichage), `kit.cheer('learn')`, `audio.melody(steps)`, `motion.flyTo(..., { onArrive })`.
@@ -425,18 +435,22 @@ export function onStatus(fn) → unsubscribe ; export function statusText() → 
 export function ensureVosk(onPct?) → Promise<boolean>
 export async function startListening({ grammar, onText, onError }) → { engine: 'vosk' | 'webspeech' | null }
    // grammar : string[] déjà normalisé (+ '[unk]' ajouté par le moteur) ou null (reco libre)
-   // onText(texteCumulé) à chaque résultat partiel ou final (finalTranscript + ' ' + partiel, comme v11)
+   // onText(texteCumulé, final) à chaque résultat partiel ou final (finalTranscript + ' ' + partiel, comme v11)
 export function stopListening() ; export function resetTranscript() ; export function isListening()
 export function speechSupported() → boolean
 ```
+Ajouts hors v11 (commentés `AJOUT` / `CHANGÉ` dans le code ; seule la relance de l'`AudioContext` concerne aussi la course, `resetTranscript` n'étant appelé que par les tables ; toute modification de ce module se vérifie par la recette Piper « La carotte du matin » : 38/38 mots, 6/6 pauses, 3 ⭐) :
+- `resetTranscript()` (v2.2, dictée des tables) oublie aussi la phrase en cours, pour enchaîner des réponses courtes. **v2.2.1** : elle n'est plus coupée net (`retrieveFinalResult` au milieu d'un mot faisait reconnaître la fin seule, « …vingt-un » → « quatre-vingts », jugée sur le calcul suivant) : Vosk l'ignore, partiels et résultat final, jusqu'à sa fin naturelle, et ne la coupe qu'au bout de `SKIP_MAX_MS` (2,5 s) si elle ne finit pas (bruit, parole sans pause) ; Web Speech oublie aussi les résultats finals déjà reçus (`wsSkip = wsLen` : Chrome Android renvoie parfois toute la liste depuis l'indice 0, et la réponse précédente revenait sur le calcul suivant).
+- **v2.2.1** : un `AudioContext` du micro suspendu par le système (Android : focus audio, appel, veille ; état `suspended` ou `interrupted`) est relancé aussitôt (`statechange` → `resume()`). S'il reste sourd (reprise refusée), c'est au jeu de relancer l'écoute (veille des tables, `docs/JEUX.md` §4).
+- Statut « reconnaissance Google en secours » aussi quand Vosk est prêt mais ne démarre pas et que Web Speech prend le relais (l'espace parents le signale) ; un double appui pendant le chargement partage le même démarrage ; `stopListening()` pendant le démarrage annule proprement. Tests : `tests/speech-cycle.test.mjs` (faux moteurs Vosk et Web Speech, texte cumulé de la course identique à la v11).
 L'alignement mot à mot (tokenize, computeProper, FORGIVE, isMatch, levenshtein, pauses, joker `[unk]`) reste **dans le jeu course**, copié à l'identique. Amélioration v2 : les mots de `OOV` présents dans le texte rejoignent l'ensemble des noms propres (validables par `[unk]`).
 
 ### 8.2 Autres modules
 - `numbers-fr.js` : `toWords(n)` (formes du lexique : « quarante-deux », « vingt-et-un », « soixante-et-onze », « quatre-vingts »…), `grammarFor(max)`, `parseSpoken(texte) → nombre | null` (chiffres ou mots, traits d'union ou espaces, « et »).
-- `tts.js` : `speak(texte, opts) → Promise<boolean>` (false si aucune voix fr : l'appelant affiche déjà le texte), `stopSpeaking()`, `ttsAvailable()`.
+- `tts.js` : `speak(texte, opts) → Promise<boolean>` (false si rien n'a pu être dit : l'appelant affiche toujours le texte) ; `speakResult(texte, opts) → Promise<{ ok, reason, heard }>` (`reason` : `''` | `'cancelled'` (coupée par une autre lecture ou `stopSpeaking`) | `'empty'` | `'no-api'` | `'no-fr-voice'` | `'not-started'` | `'error:<code de SpeechSynthesisErrorEvent>'` ; `heard` : un son est bien sorti) ; `stopSpeaking()` ; `settle() → Promise` (fin de la respiration qui suit un `cancel()`, à attendre avant d'ouvrir le micro) ; `isSpeaking()` ; `ttsAvailable()` ; `diagnose() → { api, voices, fr, frLocal, voice }` (« Tester la voix ») ; `warmUp()` (au premier geste, `js/main.js` : charge la liste des voix ; sur iPhone et iPad, une lecture vide débloque la synthèse) ; `onLateStart(fn) → désabonnement` (une lecture déclarée `'not-started'` a fini par se faire entendre) ; `TIMING`, `chunkText` (morceaux de 160 caractères au plus : Chrome coupe les longues lectures). Voix française de préférence locale (hors ligne). **Robustesse v2.2.1** (retour d'un parent sur Chrome Android : « 🔊 ne fait rien ») : liste des voix vide au début → attente de `voiceschanged` en relisant la liste (l'événement manque sur certains Android), puis lecture quand même en `fr-FR` (voix par défaut) ; `cancel()` seulement si quelque chose est en cours, suivi d'une respiration (`TIMING.settle`, 250 ms) car Chrome Android avale un `speak()` trop proche ; énoncé disparu sans aucun événement → redonné une fois ; « start » jamais déclenché : `boundary` et `end` valent preuve, et jamais de `cancel()` d'une lecture peut-être audible ; 1re lecture de la séance : attente plus longue de son démarrage (8 s : moteur à initialiser, voix réseau) ; voix choisie en échec → nouvel essai sans l'imposer, voix écartée pour la séance. Tests : `tests/tts.test.mjs` (faux `speechSynthesis` qui reproduit ces défauts).
 - `audio.js` : `unlock()`, `setMuted(b)`, `isMuted()`, `beep(f, dur, gain)` (compatible v11), `success(step)` (pentatonique montante), `soft()` (bois doux), `tap()`, `coin()`, `fanfare()`, `whoosh()`, `neigh()`, `clipClop()`, `metronome({ bpm, beatsPerBar, onBeat }) → { stop(), setBpm() }`.
 - `motion.js` : `EASE`, `DUR`, `setMode('full'|'soft')`, `reduced()`, `pop`, `squash`, `shake` (6 px), `enter`, `stagger`, `flyTo(from, to, { emoji, count })`, `burst(x, y, opts)`, `sparkle(el)`, `countUp(el, from, to, dur)`, `morphPolygon(poly, fromPts, toPts, dur)`, `confetti()` (emojis du thème par défaut), `setTheme({ confetti })` (v2.1), `viewTransition(fn)`. Mouvement réduit (préférence système ou réglage « animations douces ») → fondus uniquement.
-- `kit.js` : `keypad(opts)`, `choiceGrid(choices, opts)`, `toast(msg)`, `bubble(text, kind)`, `sheet(opts)`, `confirmSheet(text, opts)`, `celebrateRight(el, streak)`, `gentleWrong(el)`, `cheer(kind, rng)` (phrases d'encouragement variées). v2.2 : durée des toasts selon la longueur (≈ 60 ms par caractère, 2,5 à 7 s ; une durée imposée est gardée ; en haut de l'écran quand une feuille est ouverte) ; `bubble(…, { live })` (pas de zone annoncée par défaut : les jeux annoncent par `ctx.announce`, une seule fois) ; terminaisons « -ent », « -ais » jamais coupées par la césure ; focus gardé sur le choix touché d'un QCM puis porté sur le premier choix de la question suivante ; Entrée sur un bouton focalisé hors du pavé l'active ; `sheet()` se ferme au **retour Android** (CloseWatcher, raison `'back'`) au lieu de quitter l'appli ; `cheer('retry')` = mots doux de 1 à 3 mots (« Presque ! », « Tu chauffes ! »…) devant l'astuce.
+- `kit.js` : `keypad(opts)`, `choiceGrid(choices, opts)`, `toast(msg)`, `bubble(text, kind)`, `sheet(opts)`, `confirmSheet(text, opts)`, `celebrateRight(el, streak)`, `gentleWrong(el)`, `cheer(kind, rng)` (phrases d'encouragement variées). v2.2 : durée des toasts selon la longueur (≈ 60 ms par caractère, 2,5 à 7 s ; une durée imposée est gardée ; en haut de l'écran quand une feuille est ouverte) ; `bubble(…, { live })` (pas de zone annoncée par défaut : les jeux annoncent par `ctx.announce`, une seule fois) ; terminaisons « -ent », « -ais » jamais coupées par la césure ; focus gardé sur le choix touché d'un QCM puis porté sur le premier choix de la question suivante ; Entrée sur un bouton focalisé hors du pavé l'active ; `sheet()` se ferme au **retour Android** (CloseWatcher, raison `'back'`) au lieu de quitter l'appli ; `cheer('retry')` = mots doux de 1 à 3 mots (« Presque ! », « Tu chauffes ! »…) devant l'astuce. v2.2.1 : `tour({ steps, avatar, listen, labels, onStep, onEnd, guard, returnFocus }) → { el, close(raison), index() }` (visite guidée « projecteur », §8.6 bis : `steps = [{ target: élément | () => élément, text }]`, une chose à la fois ; `onEnd(raison)` : `'done'` | `'skip'` (Passer, Échap, retour Android) | `'api'` (`close()`, ou `guard()` devenu faux) ; dialogue modal, Tab piégé, reste de l'appli inerte ; mouvement réduit : fondus) ; `ensureStyles()` (feuille du kit chargée d'avance, pour le 🔊 de `voice.js` posé avant tout autre composant).
 
 ### 8.3 Routeur et écrans
 Routes : `#/home`, `#/profiles`, `#/onboarding`, `#/welcome`, `#/balade`, `#/play/<id>?mode=balade&block=<i>` (sinon libre), `#/progres`, `#/parents`, `#/import?from=…`, et en v2.1 `#/famille` (classements, concours), `#/famille/concours` (spectacle du concours), `#/battle` (défi en famille). Un écran = `export default { async mount(root, params, query), unmount() }`.
@@ -471,6 +485,8 @@ Un thème = des **jetons** surchargés sous `[data-theme="<id>"]` (sur `<html>` 
 ### 8.6 bis Accueil « un seul gros bouton » (v2.2, `js/ui/home.js`, `js/ui/companion.js` en scène héros) — CDC §1 principe 7
 Accueil sur un seul écran : en-tête (avatar = « Qui joue ? », « Bonjour {P} ! », 🎨 thème, 🔒 espace parents), la scène du compagnon en grand (plaque « Mon compagnon » : stade et prénoms ; pastilles 🍎 et 🔥 ; bulle de pensée 🍎 quand il a faim, qui ouvre le garde-manger), 4 soins en icônes dont l'anneau est la jauge (🥕 ventre, 🧽 joie, 🚶 forme ; ✓ quand un soin est déjà fait ; 🛍️ cerclée d'or quand un objet nouveau est à portée de pommes), UN bouton « Jouer ▶ » qui lance l'étape du jour (« 🎲 Encore un jeu ? » quand la balade est finie), les 4 pierres de la balade, « 🎲 Jeux » et « 📈 Mes progrès » (dès qu'il y a quelque chose à montrer). Boutique en deux rayons (👒 Habits, 🐾 Animaux) avec **cabine d'essayage** : toucher un objet le fait essayer, « Acheter » l'achète (« Il te manque N 🍎 » sinon). La balade s'enchaîne depuis le bilan (« Étape suivante ▶ »). Spécification complète : rapport de synthèse S9 (jury de 3 pistes), reprise dans `docs/JEUX.md` §1 et §8.
 
+**Visite guidée (v2.2.1, retour d'un parent : « une voix qui leur explique l'interface dès le début »)** : au premier accueil de chaque enfant (profils existants compris, l'accueil ayant changé en 2.2 ; `profile.seen.tour`, §5.1), `kit.tour` (§8.2) éclaire UNE chose à la fois, le reste de l'écran atténué, avec la bulle du compagnon (portrait), « Suivant ▶ » (« J'ai compris ✓ » à la fin) et un petit « Passer ». Du CP au CE2 : le compagnon (« Coucou {P} ! Moi, c'est {N}. » ; il salue d'un cœur et d'un petit bond, sans son, sauf en mouvement réduit où il reste immobile), le bouton « Jouer ▶ », les soins ; en CM1 et CM2, deux étapes sans « coucou » (« Jouer ▶ », les soins). La voix dit chaque étape aux petits lecteurs (le texte reste écrit, 🔊 « Écouter encore » la relit) ; appli ouverte directement sur l'accueil : le navigateur refuse la voix avant le premier geste, 🔊 se signale doucement et la phrase est dite au premier toucher. Jamais pendant le bandeau de mise à jour, une feuille, un panneau du compagnon ni la bascule « Qui joue ? ». « Passer » ou « J'ai compris » la marquent vue ; fermée par la navigation, elle reviendra. Espace parents : « 🔁 Revoir la visite guidée » (la visite et les phrases des jeux reviennent, §5.1).
+
 ### 8.7 Détection du radar photographié (`js/ui/radar-detect.js` + `radar-detect-worker.js`) — v2.1, CDC §8.3
 ```js
 export const RINGS = [0.5104, 0.7553, 1], BAG_R = 0.19, INPUT_MAX = 1600
@@ -487,14 +503,21 @@ Tout se fait sur l'appareil, dans un Web Worker (message `{ id, width, height, b
 ### 8.8 Voix des petits lecteurs (`js/ui/voice.js`) — v2.2
 ```js
 readAloud(profile) → boolean        // settings.readAloud : 'auto' (CP et CE1) | 'on' | 'off' ; anciens booléens acceptés
-voiceOn(profile) → boolean          // readAloud ET une voix française possible
+voiceOn(profile) → boolean          // readAloud ET sons activés ET une voix française possible
 speakable(texte) → texte à dire     // « × » → « fois », « 20 🍎 » → « 20 pommes », « … » → pause, emojis muets
-speak(texte, { force }) → Promise<boolean>   // via js/core/tts.js ; force = geste 🔊 explicite
+speak(texte, { force }) → Promise<boolean>   // via js/core/tts.js ; force = geste explicite (🔊, « Tester la voix ») : lit même
+                                    // si le réglage est « Jamais » ou les sons coupés, jamais micro ouvert
 hush()                              // se tait (changement d'écran, bonne réponse, micro)
-listenButton(get, { label }) → bouton 🔊 de 48 px qui relit la dernière phrase
-// jeux : ctx.voice = { on, say(texte, { quiet }) → Promise<boolean>, hush() } (js/ui/game-ctx.js)
+settle() → Promise                  // v2.2.1 : la voix s'est tue et le moteur a repris son souffle (avant d'ouvrir le micro)
+needsGesture() → boolean            // v2.2.1 : aucun geste encore sur la page (rien ne peut être dit)
+health() → 'unknown' | 'ok' | 'broken'   // v2.2.1 : santé de la voix pour la séance
+test(texte?) → Promise<{ ok, reason, diag }> // v2.2.1 : essai explicite de l'espace parents (diag = tts.diagnose())
+listenButton(get, { label }) → bouton 🔊 de 48 px qui relit get() (classe is-speaking pendant la lecture)
+FAIL_TOAST                          // v2.2.1 : « Je n'arrive pas à parler sur cet appareil 😕 Un adulte peut tester la voix… »
+// jeux : ctx.voice = { on, say(texte, { quiet }) → Promise<boolean>, hush(), settle() } (js/ui/game-ctx.js)
 ```
-Rien n'est lu quand le son est coupé, sans voix française sur l'appareil, avant le premier geste de la page, ni **pendant que le micro écoute** ; le texte reste toujours affiché (CDC §16). La voix dit la question, la consigne au premier calcul, le mot doux et l'astuce, l'explication, la phrase du bilan et les réactions du compagnon. Le moteur vocal de la course n'est pas concerné (la course ne parle pas).
+Rien n'est lu automatiquement quand le son est coupé, sans voix française sur l'appareil, avant le premier geste de la page, ni **pendant que le micro écoute** ; le texte reste toujours affiché (CDC §16) ; la voix se tait quand la page passe en arrière-plan. La voix dit la question, la consigne au premier calcul, le mot doux et l'astuce, l'explication, la phrase du bilan, les réactions du compagnon, la phrase de la 1re partie d'un jeu (§7.1) et les étapes de la visite guidée (§8.6 bis). La course (v2.2.1) dit sa consigne (« Choisis une histoire ! », puis « Appuie sur le micro, puis lis l'histoire à voix haute ! », que 🔊 relit jusqu'au départ du micro), ce qui empêche le micro, la question de compréhension (pas les choix) et ses aides, puis le message des résultats ; elle se tait dès que le micro s'ouvre (🔊 caché pendant la lecture) : son moteur vocal n'est pas concerné.
+**🔊 n'est jamais muet (v2.2.1)** : une lecture qui échoue vraiment (aucun son sorti, ni coupée par l'appli, ni refusée faute de geste) passe la voix « en panne » pour la séance (`health() === 'broken'`) : la classe `html.vx-quiet` rend les 🔊 discrets ; un 🔊 touché qui échoue le dit UNE fois (`FAIL_TOAST`, toast) ; micro ouvert, 🔊 répond « Le micro t'écoute : coupe-le 🎤 pour m'entendre. ». Une lecture réussie, même tardive (`tts.onLateStart`), efface la panne. Espace parents : « ▶ Tester la voix » (sous « Lire les consignes à voix haute ») dit « Bonjour {P} ! Je suis {N}, et je lis les consignes à voix haute. » puis affiche le résultat : « La voix fonctionne ✓ » avec ce qui, dans les réglages de l'enfant, la ferait taire (sons coupés, « Jamais », automatique hors CP-CE1), ou la cause (navigateur sans synthèse, aucune voix française, micro ouvert, échec) et la marche à suivre pour cet appareil (Android, iPhone ou iPad, autre).
 
 ## 9. Design system (`css/base.css`, ✅ écrit)
 Jetons (v2.2, en plus de ceux ci-dessous) : échelle de tailles `--fs-*`, rayons `--r-xs`/`--r-xl`, relief `--shadow-press`, espacements `--sp-*`, couleurs fixes du pré `--n-sky-*`, `--n-grass-*`, `--n-meadow`, `--n-amber-400` (or des médailles, jauge de joie), alias sémantiques `--pri-*` / `--sec-*` / `--on-*` (les noms historiques `--pink-*` / `--amber-*` restent la famille secondaire / principale). Mouvement réduit : transitions nulles (plus de transition de 1 ms sur toutes les propriétés, qui faussait les mesures de mise en page).

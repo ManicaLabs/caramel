@@ -27,7 +27,7 @@ import * as router from '../router.js';
 import * as motion from '../core/motion.js';
 import * as audio from '../core/audio.js';
 import * as kit from './kit.js';
-import { offerNextClasse, setClasse } from '../core/profiles.js';
+import { offerNextClasse, setClasse, fillTemplate, hasSeen, markSeen } from '../core/profiles.js';
 import { ensureToday } from '../core/session.js';
 import { MOUNTS } from '../content/companion-data.js';
 import { themeOf } from '../core/themes.js';
@@ -36,6 +36,7 @@ import { stepInfo, currentStep, launchStep, openGamePicker } from './balade.js';
 import { openThemeSheet } from './theme-picker.js';
 import { stageOf } from '../core/family.js';
 import { kidCard, kidActions } from './profiles.js';
+import * as voice from './voice.js';
 
 const FROM_KEY = 'caramel-play-from';
 const ssGet = k => { try { return sessionStorage.getItem(k); } catch (_) { return null; } };
@@ -79,7 +80,7 @@ const HOME = {
     teardown();
     p = store.getProfile();
     if (!p || !p.classe) return;
-    const my = st = { root, timers: new Set(), unsubs: [], card: null, sheet: null, today, switching: false };
+    const my = st = { root, timers: new Set(), unsubs: [], card: null, sheet: null, today, switching: false, tour: null };
 
     /* plan du jour (recalculé s'il manque, date d'un autre jour ou n'est plus valable) */
     try { store.mutateProfile(pp => { ensureToday(pp, today); }); } catch (e) { console.error('Balade du jour', e); }
@@ -345,6 +346,82 @@ const HOME = {
       });
     }
 
+    /* ----- visite guidée (v2.2.1) : une fois par enfant, au premier accueil (profils existants compris : l'accueil a
+       changé en 2.2). UNE chose à la fois : le compagnon (bonjour), « Jouer ▶ », les soins. Grand lecteur (CM1-CM2) :
+       deux étapes en texte, sans « coucou ». Jamais pendant le bandeau de mise à jour (main.js), une feuille, un
+       panneau du compagnon, ni la bascule « Qui joue ? ». La voix dit chaque étape (petits lecteurs), le texte reste. */
+    const barShown = () => { const b = document.querySelector('.update-bar'); return !!(b && !b.hidden); };
+    const busy = () => my !== st || my.switching || sheetOpen() || barShown() || document.documentElement.classList.contains('kit-lock')
+      || !!petBox.querySelector('.cc.has-panel') || document.visibilityState === 'hidden';
+    function tourSteps(q) {
+      const f = t => frTypo(fillTemplate(t, q));
+      const stage = () => petBox.querySelector('.cc-stage-wrap');
+      const care = () => petBox.querySelector('.cc-actions');
+      const again = go.classList.contains('is-done');
+      if (q.classe === 'CM1' || q.classe === 'CM2') {
+        return [
+          { target: go, text: f(again ? 'Ta balade du jour est finie : ce bouton te propose un autre jeu.' : 'Le bouton Jouer lance l’étape du jour de ta balade.') },
+          { target: care, text: f('Ici, tu prends soin de {N} : repas, brossage, promenade, et la boutique pour dépenser tes pommes.') }
+        ];
+      }
+      return [
+        { target: stage, text: f('Coucou {P} ! Moi, c’est {N}.'), greet: true },
+        { target: go, text: f(again ? 'Pour jouer encore, touche ce gros bouton !' : 'Pour jouer, touche le gros bouton Jouer !') },
+        { target: care, text: f('Ici, tu t’occupes de moi : à manger, un coup de brosse, une promenade… et la boutique !') }
+      ];
+    }
+    function startTour() {
+      const q = store.getProfile();
+      if (!q || hasSeen(q, 'tour') || my.tour || busy()) return;
+      const steps = tourSteps(q);
+      let said = '', waiting = '', waitingGreet = false;
+      const who = h('span', { class: 'hm-tour-who' });
+      setAvatar(who, petSVG(q, 60, 'happy', '', { view: 'portrait' }));
+      const listen = voice.voiceOn(q) ? voice.listenButton(() => said, { label: 'Écouter encore' }) : null;
+      /* appli ouverte directement sur l'accueil : le navigateur refuse la voix avant le premier geste. 🔊 se signale
+         doucement ; la phrase est dite au premier toucher. Si ce toucher passe à l'étape suivante, celle-ci est dite,
+         précédée du bonjour s'il n'a pas pu l'être ; si c'est 🔊, il la dit lui-même */
+      const calm = () => { waiting = ''; waitingGreet = false; if (listen) listen.classList.remove('is-call'); };
+      const onGesture = ev => {
+        if (!waiting || voice.needsGesture()) return;
+        if (listen && ev && listen.contains(ev.target)) { calm(); return; }
+        const t = waiting;
+        setTimeout(() => { if (my.tour && waiting === t) { calm(); voice.speak(t); } }, 0);
+      };
+      document.addEventListener('pointerup', onGesture, true);
+      document.addEventListener('keydown', onGesture, true);
+      const unGesture = () => { document.removeEventListener('pointerup', onGesture, true); document.removeEventListener('keydown', onGesture, true); };
+      my.tour = kit.tour({
+        steps, avatar: who, listen,
+        labels: { next: 'Suivant', last: frTypo('J’ai compris'), skip: 'Passer' },
+        guard: () => my === st && !barShown(),
+        returnFocus: () => go,
+        onStep: (i, stp) => {
+          said = stp.text;
+          if (stp.greet && my.card && my.card.greet && !motion.reduced()) my.card.greet();
+          if (listen && voice.voiceOn(q) && voice.needsGesture()) { waiting = stp.text; waitingGreet = !!stp.greet; listen.classList.add('is-call'); return; }
+          const lead = waiting && waitingGreet ? waiting + ' ' : '';
+          calm();
+          voice.speak(lead + stp.text);
+        },
+        onEnd: reason => {
+          my.tour = null;
+          unGesture();
+          voice.hush();
+          if (reason === 'done' || reason === 'skip') {
+            try { store.mutateProfile(pp => { markSeen(pp, 'tour'); }, q.id); } catch (e) { console.error('Visite guidée', e); }
+          }
+        }
+      });
+      if (!my.tour || !my.tour.el) { my.tour = null; unGesture(); }
+    }
+    function scheduleTour(ms) {
+      const q = store.getProfile();
+      if (!q || hasSeen(q, 'tour')) return;
+      const t = setTimeout(() => { my.timers.delete(t); if (my === st) startTour(); }, motion.reduced() ? Math.min(ms, 400) : ms);
+      my.timers.add(t);
+    }
+
     renderHead(); renderNext(); renderPlay();
     my.card = renderCompanionCard(petBox, { hero: true, hud });
     fitPlate();                                   /* trésor posé sur la scène : sa largeur est connue */
@@ -383,9 +460,11 @@ const HOME = {
       }, motion.reduced() ? 0 : 560);
       my.timers.add(t2);
       try { kit.toast(frTypo('À toi de jouer, ' + p.name + ' ! ' + (MOUNTS[p.companion.type] || MOUNTS.pony).em)); } catch (_) {}
+      scheduleTour(1400);
     } else {
       const blocks = [head, nextBox.firstChild, petBox, play, alt].filter(Boolean);
       motion.stagger(blocks, el => motion.enter(el, { from: 'bottom', dist: 14, dur: 420 }), 60);
+      scheduleTour(900);
     }
     my.ready = true;
   },
@@ -401,5 +480,6 @@ function teardown() {
   for (const t of my.timers) clearTimeout(t);
   for (const u of my.unsubs) { try { u(); } catch (_) {} }
   try { if (my.sheet) my.sheet.close('api'); } catch (_) {}
+  try { if (my.tour) my.tour.close('nav'); } catch (_) {}
   try { if (my.card) my.card.destroy(); } catch (_) {}
 }

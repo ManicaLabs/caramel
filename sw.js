@@ -10,7 +10,7 @@
    - Rappels quotidiens (periodicsync 'caramel-daily', enregistré par js/core/notifs.js) et notificationclick. */
 
 /* ASSETS:START */
-const VERSION = '2.2.0';
+const VERSION = '2.2.1';
 const ASSETS = [
   'index.html',
   'manifest.webmanifest',

@@ -2,10 +2,11 @@
 import { test, assert } from './_t.mjs';
 import { makeRng } from '../js/core/rng.js';
 import { fmtNum } from '../js/core/util.js';
-import { toWords } from '../js/core/numbers-fr.js';
+import { toWords, parseSpoken } from '../js/core/numbers-fr.js';
+import { loadLexicon } from './lexicon.mjs';
 import { gen } from '../js/content/maths/faits.js';
 import {
-  HOLE, VOICE_MAX, STABLE_MS, CONFIRM_MS, GROUND_SPEED, BRAKE_PX,
+  HOLE, VOICE_MAX, STABLE_MS, CONFIRM_MS, GROUND_SPEED, BRAKE_PX, VOICE_FILLERS, NEVER_WRONG,
   voiceGrammar, promptParts, promptText, promptAria, shownNumbers, answerInfo, checkTyped, holeChars,
   heardLabel, createVoiceJudge, hintVisual, frameCells, cruiseRate, brakeRate, rushRate, approachSeconds, comboLabel
 } from '../js/games/tables-logic.js';
@@ -159,6 +160,65 @@ test('juge de la voix : nombres de l’énoncé ignorés, bruit ignoré', () => 
   assert.equal(j.feed('sept [unk] huit cinquante-six', true, 62000).kind, 'right');
   /* la réponse peut être un nombre de l'énoncé : « 6 × … = 36 » */
   assert.equal(createVoiceJudge({ answer: 6, ignore: [6, 36] }).feed('six', true, 0).kind, 'right');
+});
+
+test('voix : mots d’appoint de la grammaire — dans le lexique Vosk, jamais lus comme des nombres', () => {
+  const lex = loadLexicon();
+  const g = voiceGrammar();
+  assert.equal(new Set(g).size, g.length, 'pas de doublon');
+  for (const w of VOICE_FILLERS) {
+    assert.ok(lex.has(w), w + ' : absent du lexique, Vosk ne le reconnaîtrait jamais');
+    assert.ok(g.includes(w), w);
+    assert.equal(parseSpoken(w), null, w + ' ne doit pas valoir un nombre');
+  }
+  /* trop proches d'un nombre : jamais dans la grammaire (« de »/deux, « ben »/vingt, « hein »/un…) */
+  for (const w of ['de', 'le', 'est', 'ça', 'quoi', 'ben', 'hein', 'et']) assert.ok(!g.includes(w), w);
+  /* ce que l'enfant dit autour de la réponse ne change pas le nombre entendu */
+  assert.equal(parseSpoken('euh alors cinquante-six'), 56);
+  assert.equal(parseSpoken('sept fois huit égale cinquante-six'), 56);
+  assert.equal(parseSpoken("je sais pas"), null);
+  assert.equal(parseSpoken("oui c'est facile"), null);
+  /* 2.2.1 : sans ces mots, la grammaire fermée les changeait en nombres (« je quarante-deux sais », « sais trente-deux ») */
+  for (const w of ['crois', 'que', 'pense', 'réfléchis', 'trop', 'dur']) assert.ok(g.includes(w), w);
+  assert.equal(parseSpoken("je crois que c'est"), null);
+  assert.equal(parseSpoken("c'est trop dur"), null);
+  assert.equal(parseSpoken('attends je réfléchis'), null);
+  assert.equal(parseSpoken("je pense que c'est quarante-deux"), 42);
+  assert.equal(parseSpoken('le double de six'), 6);
+});
+
+test('juge de la voix : « un » n’est jamais un essai faux (hésitations), mais reste juste s’il est la réponse', () => {
+  assert.deepEqual([...NEVER_WRONG], [1]);
+  const j = createVoiceJudge({ answer: 42, ignore: [6, 7] });
+  const e = j.feed('un', true, 0);                       /* « euh… », « attends » : entendus « un » par la grammaire */
+  assert.equal(e.kind, 'heard');
+  assert.equal(e.ignored, true);
+  assert.equal(j.tick(60000).kind, 'none', 'pas d’essai faux, même après une longue réflexion');
+  assert.equal(j.feed('un quarante-deux', true, 61000).kind, 'right');
+  assert.equal(createVoiceJudge({ answer: 1, ignore: [4, 5] }).feed('un', true, 0).kind, 'right', '« 4 + … = 5 »');
+});
+
+test('juge de la voix : un nombre qui disparaît du texte (partiel corrigé) n’est plus en attente', () => {
+  const j = createVoiceJudge({ answer: 56 });
+  const e = j.feed('vingt', false, 0);                   /* partiel « vingt »… */
+  assert.equal(e.due, STABLE_MS);
+  assert.equal(j.feed('bah', false, 300).kind, 'none');  /* … corrigé en « bah » */
+  assert.equal(j.value, null);
+  assert.equal(j.tick(STABLE_MS + 10).kind, 'none', 'le minuteur de l’essai faux tombe à vide');
+  /* même chose pour une bonne réponse partielle pas encore confirmée */
+  const k = createVoiceJudge({ answer: 8 });
+  assert.equal(k.feed('huit', false, 0).kind, 'heard');
+  assert.equal(k.feed('oui', false, 100).kind, 'none');
+  assert.equal(k.tick(CONFIRM_MS + 10).kind, 'none');
+  assert.equal(k.feed('huit', true, 2000).kind, 'right');
+});
+
+test('juge de la voix : la réponse du calcul précédent (répétée, en écho) n’est jamais comptée fausse', () => {
+  /* calcul précédent 6 × 8 = 48 ; voici 8 × 8 = … (tables.js ajoute 48 aux nombres ignorés) */
+  const j = createVoiceJudge({ answer: 64, ignore: [8, 8, 48] });
+  assert.equal(j.feed('quarante-huit', true, 0).ignored, true);
+  assert.equal(j.tick(10000).kind, 'none');
+  assert.equal(j.feed('quarante-huit soixante-quatre', true, 11000).kind, 'right');
 });
 
 test('heardLabel : orthographe rectifiée pour la ligne 👂', () => {

@@ -25,6 +25,9 @@ function ensureCSS() {
   } catch (_) {}
 }
 
+/* feuille de style du kit chargée d'avance (bouton 🔊 de js/ui/voice.js, posé avant tout autre composant) */
+export function ensureStyles() { ensureCSS(); }
+
 /* ============ PAVÉ NUMÉRIQUE ============
    keypad({ decimal, maxLen, onSubmit(str), onChange(str), submitLabel })
    → { el, answer, value(), set(v), clear(), setState('right'|'wrong'|null), disable(bool), destroy() }
@@ -519,6 +522,168 @@ export function confirmSheet(text, { ok = 'Oui', cancel = 'Non', title, icon } =
     });
     if (!s.el) fin(false);
   });
+}
+
+/* ============ VISITE GUIDÉE (projecteur, v2.2.1) ============
+   tour({ steps, avatar, listen, labels, onStep, onEnd, guard, returnFocus }) → { el, close(raison), index() }
+   steps = [{ target: élément | () => élément, text }] : UNE chose à la fois — un projecteur doux sur l'élément (le reste
+   de l'écran atténué) et la bulle du compagnon avec sa phrase (toujours écrite), un gros « Suivant ▶ » (« J’ai compris ✓ »
+   à la dernière étape) et un petit « Passer ». Toucher l'élément éclairé fait comme « Suivant » (l'élément lui-même ne se
+   déclenche pas pendant la visite) ; ailleurs, le bouton « Suivant » se signale. Étape sans élément visible : sautée.
+   avatar : nœud posé dans la bulle (portrait du compagnon) ; listen : nœud ajouté à côté de la phrase (🔊 de voice.js) ;
+   onStep(i, step) à chaque étape (la voix la dit) ; onEnd(raison) : 'done' | 'skip' (Passer, Échap, retour Android) |
+   'api' (close() : changement d'écran ; guard() devenu faux, ex. bandeau de mise à jour).
+   Clavier : focus sur « Suivant » à chaque étape, Tab piégé dans la bulle, Échap = Passer. Lecteur d'écran : dialogue
+   modal nommé par la phrase, « Étape 2 sur 3 » annoncé, le reste de l'appli inerte (comme sous une feuille).
+   Le projecteur suit l'élément s'il bouge (entrée en cascade, rotation, bandeau). Mouvement réduit : il saute d'un
+   élément à l'autre, fondus seulement. */
+export function tour({ steps = [], avatar = null, listen = null, labels = {}, onStep, onEnd, guard = null, returnFocus = null } = {}) {
+  ensureCSS();
+  const d = G.document;
+  const list = (Array.isArray(steps) ? steps : []).filter(st => st && st.text);
+  if (!d || !d.body || !list.length) return { el: null, close: () => {}, index: () => -1 };
+  const L = Object.assign({ next: 'Suivant', last: 'J’ai compris', skip: 'Passer' }, labels);
+  const tid = 'kit-tour-' + ++sheetSeq;
+  const prevFocus = d.activeElement;
+  let i = -1, closed = false, raf = 0, shownSig = '', target = null, watcher = null;
+
+  const hole = h('div', { class: 'kit-tour-hole', 'aria-hidden': 'true' });
+  const text = h('p', { class: 'kit-tour-text', id: tid + '-t' });
+  const count = h('p', { class: 'sr-only', id: tid + '-n' });
+  const live = h('p', { class: 'sr-only', 'aria-live': 'polite' });
+  const dots = h('span', { class: 'kit-tour-dots', 'aria-hidden': 'true' }, ...list.map(() => h('i')));
+  const nextTxt = h('span');
+  const nextIco = h('span', { class: 'kit-tour-next-ico', 'aria-hidden': 'true' });
+  const next = h('button', { type: 'button', class: 'btn big block kit-tour-next' }, nextTxt, nextIco);
+  const skip = h('button', { type: 'button', class: 'kit-tour-skip' }, L.skip);
+  const card = h('div', { class: 'kit-tour-card', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': tid + '-t', 'aria-describedby': tid + '-n' },
+    h('div', { class: 'kit-tour-say' }, avatar ? h('div', { class: 'kit-tour-who', 'aria-hidden': 'true' }, avatar) : null, text, listen || null),
+    next, h('div', { class: 'kit-tour-foot' }, dots, skip), count, live);
+  const ov = h('div', { class: 'kit-tour' }, hole, card);
+
+  const visible = el => { try { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; } catch (_) { return false; } };
+  const PAD = 8, GAP = 14, EDGE = 12;
+  function place() {
+    if (!target || !target.isConnected) return;
+    const r = target.getBoundingClientRect();
+    const vw = d.documentElement.clientWidth || G.innerWidth, vh = G.innerHeight;
+    const x = r.left - PAD, y = r.top - PAD, w = r.width + PAD * 2, hh = r.height + PAD * 2;
+    const ch = card.offsetHeight, cw = card.offsetWidth;
+    const sig = [x, y, w, hh, vw, vh, ch, cw].map(Math.round).join(',');
+    if (sig === shownSig) return;
+    shownSig = sig;
+    let rad = 18;
+    try { const cr = parseFloat(G.getComputedStyle(target).borderTopLeftRadius); if (Number.isFinite(cr)) rad = Math.min(cr, hh / 2 - PAD) + PAD; } catch (_) {}
+    hole.style.width = w + 'px'; hole.style.height = hh + 'px';
+    hole.style.borderRadius = Math.max(12, Math.min(rad, Math.min(w, hh) / 2)) + 'px';
+    hole.style.transform = 'translate(' + x + 'px, ' + y + 'px)';
+    /* la bulle sous l'élément s'il y a la place, sinon au-dessus, sinon du côté le plus large (elle couvre un bord) */
+    const below = vh - (y + hh) - GAP - EDGE, above = y - GAP - EDGE;
+    let top = below >= ch ? y + hh + GAP : above >= ch ? y - GAP - ch : below >= above ? vh - EDGE - ch : EDGE;
+    top = Math.max(EDGE, Math.min(top, vh - EDGE - ch));
+    const left = Math.max(EDGE, Math.min(r.left + r.width / 2 - cw / 2, vw - EDGE - cw));
+    card.style.transform = 'translate(' + Math.round(left) + 'px, ' + Math.round(top) + 'px)';
+  }
+  const loop = () => {
+    raf = 0;
+    if (closed) return;
+    let ok = true;
+    try { ok = typeof guard !== 'function' || guard() !== false; } catch (_) {}
+    if (!ok) { close('api'); return; }
+    place();
+    raf = G.requestAnimationFrame(loop);
+  };
+
+  function go(k) {
+    if (closed) return;
+    let n = k;
+    while (n < list.length) {
+      const st = list[n];
+      let el = null;
+      try { el = typeof st.target === 'function' ? st.target() : st.target; } catch (_) { el = null; }
+      if (el && el.isConnected && visible(el)) { target = el; break; }
+      n++;
+    }
+    if (n >= list.length) { close(i < 0 ? 'api' : 'done'); return; }
+    i = n;
+    const st = list[i];
+    const last = i === list.length - 1;
+    try {
+      const r = target.getBoundingClientRect();
+      if (r.top < 0 || r.bottom > G.innerHeight) target.scrollIntoView({ block: 'center', behavior: 'auto' });
+    } catch (_) {}
+    text.textContent = st.text;
+    count.textContent = 'Étape ' + (i + 1) + ' sur ' + list.length;
+    [...dots.children].forEach((dot, k2) => { dot.className = k2 < i ? 'is-done' : k2 === i ? 'is-now' : ''; });
+    nextTxt.textContent = last ? L.last : L.next;
+    nextIco.textContent = last ? '✓' : '▶';
+    shownSig = '';
+    place();
+    if (i > 0) { live.textContent = ''; setTimeout(() => { if (!closed) live.textContent = st.text + ' ' + count.textContent; }, 60); }
+    try { next.focus({ preventScroll: true }); } catch (_) {}
+    try {
+      if (i > 0) card.animate(motion.reduced() ? [{ opacity: 0.4 }, { opacity: 1 }]
+        : [{ opacity: 0.4, scale: '.97' }, { opacity: 1, scale: '1' }], { duration: motion.reduced() ? 150 : 260, easing: motion.EASE.out });
+    } catch (_) {}
+    try { if (typeof onStep === 'function') onStep(i, st); } catch (e) { console.error(e); }
+  }
+
+  next.addEventListener('click', () => { if (!closed) { audio.tap(); go(i + 1); } });
+  skip.addEventListener('click', () => { if (!closed) { audio.tap(); close('skip'); } });
+  /* toucher l'élément éclairé = « Suivant » ; ailleurs, le bouton se signale (rien d'autre n'est touchable) */
+  ov.addEventListener('click', e => {
+    if (closed || card.contains(e.target)) return;
+    const r = hole.getBoundingClientRect();
+    if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) { audio.tap(); go(i + 1); return; }
+    motion.pop(next, { scale: 1.06, dur: 300 });
+  });
+  const onKey = e => {
+    if (closed) return;
+    if (e.key === 'Escape') { e.preventDefault(); close('skip'); return; }
+    if (e.key === 'Tab') {
+      const f = [...card.querySelectorAll(FOCUSABLE)].filter(x => x.offsetParent !== null);
+      if (!f.length) return;
+      const first = f[0], lastEl = f[f.length - 1];
+      if (!card.contains(d.activeElement)) { e.preventDefault(); next.focus(); return; }
+      if (e.shiftKey && d.activeElement === first) { e.preventDefault(); lastEl.focus(); }
+      else if (!e.shiftKey && d.activeElement === lastEl) { e.preventDefault(); first.focus(); }
+    }
+  };
+  d.addEventListener('keydown', onKey, true);
+  try { if (typeof G.CloseWatcher === 'function') { watcher = new G.CloseWatcher(); watcher.onclose = () => close('skip'); } } catch (_) { watcher = null; }
+
+  /* comme une feuille : refermée d'office au changement d'écran (closeAllSheets, appelé par le routeur) */
+  const api = { el: ov, close: reason => close(reason), index: () => i };
+  liveSheets.add(api);
+  d.body.appendChild(ov);
+  lockPage(+1);
+  try { ov.animate([{ opacity: 0 }, { opacity: 1 }], { duration: motion.reduced() ? 150 : 260, easing: 'ease-out' }); } catch (_) {}
+  go(0);
+  if (closed) return { el: null, close: () => {}, index: () => -1 };
+  /* transitions du projecteur seulement après sa première pose (il ne « vole » pas depuis le coin de l'écran) */
+  G.requestAnimationFrame(() => { if (!closed) ov.classList.add('is-ready'); });
+  raf = G.requestAnimationFrame(loop);
+
+  function close(reason = 'api') {
+    if (closed) return;
+    closed = true;
+    liveSheets.delete(api);
+    if (raf) { try { G.cancelAnimationFrame(raf); } catch (_) {} raf = 0; }
+    d.removeEventListener('keydown', onKey, true);
+    if (watcher) { const w = watcher; watcher = null; try { w.destroy(); } catch (_) {} }
+    const end = () => {
+      ov.remove();
+      lockPage(-1);
+      const back = typeof returnFocus === 'function' ? returnFocus() : returnFocus || prevFocus;
+      try { if (back && back.isConnected && typeof back.focus === 'function') back.focus({ preventScroll: true }); } catch (_) {}
+      try { if (typeof onEnd === 'function') onEnd(reason, i); } catch (e) { console.error(e); }
+    };
+    if (reason === 'nav') { end(); return; }
+    let a = null;
+    try { a = ov.animate([{ opacity: 1 }, { opacity: 0 }], { duration: motion.reduced() ? 120 : 220, easing: 'ease-in', fill: 'forwards' }); } catch (_) { a = null; }
+    if (a && a.finished) Promise.race([a.finished.catch(() => {}), later(400)]).then(end); else end();
+  }
+  return api;
 }
 
 /* ============ CÉLÉBRATIONS ============ */

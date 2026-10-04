@@ -52,6 +52,8 @@ const PONY_FX = {
 /* libellés du micro (v11 ; points de suspension typographiques) */
 const TXT = {
   idle: frTypo('Appuie sur le micro et lis !'),
+  /* consigne dite aux petits lecteurs à l'ouverture d'une histoire (v2.2.1 ; 🔊 la relit jusqu'au départ du micro) */
+  go: frTypo('Appuie sur le micro, puis lis l’histoire à voix haute !'),
   prep: 'Préparation du micro… 🎙️',
   on: frTypo('Je t’écoute… lis l’histoire ! 🎧'),
   deaf: frTypo('Je ne t’entends pas 🤔 Parle plus fort, tout près du téléphone !'),
@@ -156,6 +158,7 @@ function createCourse(root, ctx) {
     const p = prof();
     ctx.setTitle(fill('La course de {N}'));
     ctx.onJoker(() => { ctx.kit.toast(frTypo('Choisis d’abord une histoire 📚')); return false; });
+    safe(() => ctx.voice.say(frTypo('Choisis une histoire !')));                 /* v2.2.1 : 🔊 jamais muet */
 
     const total = totalStarsOf(p);
     const have = total + classBonus(p && p.classe);
@@ -279,7 +282,8 @@ function createCourse(root, ctx) {
     const st = E.createRace(text, { mountNoun: m.M.noun, oov: OOV });
     if (!st.target.length) { showList(); return; }
     const v = setView('race');
-    if (micSaid) { micSaid = false; safe(() => ctx.voice.say('')); }    /* 🔊 ne relit plus la phrase de l'écran « micro » */
+    micSaid = false;
+    safe(() => ctx.voice.say(TXT.go));                /* la consigne (v2.2.1) : 🔊 la relit tant que la lecture n'a pas commencé */
     const r = race = {
       s, text, st, item: item || itemFor(s), zip: zipFor(s, p), m, size: wide() ? 72 : 46,
       timers: { race: 0, noResult: 0, finish: 0, quiz: 0 }, wake: null, starting: false, done: false,
@@ -471,6 +475,7 @@ function createCourse(root, ctx) {
     r.starting = true;
     r.micErr = '';
     safe(() => ctx.voice.hush());                     /* le micro n'entend que l'enfant : le compagnon se tait */
+    safe(() => ctx.voice.say(''));                    /* la course elle-même ne parle pas : 🔊 caché pendant la lecture */
     ctx.audio.beep(660, 0.06);
     setLabel(r, TXT.prep);
     r.els.mic.setAttribute('aria-busy', 'true');
@@ -498,7 +503,7 @@ function createCourse(root, ctx) {
     if (!res || !res.engine) {
       if (r.micErr && isHard(r.micErr, r)) { showMicProblem(r, r.micErr); return; }
       const t = r.els.label.textContent;
-      if (t === TXT.prep || t === TXT.idle || isDlText(t)) { setLabel(r, TXT.fail); ctx.announce(TXT.fail); }
+      if (t === TXT.prep || t === TXT.idle || isDlText(t)) { setLabel(r, TXT.fail); ctx.announce(TXT.fail); safe(() => ctx.voice.say(TXT.fail)); }
       return;
     }
     showDl(r, null);
@@ -763,6 +768,7 @@ function createCourse(root, ctx) {
     ctx.motion.enter(card, { from: 'scale', dur: 360 });
     ctx.motion.stagger(grid.buttons, el => ctx.motion.enter(el, { from: 'bottom', dist: 12, dur: 340 }), 60);
     ctx.announce(frTypo('Petite question : ' + fill(q.q)));
+    safe(() => ctx.voice.say(frTypo('Petite question : ' + fill(q.q))));        /* la question dite, pas les choix */
 
     function report(outcome) {
       if (Q.reported) return;
@@ -788,6 +794,7 @@ function createCourse(root, ctx) {
       const msg = frTypo('Relis le passage, la réponse s’y cache !');
       help.append(ctx.kit.bubble(msg, 'hint', { icon: '🔎' }), excerpt(), h('div', { class: 'cr-help-row' }, textBtn()));
       ctx.announce(msg);
+      safe(() => ctx.voice.say(msg));
       reveal();
     }
     function pick(val, btn) {
@@ -798,6 +805,7 @@ function createCourse(root, ctx) {
         grid.disable();
         const helped = Q.tries > 0 || Q.hinted;
         report({ correct: true, hinted: helped, ms, tries: Q.tries + 1 });
+        safe(() => ctx.voice.hush());
         ctx.kit.celebrateRight(btn, helped ? 0 : 2);
         if (ctx.applesEl) ctx.motion.flyTo(btn, ctx.applesEl, { emoji: '🍎', count: 1, onArrive: () => ctx.audio.coin() });
         const msg = ctx.kit.cheer(helped ? 'helped' : 'right', ctx.rng);
@@ -827,6 +835,7 @@ function createCourse(root, ctx) {
           h('div', { class: 'cr-help-row' }, textBtn(),
             h('button', { type: 'button', class: 'btn cr-understood', on: { click: () => { ctx.audio.tap(); showResults(r); } } }, 'J’ai compris ✓')));
         ctx.announce(msg);
+        safe(() => ctx.voice.say(msg));
         reveal(grid.button(q.answer));
       }
     }
@@ -992,6 +1001,7 @@ function createCourse(root, ctx) {
     if (stars === 3 || newly.length || summary.dayDone) { ctx.audio.fanfare(); ctx.motion.confetti(); }
     else ctx.audio.beep(784, 0.2, 0.12);
     ctx.announce(stars + (stars > 1 ? ' étoiles' : ' étoile') + ' sur 3. ' + msgTxt);
+    safe(() => ctx.voice.say(msgTxt));
     safe(() => boxEl.focus({ preventScroll: true }));
   }
 

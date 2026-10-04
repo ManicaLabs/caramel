@@ -24,7 +24,7 @@
      stageOf(profile) → 1 | 2 | 3 ;
      setAvatar(el, html, { live = true }?) → pose le SVG et lui donne une vie LÉGÈRE (regard, clignements, joie au
        toucher : companion-life.js liven) ; la vie d'un SVG remplacé est arrêtée ;
-     renderCompanionCard(container, { hero, hud }?) → { destroy(), dance(), openPanel(clé), el }
+     renderCompanionCard(container, { hero, hud }?) → { destroy(), dance(), greet(), openPanel(clé), el }
        hero (accueil « un seul gros bouton ») : grande scène ; plaque « 🌱 Caramel » avec l'anneau du stade (un bouton :
        « Mon compagnon » = son stade en clair, les prénoms) ; humeur en légende sur le ciel (elle s'efface seule) ;
        jauges portées par les icônes de soin (anneau : 🥕 ventre, 🧽 joie, 🚶 forme ; ✓ quand le brossage ou la
@@ -1267,6 +1267,11 @@ export function renderCompanionCard(container, opts = {}) {
       if (destroyed || !panels[key]) return;
       if (openPanel !== key) togglePanel(key);
       later(() => showPanel(panels[key], true), settleMs() + 20);
+    },
+    /* visite guidée de l'accueil (v2.2.1) : il salue (cœur et petit bond, sans son ni parole) */
+    greet() {
+      if (destroyed || !ctl) return;
+      try { ctl.react('tap'); } catch (_) {}
     },
     /* fin de balade : le compagnon danse, confettis, fanfare */
     dance() {
