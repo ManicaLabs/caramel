@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- base à la racine du site : css/base.css et js/content/voice-lines.js se résolvent comme dans l'appli -->
+<base href="../../">
+<title>Banc d’essai · voix Piper</title>
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="stylesheet" href="css/base.css">
+<style>
+  body { background: var(--bg-1); }
+  .screen { max-width: 640px; margin: 0 auto; padding: 16px 16px 48px; }
+  .lead { font-size: var(--fs-s); color: var(--ink-2); line-height: 1.45; }
+  [hidden] { display: none !important; }
+  .pv-voices { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .pv-voice { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 2px solid var(--pink-200);
+    border-radius: var(--r-m); background: var(--card); cursor: pointer; line-height: 1.35; }
+  .pv-voice:has(input:checked) { border-color: var(--pink-800); background: var(--pink-50); }
+  .pv-voice input { margin-top: 3px; width: 20px; height: 20px; accent-color: var(--pink-800); flex: none; }
+  .pv-voice b { display: block; color: var(--ink); }
+  .pv-voice span { display: block; font-size: var(--fs-xs); color: var(--ink-3); }
+  details.opts { font-size: var(--fs-s); color: var(--ink-2); }
+  details.opts summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; color: var(--ink-3); }
+  details.opts label { display: flex; gap: 8px; align-items: center; min-height: 40px; }
+  details.opts input[type=url] { flex: 1; min-width: 0; font: inherit; padding: 6px 8px; border: 2px solid var(--pink-200); border-radius: var(--r-s); }
+  progress { width: 100%; height: 14px; accent-color: var(--pink-400); }
+  .prog-txt { font-size: var(--fs-xs); color: var(--ink-3); font-variant-numeric: tabular-nums; min-height: 1.3em; }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; font-size: var(--fs-s); margin: 0; }
+  .kv dt { color: var(--ink-3); } .kv dd { margin: 0; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; word-break: break-word; }
+  .phrases { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .ph { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; background: var(--card);
+    border: 2px solid var(--pink-200); border-radius: var(--r-m); padding: 10px 12px; }
+  .ph-tag { font-size: var(--fs-xs); font-weight: 700; color: var(--pink-800); text-transform: uppercase; letter-spacing: .04em; }
+  .ph-text { font-family: var(--font-read); font-size: 1.05rem; color: var(--ink); line-height: 1.35; }
+  .ph-said { grid-column: 1 / -1; font-size: var(--fs-xs); color: var(--ink-3); }
+  .ph-said code { font-size: inherit; white-space: pre-wrap; word-break: break-word; }
+  .ph-m { grid-column: 1 / -1; font-size: var(--fs-xs); color: var(--ink-2); font-variant-numeric: tabular-nums; min-height: 1.2em; }
+  .ph-m a { color: var(--pink-800); }
+  .ph-play { width: 52px; height: 52px; min-height: 52px; padding: 0; border-radius: 50%; font-size: 1.2rem; grid-row: 1 / span 2; grid-column: 2; }
+  .free { display: flex; gap: 8px; }
+  .free input { flex: 1; min-width: 0; font: inherit; font-family: var(--font-read); padding: 10px 12px; border: 2px solid var(--pink-200); border-radius: var(--r-m); }
+  table.sum { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
+  table.sum th, table.sum td { padding: 5px 4px; text-align: right; border-bottom: 1px solid var(--pink-100); }
+  table.sum td { white-space: nowrap; }
+  table.sum td:first-child { white-space: normal; }
+  table.sum th:first-child, table.sum td:first-child { text-align: left; }
+  table.sum thead th { color: var(--ink-3); font-weight: 600; }
+  table.sum tfoot td { font-weight: 700; color: var(--ink); }
+  .verdict { font-size: var(--fs-s); color: var(--ink); line-height: 1.45; }
+  .err { color: #b91c1c; font-weight: 600; }
+  .log { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .75rem; white-space: pre-wrap; background: var(--card);
+    border: 2px solid var(--pink-200); border-radius: var(--r-s); padding: 8px; max-height: 30vh; overflow: auto; margin: 0; }
+  h2.card-title { margin: 0 0 8px; }
+</style>
+</head>
+<body>
+<main class="screen stack">
+  <h1 class="title">Voix Piper dans le navigateur</h1>
+  <p class="lead">Banc d’essai : la voix du compagnon (Piper, voix «&#8239;siwis&#8239;») calculée sur l’appareil, sans serveur.
+    Rien n’est branché sur l’appli. La voix est téléchargée une fois (en Wi-Fi de préférence), puis gardée hors ligne ;
+    «&#8239;Vider le cache&#8239;» rend la place. Sur un téléphone : charger la voix Standard, puis «&#8239;Mesurer sans le son&#8239;» — le
+    résumé dit si l’appareil peut s’en servir.</p>
+
+  <section class="card stack" aria-labelledby="t-voix">
+    <h2 class="card-title" id="t-voix">1. La voix</h2>
+    <div class="pv-voices" role="radiogroup" aria-label="Modèle">
+      <label class="pv-voice"><input type="radio" name="voix" value="low">
+        <div><b>Légère — siwis low</b><span>40 Mo au premier chargement (dont 28 Mo de voix), son 16 kHz</span></div></label>
+      <label class="pv-voice"><input type="radio" name="voix" value="medium" checked>
+        <div><b>Standard — siwis medium</b><span>75 Mo au premier chargement (dont 63 Mo de voix), son 22 kHz : la voix des clips enregistrés</span></div></label>
+    </div>
+    <details class="opts">
+      <summary>Options de mesure</summary>
+      <label><input type="radio" name="mode" value="worker" checked> Calcul dans un worker (recommandé)</label>
+      <label><input type="radio" name="mode" value="main"> Calcul sur le fil principal (mesure)</label>
+      <label><input type="radio" name="ort" value="1.22.0" checked> onnxruntime 1.22 (par défaut)</label>
+      <label><input type="radio" name="ort" value="1.18.0"> onnxruntime 1.18 (sans mémoire partagée : à essayer si l’iPhone refuse la 1.22)</label>
+      <label>Données espeak françaises (URL, facultatif) <input type="url" id="espeak-url" placeholder="sinon : extraites du paquet complet"></label>
+    </details>
+    <div class="row wrap">
+      <button class="btn" id="load" type="button">Télécharger et charger</button>
+      <button class="btn ghost" id="purge" type="button">Vider le cache</button>
+    </div>
+    <progress id="prog" max="1" value="0" hidden></progress>
+    <p class="prog-txt" id="prog-txt" aria-live="polite"></p>
+    <dl class="kv" id="load-kv" hidden>
+      <dt>Origine</dt><dd id="k-src">—</dd>
+      <dt>Réseau</dt><dd id="k-net">—</dd>
+      <dt>Fichiers prêts</dt><dd id="k-fetch">—</dd>
+      <dt>Démarrage</dt><dd id="k-boot">—</dd>
+      <dt>Chargement total</dt><dd id="k-total">—</dd>
+      <dt>Gardé hors ligne</dt><dd id="k-cache">—</dd>
+      <dt>Mémoire JS</dt><dd id="k-mem">—</dd>
+    </dl>
+  </section>
+
+  <section class="card stack" aria-labelledby="t-phrases">
+    <h2 class="card-title" id="t-phrases">2. Les phrases de Caramel</h2>
+    <p class="muted small">▶ calcule puis lit la phrase. «&#8239;dit&#8239;» : le texte donné à Piper («&#8239;|&#8239;» : le nombre est lu à
+      part, sans pause, pour garder «&#8239;trente-huit&#8239;» entier). Dessous : le temps de calcul, la durée du son et le rapport
+      des deux (sous 1, la voix est prête plus vite qu’elle ne parle).</p>
+    <ol class="phrases" id="phrases"></ol>
+    <div class="free">
+      <input id="free" type="text" value="Bravo Maël, tu as trouvé 21 réponses : 9 + 12 = 21 !" aria-label="Phrase à essayer">
+      <button class="btn small" id="free-play" type="button" aria-label="Lire la phrase">▶</button>
+    </div>
+    <p class="ph-m" id="free-m"></p>
+    <div class="row wrap">
+      <button class="btn white small" id="all" type="button">Tout lire</button>
+      <button class="btn white small" id="bench" type="button">Mesurer sans le son (2 passes)</button>
+      <button class="btn ghost" id="stop" type="button">Arrêter</button>
+    </div>
+  </section>
+
+  <section class="card stack" aria-labelledby="t-sum">
+    <h2 class="card-title" id="t-sum">3. Résumé «&#8239;temps réel&#8239;»</h2>
+    <p class="verdict" id="verdict">Charge la voix puis lance la mesure.</p>
+    <div style="overflow-x:auto"><table class="sum" id="sum" hidden>
+      <thead><tr><th>Phrase</th><th>Calcul</th><th>1re phrase prête</th><th>Son</th><th>Rapport</th></tr></thead>
+      <tbody></tbody><tfoot></tfoot>
+    </table></div>
+  </section>
+
+  <section class="card stack" aria-labelledby="t-app">
+    <h2 class="card-title" id="t-app">Appareil</h2>
+    <dl class="kv" id="dev"></dl>
+  </section>
+
+  <details class="opts"><summary>Journal</summary><pre class="log" id="log" aria-live="off"></pre></details>
+</main>
+<script type="module">
+  import { loadPiper, prepare, unlockAudio, encodeWav, joinPcm, clearCache, cacheBytes, features, VOICES, ORT_VERSION, ORT_LEGACY, PARAMS } from './tests/harness/piper-tts.js';
+  import { frTypo } from './js/core/util.js';
+
+  const $ = id => document.getElementById(id);
+  const q = new URLSearchParams(location.search);
+  const T0 = performance.now();
+  const nf = (x, d = 0) => Number(x).toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const mo = b => nf(b / 1048576, 1) + ' Mo';
+  const sec = ms => nf(ms / 1000, ms < 10000 ? 2 : 1) + ' s';
+  const log = msg => { const s = nf((performance.now() - T0) / 1000, 2) + ' s  ' + msg; $('log').textContent += s + '\n'; console.log('[piper] ' + s); };
+
+  /* les phrases de l'appli (texte affiché ; ce qui est dit passe par speakable() de js/content/voice-lines.js) */
+  const PHRASES = [
+    { id: 'coucou', tag: 'Visite guidée', text: 'Coucou Léa ! Moi, c’est Noisette.' },
+    { id: 'fois', tag: 'Tables', text: '7 × 8 = ?' },
+    { id: 'plus', tag: 'Calcul mental', text: '38 + 25 = ?' },
+    { id: 'bilan', tag: 'Bilan', text: 'Tu as trouvé 7 réponses du premier coup !' },
+    { id: 'pommes', tag: 'Boutique', text: 'Il te manque 12 🍎. Tu les gagnes en jouant !' },
+    { id: 'cloture', tag: 'Clôture', text: 'Place 47 sur la clôture. Touche la clôture pour poser la carotte, puis valide.' },
+    { id: 'orchestre', tag: 'Orchestre', text: 'Choisis le verbe bien accordé avec son sujet. Verbe : être, au présent. Les enfants … dans la cour.' },
+    { id: 'explication', tag: 'Explication', text: 'Le drapeau est 3 petits piquets après 40. Chaque petit piquet vaut 2, donc 3 petits piquets font 6 : 40 + 6 = 46.' }
+  ].map(p => ({ ...p, text: frTypo(p.text) }));
+
+  /* état observable par les scripts de mesure (tests : Chrome headless) */
+  const P = window.__piper = { done: false, error: null, load: null, runs: [], features: features(), wavs: {} };
+  let piper = null, busy = false;
+
+  /* ---------- appareil ---------- */
+  function showDevice() {
+    const f = P.features;
+    const rows = [
+      ['Cœurs', f.cores ?? '?'], ['Mémoire annoncée', f.deviceMemory ? f.deviceMemory + ' Go' : 'inconnue'],
+      ['WebAssembly SIMD', f.simd ? 'oui' : 'non — Piper ne peut pas tourner ici'], ['Plusieurs fils', f.crossOriginIsolated ? 'oui' : 'non (normal sur GitHub Pages : un seul fil)'],
+      ['onnxruntime-web', ORT_VERSION + ' (repli : ' + ORT_LEGACY + ')'], ['Navigateur', f.ua]
+    ];
+    $('dev').replaceChildren(...rows.flatMap(([k, v]) => { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = k; dd.textContent = v; return [dt, dd]; }));
+  }
+  showDevice();
+
+  /* ---------- phrases ---------- */
+  const rows = {};
+  for (const p of PHRASES) {
+    const li = document.createElement('li');
+    li.className = 'ph';
+    li.innerHTML = '<div><div class="ph-tag"></div><div class="ph-text"></div></div>' +
+      '<button class="btn ph-play" type="button" disabled>▶</button>' +
+      '<div class="ph-said">dit : <code></code></div><div class="ph-m"></div>';
+    li.querySelector('.ph-tag').textContent = p.tag;
+    li.querySelector('.ph-text').textContent = p.text;
+    li.querySelector('code').textContent = prepare(p.text);
+    li.querySelector('.ph-play').setAttribute('aria-label', 'Lire : ' + p.text);
+    li.querySelector('.ph-play').addEventListener('click', () => { unlockAudio(); play(p); });
+    $('phrases').append(li);
+    rows[p.id] = li;
+  }
+  const playButtons = () => [...document.querySelectorAll('.ph-play'), $('free-play'), $('all'), $('bench')];
+  const enable = on => playButtons().forEach(b => { b.disabled = !on; });
+  enable(false);
+
+  function metrics(r) {
+    const first = r.firstSoundMs ?? r.firstMs;
+    return 'calcul ' + sec(r.synthMs) + ' · son ' + nf(r.audioSec, 1) + ' s · rapport ' + nf(r.rtf, 2) +
+      ' · ' + (r.firstSoundMs != null ? '1er son ' : '1re phrase prête ') + sec(first);
+  }
+  function wavLink(el, id, r) {
+    const blob = encodeWav(joinPcm(r.sentences), r.sentences[0].sampleRate);
+    if (P.wavs[id]) URL.revokeObjectURL(P.wavs[id]);
+    P.wavs[id] = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = P.wavs[id]; a.download = 'piper-' + piper.voice + '-' + id + '.wav'; a.textContent = 'WAV';
+    el.append(' · ', a);
+  }
+  async function play(p) {
+    if (!piper || busy) return;
+    busy = true;
+    const m = rows[p.id].querySelector('.ph-m');
+    m.textContent = 'calcul…';
+    try {
+      const r = await piper.speak(prepare(p.text));
+      m.textContent = metrics(r);
+      wavLink(m, p.id, r);
+      record(p.id, r, 'lecture');
+    } catch (e) { m.innerHTML = ''; m.append(Object.assign(document.createElement('span'), { className: 'err', textContent: 'Erreur : ' + e.message })); log('erreur : ' + e.message); }
+    busy = false;
+  }
+  $('free-play').addEventListener('click', async () => {
+    unlockAudio();
+    if (!piper || busy) return;
+    busy = true;
+    const text = frTypo($('free').value);
+    $('free-m').textContent = 'dit : « ' + prepare(text) + ' » — calcul…';
+    try { const r = await piper.speak(prepare(text)); $('free-m').textContent = 'dit : « ' + prepare(text) + ' » — ' + metrics(r); wavLink($('free-m'), 'libre', r); }
+    catch (e) { $('free-m').textContent = 'Erreur : ' + e.message; }
+    busy = false;
+  });
+  $('all').addEventListener('click', async () => { unlockAudio(); for (const p of PHRASES) { await play(p); await new Promise(r => setTimeout(r, 400 + (P.lastAudio || 0) * 1000)); } });
+  $('stop').addEventListener('click', () => piper && piper.stop());
+
+  /* ---------- mesures ---------- */
+  function record(id, r, kind, pass = 0) {
+    P.lastAudio = r.audioSec;
+    P.runs.push({ id, kind, pass, synthMs: r.synthMs, firstMs: r.firstMs, firstSoundMs: r.firstSoundMs ?? null, audioSec: +r.audioSec.toFixed(3),
+      rtf: +r.rtf.toFixed(3), inferMs: r.inferMs, phonMs: r.phonMs, sentences: r.sentences.map(s => ({ ms: s.inferMs, dur: +s.dur.toFixed(3), ids: s.ids, phonemes: s.phonemes, missing: s.missing })) });
+  }
+  async function bench(passes = 2) {
+    const out = [];
+    for (let pass = 1; pass <= passes; pass++) {
+      for (const p of PHRASES) {
+        const r = await piper.synth(prepare(p.text));
+        record(p.id, r, 'mesure', pass);
+        if (pass === passes) { out.push({ p, r }); const m = rows[p.id].querySelector('.ph-m'); m.textContent = metrics(r); wavLink(m, p.id, r); }
+      }
+    }
+    summary(out, passes);
+    return out;
+  }
+  function summary(out, passes) {
+    const tb = $('sum').querySelector('tbody'), tf = $('sum').querySelector('tfoot');
+    tb.replaceChildren(); tf.replaceChildren();
+    let S = 0, A = 0;
+    const firsts = [];
+    for (const { p, r } of out) {
+      S += r.synthMs; A += r.audioSec; firsts.push(r.firstMs);
+      const tr = document.createElement('tr');
+      for (const v of [p.tag, sec(r.synthMs), sec(r.firstMs), nf(r.audioSec, 1) + ' s', nf(r.rtf, 2)]) { const td = document.createElement('td'); td.textContent = v; tr.append(td); }
+      tb.append(tr);
+    }
+    firsts.sort((a, b) => a - b);
+    const med = firsts[Math.floor(firsts.length / 2)], worst = firsts[firsts.length - 1], rtf = S / 1000 / A;
+    const tr = document.createElement('tr');
+    for (const v of ['Total', sec(S), 'méd. ' + sec(med), nf(A, 1) + ' s', nf(rtf, 2)]) { const td = document.createElement('td'); td.textContent = v; tr.append(td); }
+    tf.append(tr);
+    $('sum').hidden = false;
+    P.summary = { synthMs: S, audioSec: +A.toFixed(2), rtf: +rtf.toFixed(3), firstMedianMs: med, firstWorstMs: worst, passes };
+    /* verdict pour cet appareil : en direct (réponse quasi immédiate), en préparant à l'avance (la phrase suivante est
+       calculée pendant que l'enfant réfléchit), ou trop lent (garder les clips enregistrés) */
+    const use = rtf <= 0.5 && med <= 1200 ? 'Sur cet appareil, la voix peut parler en direct.'
+      : rtf <= 1 ? 'Sur cet appareil, la voix suit à condition de préparer chaque phrase à l’avance.'
+      : 'Sur cet appareil, la voix est trop lente : garder les clips enregistrés.';
+    P.summary.verdict = use;
+    $('verdict').textContent = 'Voix ' + VOICES[piper.voice].label.toLowerCase() + ' : ' + sec(S) + ' de calcul pour ' + nf(A, 1) +
+      ' s de parole, soit un rapport de ' + nf(rtf, 2) + (rtf < 1 ? ' (' + nf(1 / rtf, 1) + ' fois plus vite que la parole)' : ' (plus lent que la parole)') +
+      '. Première phrase prête en ' + sec(med) + ' en médiane, ' + sec(worst) + ' au pire' + (passes > 1 ? ' (passe ' + passes + ', moteur chaud). ' : '. ') + use;
+  }
+  $('bench').addEventListener('click', async () => { if (!piper || busy) return; busy = true; enable(false); try { await bench(2); } catch (e) { log('erreur : ' + e.message); } enable(true); busy = false; });
+
+  /* ---------- chargement ---------- */
+  const memNow = () => (performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null);
+  async function load(voice, mode, espeakUrl, modelUrl = '', ort = ORT_VERSION) {
+    if (busy) return;
+    busy = true; enable(false); $('load').disabled = true;
+    if (piper) { piper.dispose(); piper = null; }
+    $('prog').hidden = false; $('prog').value = 0; $('load-kv').hidden = true;
+    $('prog-txt').textContent = 'Préparation…';
+    try {
+      piper = await loadPiper({ voice, mode, espeakUrl: espeakUrl || null, modelUrl: modelUrl || null, ort, log,
+        onProgress: ({ file, loaded, total }) => { $('prog').max = total; $('prog').value = loaded; $('prog-txt').textContent = mo(loaded) + ' sur ' + mo(total) + ' — ' + file; } });
+      const i = piper.info, t = i.timings;
+      P.load = { voice, mode, espeakUrl: espeakUrl || null, modelUrl: modelUrl || null, ...i, memJsMB: memNow() };
+      $('prog').value = $('prog').max;
+      $('prog-txt').textContent = 'Voix prête.';
+      $('k-src').textContent = i.cachedAll ? 'tout depuis le cache (hors ligne)' : (i.fromCache ? 'en partie depuis le cache' : 'téléchargement complet');
+      $('k-net').textContent = i.network ? mo(i.network) + ' reçus (décompressés)' : 'rien';
+      $('k-fetch').textContent = sec(i.fetchMs);
+      $('k-boot').textContent = sec(i.bootMs) + ' (modèle ' + sec(t.session) + ', phonémiseur ' + sec(t.phonemizer) + ')';
+      $('k-total').textContent = sec(i.loadMs);
+      const c = await cacheBytes();
+      P.load.cacheBytes = c ? c.total : null;
+      $('k-cache').textContent = c ? mo(c.total) + ' (' + c.entries.length + ' fichiers)' : 'cache indisponible';
+      $('k-mem').textContent = memNow() != null ? memNow() + ' Mo (tas JS de la page ; le calcul vit dans le worker)' : 'non mesurable ici';
+      $('load-kv').hidden = false;
+      enable(true);
+    } catch (e) {
+      P.error = e.message;
+      $('prog-txt').innerHTML = '';
+      $('prog-txt').append(Object.assign(document.createElement('span'), { className: 'err', textContent: 'Échec : ' + e.message +
+        (ort !== ORT_LEGACY ? ' — essayer « onnxruntime 1.18 » dans les options de mesure.' : '') }));
+      log('échec : ' + (e.stack || e.message));
+    }
+    $('load').disabled = false; busy = false;
+  }
+  const pick = name => document.querySelector('input[name=' + name + ']:checked').value;
+  $('load').addEventListener('click', () => { unlockAudio(); load(pick('voix'), pick('mode'), $('espeak-url').value.trim(), '', pick('ort')); });
+  $('purge').addEventListener('click', async () => { log('cache vidé : ' + await clearCache()); $('k-cache').textContent = 'vide'; });
+
+  /* ---------- scénario automatique : ?auto=1&voix=low|medium&mode=worker|main&ort=1.18.0&espeak=<url>&modele=<url>&passes=2 ---------- */
+  if (q.has('auto')) {
+    (async () => {
+      const voice = q.get('voix') === 'medium' ? 'medium' : 'low', mode = q.get('mode') === 'main' ? 'main' : 'worker';
+      document.querySelector('input[name=voix][value=' + voice + ']').checked = true;
+      document.querySelector('input[name=mode][value=' + mode + ']').checked = true;
+      try {
+        if (q.has('purge')) await clearCache();
+        const ort = q.get('ort') === ORT_LEGACY ? ORT_LEGACY : ORT_VERSION;
+        document.querySelector('input[name=ort][value="' + ort + '"]').checked = true;
+        await load(voice, mode, q.get('espeak') || '', q.get('modele') || '', ort);
+        if (!P.error) { busy = true; await bench(Number(q.get('passes')) || 2); busy = false; P.memAfterJsMB = memNow(); }
+      } catch (e) { P.error = String(e && e.stack || e); }
+      P.done = true;
+      log('scénario terminé');
+    })();
+  }
+</script>
+</body>
+</html>
