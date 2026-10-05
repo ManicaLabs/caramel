@@ -44,7 +44,7 @@ const wideScreen = () => { try { return matchMedia('(min-width: 900px)').matches
 
 let st = null;
 
-/* 1re partie d'un jeu (v2.2.1) : le compagnon l'explique en UNE phrase ({N} = son nom ; dite aux petits lecteurs, toujours
+/* 1re partie d'un jeu (v2.2.1) : le compagnon l'explique en UNE phrase ({N} = son nom ; dite à voix haute, toujours
    écrite), une seule fois par jeu et par enfant (profile.seen). Un jeu qui se présente lui-même (export intro: true,
    l'orchestre) n'en a pas besoin, ni un enfant qui y a déjà joué (playedBefore). */
 export const GAME_HELLO = Object.freeze({
@@ -322,7 +322,9 @@ export default {
       if (sh.el) sh.el.classList.add('gs-sheet');
       try { header.announce(praiseTxt + (total ? ' ' + total + ' pomme' + (total > 1 ? 's' : '') + ' gagnée' + (total > 1 ? 's.' : '.') : '')); } catch (_) {}
       audio.fanfare();
-      /* petits lecteurs : le compagnon dit la phrase du bilan (après la fanfare) */
+      /* lecture à voix haute activée : le compagnon dit la phrase du bilan (après la fanfare) ; voix fluide (v2.2.2) :
+         calculée pendant la fanfare */
+      voice.prepareNext(praiseTxt);
       later(() => { if (st === my && voice.voiceOn(q)) voice.speak(praiseTxt); }, 900);
       if (s.dayDone) motion.confetti();
 

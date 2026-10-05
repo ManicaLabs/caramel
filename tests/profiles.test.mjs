@@ -154,7 +154,7 @@ test('defaultProfile : profil complet, réglages par défaut', () => {
     pet: { faim: 80, forme: 80, joie: 80, last: 0, brushLast: 0, walkDay: '' }, stage: 1, minutes: 0 });
   assert.deepEqual(p.wallet, { apples: 0, stars: {} });
   assert.deepEqual(p.streak, { count: 0, last: '', freezes: 1, freezeWeek: '' });
-  assert.deepEqual(p.settings, { sessionMin: 15, timers: false, sound: true, motion: 'full', theme: 'caramel', readAloud: 'auto' });
+  assert.deepEqual(p.settings, { sessionMin: 15, timers: false, sound: true, motion: 'full', theme: 'caramel', readAloud: 'on' });
   assert.deepEqual(p.settings, DEFAULT_SETTINGS);
   assert.notEqual(p.settings, DEFAULT_SETTINGS, 'copie, pas la référence partagée');
   assert.deepEqual(p.stats, { minutes: 0, sessions: 0, items: 0 });
@@ -251,7 +251,7 @@ test('normalizeProfile : invariants (bornes, ids, un objet par emplacement, plaf
   /* divers */
   assert.equal(p.today, null);
   assert.deepEqual(p.legacy, { from: 'v11', mclm: null, stars: 12 });
-  assert.deepEqual(p.settings, { sessionMin: 15, timers: false, sound: true, motion: 'full', theme: 'caramel', readAloud: 'auto' });
+  assert.deepEqual(p.settings, { sessionMin: 15, timers: false, sound: true, motion: 'full', theme: 'caramel', readAloud: 'on' });
   assert.deepEqual(p.stats, { minutes: 0, sessions: 2, items: 0 });
   assert.deepEqual(p.champFutur, [1, 2, 3]);
 });
@@ -276,19 +276,23 @@ test('normalizeProfile : idempotente, sans effet sur un profil sain', () => {
   }
 });
 
-test('réglage readAloud (voix des petits lecteurs) : auto par défaut, anciens booléens acceptés', () => {
-  assert.deepEqual([...READ_ALOUD_MODES], ['auto', 'on', 'off']);
-  assert.equal(DEFAULT_SETTINGS.readAloud, 'auto');
-  const ra = v => normalizeProfile({ name: 'Inès', classe: 'CE1', settings: v === undefined ? {} : { readAloud: v } }, TODAY).settings.readAloud;
-  assert.equal(ra(undefined), 'auto', 'profil d’avant la 2.2 (réglage absent)');
-  for (const m of ['auto', 'on', 'off']) assert.equal(ra(m), m);
+test('réglage readAloud : Oui pour tous par défaut (v2.2.2), Non d’un parent gardé, anciens réglages convertis', () => {
+  assert.deepEqual([...READ_ALOUD_MODES], ['on', 'off']);
+  assert.equal(DEFAULT_SETTINGS.readAloud, 'on');
+  const ra = (v, classe = 'CM2') => normalizeProfile({ name: 'Inès', classe, settings: v === undefined ? {} : { readAloud: v } }, TODAY).settings.readAloud;
+  assert.equal(ra(undefined), 'on', 'profil d’avant la 2.2 (réglage absent) : lecture activée');
+  assert.equal(ra('auto'), 'on', 'ancien « Automatique (CP-CE1) » de la 2.2 : activée, CM2 compris');
+  assert.equal(ra('auto', 'CP'), 'on');
+  assert.equal(ra('on'), 'on');
+  assert.equal(ra('off'), 'off', '« Jamais » choisi par un parent : gardé');
   assert.equal(ra(true), 'on', 'ancien booléen vrai');
   assert.equal(ra(false), 'off', 'ancien booléen faux');
-  for (const bad of [null, '', 'ON', 'oui', 1, 0, {}, ['on']]) assert.equal(ra(bad), 'auto', JSON.stringify(bad));
+  for (const bad of [null, '', 'ON', 'OFF', 'oui', 1, 0, {}, ['off']]) assert.equal(ra(bad), 'on', JSON.stringify(bad));
   const p = normalizeProfile({ name: 'Hugo', classe: 'CP', settings: { readAloud: false, sessionMin: 10 } }, TODAY);
   assert.equal(p.settings.readAloud, 'off');
   assert.equal(p.settings.sessionMin, 10);
   assert.equal(JSON.stringify(normalizeProfile(p, '2027-01-01')), JSON.stringify(p), 'idempotent');
+  assert.equal(defaultProfile({ name: 'Zoé', g: 'f', classe: 'CM2', today: TODAY }).settings.readAloud, 'on', 'nouveau profil CM2');
 });
 
 /* ---------- classe ---------- */

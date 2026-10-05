@@ -1,0 +1,70 @@
+/* ============ « 📲 METS CARAMEL SUR L'ÉCRAN D'ACCUEIL » (js/ui/install.js, v2.2.2) ============
+   Bannière DISCRÈTE de l'accueil (sous les boutons secondaires : elle ne concurrence pas « Jouer ▶ ») et petite feuille
+   (fin de la création d'un enfant, bannière, espace parents). Jetons du thème seulement. */
+
+/* ---------- bannière de l'accueil : pointillés, texte doux ; la scène du compagnon lui laisse sa place ---------- */
+/* une invitation à la fois : bandeau de mise à jour (main.js) ; panneau du compagnon ouvert (son bouton est l'action) */
+.hm-inst-slot:empty, html.has-update .hm-inst-slot, .hm:has(.cc.has-panel) .hm-inst-slot { display: none; }
+html:not(.has-update) .hm.has-inst { --hm-rest: 470px; }
+.hm-inst {
+  display: flex; align-items: center; gap: 2px; align-self: center; width: min(100%, 520px);
+  border: 2px dashed var(--pink-200); border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--card) 55%, transparent);
+}
+.hm-inst-go {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 4px 4px 4px 16px;
+  border-radius: var(--r-pill); color: var(--ink-2); font-weight: 600; font-size: .98rem; line-height: 1.25; text-align: left;
+  transition: background var(--dur-1);
+}
+.hm-inst-ico { flex: none; font-size: 1.2rem; line-height: 1; }
+.hm-inst-t { min-width: 0; }
+.hm-inst-x {
+  flex: none; width: 44px; height: 44px; margin-right: 2px; border-radius: 50%; display: grid; place-items: center;
+  color: var(--ink-3); font-size: 1rem; line-height: 1; transition: background var(--dur-1);
+}
+/* 🔊 de la bannière (lecture à voix haute activée) : au début, aussi discret que ✕ (sans ombre) */
+.hm-inst .vx-listen { width: 44px; height: 44px; margin-left: 2px; box-shadow: none; }
+.hm-inst.has-listen .hm-inst-go { padding-left: 8px; }
+.hm-inst-go:active, .hm-inst-x:active { background: var(--pink-100); }
+.hm-inst-go:focus-visible { border-radius: var(--r-pill); }
+.hm-inst-x:focus-visible { border-radius: 50%; }
+@media (hover: hover) and (pointer: fine) {
+  .hm-inst-go:hover, .hm-inst-x:hover { background: color-mix(in srgb, var(--pink-100) 60%, transparent); }
+}
+@media (max-height: 700px) { html:not(.has-update) .hm.has-inst { --hm-rest: 436px; } }
+@media (min-width: 600px) { html:not(.has-update) .hm.has-inst { --hm-rest: 490px; } }
+@media (min-width: 900px) and (orientation: landscape) {
+  html:not(.has-update) .hm.has-inst {
+    --hm-rest: 150px;
+    grid-template-areas: "head head" "next next" "pet play" "pet alt" "pet inst"; grid-template-rows: auto auto 1fr auto auto;
+  }
+  .hm-inst-slot { grid-area: inst; align-self: start; }
+}
+
+/* ---------- la feuille ---------- */
+.in-title { display: inline; }
+.in-sheet { display: flex; flex-direction: column; gap: 14px; text-align: left; }
+.in-head { display: flex; align-items: center; gap: 14px; }
+.in-app-ico { flex: none; width: 64px; height: 64px; border-radius: 16px; box-shadow: var(--shadow-1); }
+.in-why { margin: 0; color: var(--ink); font-size: 1.08rem; line-height: 1.4; }
+/* 🔊 (côté enfant, lecture à voix haute activée) : sous l'icône, comme sous le portrait de la visite guidée */
+.in-head.has-listen { display: grid; grid-template-columns: 64px minmax(0, 1fr); column-gap: 14px; row-gap: 8px; }
+.in-head.has-listen .in-app-ico { grid-column: 1; grid-row: 1; }
+.in-head.has-listen .in-why { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+.in-head.has-listen .vx-listen { grid-column: 1; grid-row: 2; justify-self: center; }
+/* marche à suivre (iPhone, iPad) : trois pas numérotés, les boutons à toucher dessinés comme dans le navigateur */
+.in-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.in-step { display: flex; align-items: flex-start; gap: 12px; }
+.in-n {
+  flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--amber-100); color: var(--title); font-weight: 700; line-height: 1;
+}
+.in-step-t { min-width: 0; padding-top: 3px; color: var(--ink); line-height: 1.55; }
+.in-key {
+  display: inline-flex; align-items: center; gap: 4px; padding: 0 8px 0 5px; margin: 1px 0; border-radius: 8px;
+  border: 2px solid var(--pink-200); background: var(--card); color: var(--ink); font-weight: 600; vertical-align: middle;
+}
+.in-key.is-word { padding: 0 8px; }
+.in-ico { display: inline-grid; place-items: center; }
+.in-ico svg { display: block; }
+.in-note { margin: 0; padding-top: 10px; border-top: 2px dashed var(--pink-200); color: var(--ink-3); font-size: .92rem; line-height: 1.45; }

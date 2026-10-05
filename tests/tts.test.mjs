@@ -84,6 +84,18 @@ test('voix : fr-FR locale choisie, lecture complète, aucun cancel() inutile', a
   uninstall();
 });
 
+test('voix : hauteur rehaussée par défaut (PITCH, proche de la voix d’enfant des clips), réglable', async () => {
+  const m = install();
+  const pitches = [];
+  const speakNow = m.S.speak;
+  m.S.speak = u => { pitches.push(u.pitch); speakNow(u); };
+  assert.equal(tts.PITCH, 1.5);
+  assert.equal(await tts.speak('Un.'), true);
+  assert.equal(await tts.speak('Deux.', { pitch: 1 }), true);
+  assert.deepEqual(pitches, [1.5, 1]);
+  uninstall();
+});
+
 test('voix : sans API → no-api ; voix chargées sans français → no-fr-voice', async () => {
   uninstall();
   assert.equal((await tts.speakResult('Bonjour')).reason, 'no-api');

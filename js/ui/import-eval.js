@@ -1,5 +1,6 @@
 /* ============ IMPORT DE LA FICHE D'ÉVALUATION (#/import) — CDC §8, annexe A ; JEUX.md §8 ============
-   Query : from = 'onboarding' | 'parents' | … (retour : onboarding → #/home, parents → #/parents, sinon retour),
+   Query : from = 'onboarding' | 'parents' | … (retour : onboarding → feuille « 📲 écran d'accueil » de js/ui/install.js
+           (v2.2.2, si une installation est possible) puis #/home, parents → #/parents, sinon retour),
            method = 'photo' | 'manual' | 'file' (sinon écran de choix), profile = profil visé (défaut : actif).
    (a) FICHIER caramel-eval (annexe A) : profil cible (même prénom présélectionné ; sinon créer le profil ou le
        rattacher à un profil existant, avec option de renommer celui-ci) → applyEval (+ classe si absente) → résumé.
@@ -32,6 +33,7 @@ import * as motion from '../core/motion.js';
 import * as audio from '../core/audio.js';
 import { renderRadar, radarReady, levelText } from './radar.js';
 import * as backup from './backup.js';
+import { offerThen as offerInstallThen } from './install.js';
 
 const G = globalThis;
 const PARENTS_SEL = 'caramel-parents-sel';   /* sessionStorage : profil à afficher au retour dans l'espace parents */
@@ -106,7 +108,8 @@ function nextSubject() { return ['fr', 'ma'].find(g => !flow.done.has(g)) || nul
 function leave() {
   releasePhoto();
   const id = flow && flow.targetId;
-  if (Q.from === 'onboarding') { router.go('home', { replace: true }); return; }
+  /* fin de la création d'un enfant (v2.2.2) : la petite feuille « 📲 Mets Caramel sur l'écran d'accueil », puis l'accueil */
+  if (Q.from === 'onboarding') { offerInstallThen(() => router.go('home', { replace: true })); return; }
   if (Q.from === 'parents') {
     try { if (id) G.sessionStorage.setItem(PARENTS_SEL, id); } catch (_) {}
     if (histDepth() > 0) router.back();

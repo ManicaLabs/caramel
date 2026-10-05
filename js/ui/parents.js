@@ -26,7 +26,11 @@
      accords ; lecture des consignes à voix haute masquée jusqu'à la 2.2, cf. READ_ALOUD_READY) et sur cet appareil
      (code parent, rappels) ;
    - sauvegardes (backup.js ; date de la dernière sauvegarde téléchargée d'ici) ; profils ; à propos (version,
-     sauvegarde automatique, moteur vocal, confidentialité exacte, auteur et retours).
+     confidentialité exacte, auteur et retours) et, v2.2.2, « État de cet appareil » (js/ui/diag.js : version, navigateur
+     et système, installé ou non, son, voix enregistrée, voix du téléphone, micro, reconnaissance, WebAssembly, stockage,
+     ✓ / ✗, pour une capture à envoyer) ;
+   - v2.2.2 : « Sur cet appareil » › « Écran d'accueil » (js/ui/install.js : état, vrai bouton « Installer » ou marche
+     à suivre sur iPhone et iPad) ; « Lire les consignes à voix haute » : Oui (défaut, tous les enfants) / Non.
    Toute écriture du profil passe par store.mutateProfile / store.mutate. Rien n'est jamais affiché à l'enfant ici. */
 
 import { h, svg, clear, loadCSS, dayStr, daysBetween, parseDay, fmtNum, frTypo, weekKey, deNom, sha256Hex } from '../core/util.js';
@@ -41,7 +45,6 @@ import { totalStars } from '../core/economy.js';
 import { GAMES } from '../games/index.js';
 import { MOUNTS } from '../content/companion-data.js';
 import * as notifs from '../core/notifs.js';
-import * as speech from '../core/speech.js';
 import * as kit from './kit.js';
 import * as motion from '../core/motion.js';
 import * as audio from '../core/audio.js';
@@ -51,6 +54,9 @@ import { normalizeTheme, themeOf } from '../core/themes.js';
 import { themeGrid, swapTheme } from './theme-picker.js';
 import { mountReady, avatarOf, setAvatar } from './companion.js';
 import * as voice from './voice.js';
+import { parentsRow as installRow } from './install.js';
+import { parentsRow as fluidRow } from './voice-fluid.js';
+import { diagCard } from './diag.js';
 
 /* crédits et retours (v11.1, déplacés de l'accueil de l'enfant : un adulte seulement sort vers LinkedIn) */
 const LINKEDIN_PROFILE = 'https://www.linkedin.com/in/cedric-delalande-57bb7860/';
@@ -733,7 +739,7 @@ function renderContent({ entering = false, keepScroll = false, nudge = false, fo
     section('reglages', 'Réglages', settingsCard(p), deviceCard()),
     section('sauvegardes', 'Sauvegardes', backupCard(p)),
     section('profils', 'Profils', profilesCard()),
-    section('apropos', 'À propos', aboutCard())
+    section('apropos', 'À propos', aboutCard(), diagCard())
   ];
   screen.append(...blocks);
 
@@ -1333,15 +1339,17 @@ const SUB_HELP = {
   compensation: 'Par compensation : quand le chiffre du haut est trop petit, on lui ajoute 10 et on ajoute 1 au chiffre du bas de la colonne suivante ; l’écart entre les deux nombres ne change pas.',
   cassage: 'Par cassage : on « casse » une dizaine (ou une centaine) du nombre du haut ; on barre le chiffre de la colonne suivante et on écrit au-dessus ce chiffre moins 1, et le chiffre du haut gagne 10.'
 };
-/* lecture des consignes à voix haute (contrat partagé avec les jeux) : 'auto' (CP-CE1) · 'on' · 'off' ; défaut 'auto'.
-   Affiché depuis la 2.2 : la voix des petits lecteurs (js/ui/voice.js, ctx.voice) lit la question, l'indice et le bilan
-   (constat d'audit D1-02). En 2.1 il était masqué, faute de lecture dans les jeux (tests/parents.test.mjs le vérifie). */
+/* lecture des consignes à voix haute (contrat partagé avec les jeux) : 'on' (Oui, défaut) · 'off' (Non). v2.2.2 (décision
+   du parent, 04/10/2026) : activée pour TOUS les enfants, CM1-CM2 compris ; l'ancien « Automatique (CP-CE1) » vaut Oui,
+   un « Jamais » choisi par un parent reste Non (js/core/profiles.js). Affiché depuis la 2.2 : la voix (js/ui/voice.js,
+   ctx.voice) lit la question, l'indice et le bilan (constat d'audit D1-02) ; en 2.1 il était masqué, faute de lecture
+   dans les jeux (tests/parents.test.mjs le vérifie). */
 const READ_ALOUD_READY = true;
-const READ_ALOUD = ['auto', 'on', 'off'];
-const readAloudOf = s => (READ_ALOUD.includes(s && s.readAloud) ? s.readAloud : s && s.readAloud === true ? 'on' : s && s.readAloud === false ? 'off' : 'auto');
-/* « ▶ Tester la voix » (v2.2.1, retour d'un parent : « 🔊 ne fait rien » sur un Android) : la voix de l'appareil dit une
-   phrase, puis le résultat s'affiche — « La voix fonctionne ✓ » (et ce qui, dans les réglages de l'enfant, la ferait
-   taire), ou ce qui ne va pas et la marche à suivre pour CET appareil. */
+const readAloudOf = s => (s && (s.readAloud === 'off' || s.readAloud === false) ? 'off' : 'on');
+/* « ▶ Tester la voix » (v2.2.1, retour d'un parent : « 🔊 ne fait rien » sur un Android) : la phrase est dite, puis le
+   résultat s'affiche — « La voix fonctionne ✓ » (et ce qui, dans les réglages de l'enfant, la ferait taire), ou ce qui
+   ne va pas et la marche à suivre pour CET appareil. v2.2.2 : la voix enregistrée du compagnon (sans le prénom) PUIS
+   celle du téléphone (les phrases non enregistrées), chacune avec son résultat. */
 const VOICE_FIX = {
   android: 'Sur Android : Paramètres › Accessibilité › Synthèse vocale (ou cherchez « synthèse vocale » dans les Paramètres). Choisissez le moteur Google, la langue Français (France), et téléchargez la voix si on vous le propose. Revenez ensuite ici et touchez ▶ Tester la voix.',
   ios: 'Sur iPhone ou iPad : Réglages › Accessibilité › Contenu énoncé › Voix › Français, puis téléchargez une voix. Revenez ensuite ici et touchez ▶ Tester la voix.',
@@ -1369,8 +1377,9 @@ function voiceTest(p) {
     out.className = 'pa-voice-out is-wait';
     out.append(h('p', { class: 'pa-voice-res' }, frTypo('Écoutez…')));
     const q = store.getProfile(id) || p;
-    let r = { ok: false, reason: 'error' };
-    try { r = await voice.test(frTypo(fillTemplate('Bonjour {P} ! Je suis {N}, et je lis les consignes à voix haute.', q))); } catch (_) {}
+    let r = { ok: false, reason: 'error', rec: { ok: false, reason: 'error' }, tts: { ok: false, reason: 'error' } };
+    /* l'enfant affiché (pas forcément l'enfant actif) : la phrase à son prénom est reconnue par la voix enregistrée */
+    try { r = await voice.test(frTypo(fillTemplate('Bonjour {P} ! Je suis {N}, et je lis les consignes à voix haute.', q)), { profile: q }); } catch (_) {}
     busy = false;
     btn.removeAttribute('aria-busy');
     if (!out.isConnected) return;
@@ -1384,8 +1393,7 @@ function voiceTest(p) {
       if (qs.sound === false) notes.push('Les sons ' + deNom(q.name) + ' sont coupés : la voix se tait tant qu’ils le sont.');
       if (!voice.readAloud(store.getProfile(id) || q)) {
         const que = (deNom(q.name).startsWith('d’') ? 'qu’' : 'que ') + q.name;     /* même élision que deNom */
-        notes.push(readAloudOf(qs) === 'off' ? 'La lecture à voix haute est réglée sur « Jamais » pour ' + q.name + '.'
-          : 'En automatique, la voix ne lit qu’en CP et en CE1 : choisissez « Toujours » pour ' + que + ' l’entende.');
+        notes.push('« Lire les consignes à voix haute » est sur « Non » pour ' + q.name + ' : choisissez « Oui » pour ' + que + ' l’entende.');
       }
     } else {
       out.className = 'pa-voice-out is-ko';
@@ -1395,7 +1403,17 @@ function voiceTest(p) {
             : 'La voix n’a pas pu parler sur cet appareil.';
       out.append(h('p', { class: 'pa-voice-res' }, frTypo(why)));
       if (r.reason === 'no-api') notes.push('Ouvrez Caramel dans Chrome (Android, ordinateur) ou dans Safari (iPhone, iPad), à jour.');
-      else if (r.reason !== 'mic') notes.push(VOICE_FIX[devicePlatform()]);
+    }
+    /* v2.2.2 : les deux voix, chacune avec son résultat ; la marche à suivre quand la voix du téléphone manque */
+    const rec = r.rec || {}, tv = r.tts || {};
+    if (r.reason !== 'mic') {
+      out.append(h('p', { class: 'pa-help pa-voice-two' }, frTypo('Voix enregistrée du compagnon (consignes, encouragements) : '
+        + (rec.ok ? 'elle fonctionne ✓' : rec.reason === 'load' ? 'pas encore téléchargée : elle se télécharge à la première écoute, une connexion est nécessaire.'
+          : rec.reason === 'no-audio' ? 'ce navigateur ne sait pas la jouer.' : 'elle n’a pas pu jouer.'))));
+      out.append(h('p', { class: 'pa-help pa-voice-two' }, frTypo('Voix du téléphone (calculs, explications, quand la voix fluide n’est pas prête) : '
+        + (tv.ok ? 'elle fonctionne ✓' : tv.reason === 'no-api' ? 'ce navigateur n’en a pas.'
+          : tv.reason === 'no-fr-voice' ? 'aucune voix française n’est installée.' : 'elle n’a pas pu parler.'))));
+      if (!tv.ok && tv.reason !== 'no-api') notes.push(VOICE_FIX[devicePlatform()]);
     }
     for (const n of notes) out.append(h('p', { class: 'pa-help' }, frTypo(n)));
   });
@@ -1454,9 +1472,9 @@ function settingsCard(p) {
 
   if (READ_ALOUD_READY) card.appendChild(h('div', { class: 'pa-row' },
     h('div', { class: 'pa-row-label' }, 'Lire les consignes à voix haute'),
-    seg([['auto', 'Automatique (CP-CE1)'], ['on', 'Toujours'], ['off', 'Jamais']], readAloudOf(s),
-      v => set(x => { x.readAloud = v; }), 'Lire les consignes à voix haute'),
-    h('p', { class: 'pa-help' }, frTypo('La voix de l’appareil lit les consignes, les indices des jeux et la visite guidée (quand les sons sont activés) ; le texte reste affiché. En automatique : en CP et en CE1 seulement.')),
+    seg([['on', 'Oui'], ['off', 'Non']], readAloudOf(s),
+      v => set(x => { x.readAloud = v; }, frTypo(v === 'on' ? 'Lecture à voix haute : oui ✓' : 'Lecture à voix haute : non ✓')), 'Lire les consignes à voix haute'),
+    h('p', { class: 'pa-help' }, frTypo('Oui (conseillé, dans toutes les classes) : le compagnon lit les consignes, les indices et la visite guidée quand les sons sont activés, et le bouton 🔊 relit la phrase ; le texte reste affiché. Non : rien n’est lu et 🔊 disparaît.')),
     voiceTest(p)));
   card.appendChild(tourRow(p));
 
@@ -1518,7 +1536,7 @@ function settingsCard(p) {
   return card;
 }
 
-/* ---------- sur cet appareil : code parent, rappels ---------- */
+/* ---------- sur cet appareil : code parent, écran d'accueil (v2.2.2), voix fluide (v2.2.2), rappels ---------- */
 function deviceCard() {
   const card = h('div', { class: 'card pa-card pa-device' },
     h('h3', { class: 'pa-h3 pa-set-t' }, 'Sur cet appareil'));
@@ -1533,6 +1551,10 @@ function deviceCard() {
       h('button', { type: 'button', class: 'btn small' + (has ? ' white' : ''), 'data-fk': 'code-set', on: { click: () => { audio.tap(); openCodeSheet(); } } }, has ? 'Changer le code' : 'Choisir un code'),
       has ? h('button', { type: 'button', class: 'btn ghost', 'data-fk': 'code-del', on: { click: () => { audio.tap(); removeCode(); } } }, 'Supprimer le code') : null),
     h('p', { class: 'pa-help' }, frTypo('Quatre chiffres, propres à cet appareil, jamais inclus dans les sauvegardes. En cas d’oubli, « Code oublié ? » sur la porte propose le calcul d’adulte, puis un nouveau code.'))));
+  /* v2.2.2 : Caramel sur l'écran d'accueil (état, vrai bouton « Installer » ou marche à suivre : js/ui/install.js) */
+  card.appendChild(installRow({ say }));
+  /* v2.2.2 : voix fluide (≈ 45 Mo, proposée ici aux parents : js/ui/voice-fluid.js) */
+  card.appendChild(fluidRow({ say, saved }));
   card.appendChild(remindersRow());
   return card;
 }
@@ -1748,44 +1770,23 @@ function profilesCard() {
     h('button', { type: 'button', class: 'btn white block', 'data-fk': 'add-child', on: { click: () => { audio.tap(); router.go('onboarding'); } } }, iconLabel('➕', 'Ajouter un enfant')));
 }
 
-/* ---------- à propos ---------- */
-/* moteur vocal : statut de la session (speech.js), sinon modèle déjà téléchargé sur l'appareil (cache) */
-function voiceRow() {
-  const val = h('b', null, '…');
-  const set = (txt, cls) => { val.textContent = txt; val.className = cls || ''; };
-  const st = String(speech.statusText() || '');
-  if (/Google/i.test(st)) set('secours Google ⚠️', 'pa-ko');
-  else if (/prêt/i.test(st)) set('sur l’appareil ✓', 'pa-ok');
-  else if (/téléchargement|chargement/i.test(st)) set('chargement en cours…');
-  else {
-    set('pas encore téléchargé');
-    try {
-      const c = globalThis.caches;
-      if (c && typeof c.has === 'function') {
-        c.has('vosk-model-v1').then(async yes => {
-          if (!yes) return;
-          const cache = await c.open('vosk-model-v1');
-          const hit = await cache.match(speech.MODEL_URL);
-          if (hit && val.isConnected) set('téléchargé sur l’appareil ✓', 'pa-ok');
-        }).catch(() => {});
-      }
-    } catch (_) {}
-  }
-  return h('div', { class: 'pa-about-row' }, h('span', null, 'Moteur vocal'), val);
-}
+/* ---------- à propos (l'état du moteur vocal, du son et des voix : « État de cet appareil », js/ui/diag.js) ---------- */
 function aboutCard() {
   let v = '2.0.0';
   try { const m = globalThis.document.querySelector('meta[name="caramel-version"]'); if (m && m.content) v = m.content; } catch (_) {}
-  const ok = store.storageOk();
   const link = (href, text) => h('a', { href, target: '_blank', rel: 'noopener noreferrer' }, text, h('span', { class: 'sr-only' }, ' (nouvel onglet)'));
   return h('div', { class: 'card pa-card pa-about' },
     h('div', { class: 'pa-about-row' }, h('span', null, 'Version'), h('b', null, 'Caramel ' + v)),
-    h('div', { class: 'pa-about-row' }, h('span', null, 'Sauvegarde automatique'), h('b', { class: ok ? 'pa-ok' : 'pa-ko' }, ok ? 'active ✓' : 'impossible ⚠️')),
-    voiceRow(),
     h('p', { class: 'pa-note' }, frTypo('Pas de compte ni de serveur Caramel : les résultats et les photos restent sur cet appareil.')),
     h('p', { class: 'pa-note' }, frTypo('La voix de l’enfant est reconnue sur l’appareil par le moteur vocal intégré. S’il ne peut pas se charger, Caramel utilise la reconnaissance vocale du navigateur : dans Chrome, la voix passe alors par les serveurs de Google.')),
     h('p', { class: 'pa-note' }, frTypo('Le moteur vocal (environ 45\u00A0Mo) se télécharge une seule fois, à la première partie où l’enfant parle au micro : Wi-Fi conseillé.')),
     h('p', { class: 'pa-note' }, frTypo('Caramel n’établit aucun diagnostic.')),
+    h('p', { class: 'pa-note pa-credits' }, frTypo('Voix du compagnon : Piper (Rhasspy, licence MIT), voix siwis — SIWIS French Speech Synthesis Database, CC BY 4.0 ('),
+      link('https://datashare.is.ed.ac.uk/handle/10283/2353', 'datashare.is.ed.ac.uk'), frTypo('), rajeunie en voix d’enfant (hauteur et timbre relevés de 5\u00A0demi-tons).')),
+    /* v2.2.2 : voix fluide — rien de GPL n'est hébergé par Caramel : espeak-ng vient de jsDelivr (paquet
+       @diffusionstudio/piper-wasm), seule sa partie française est gardée sur l'appareil */
+    h('p', { class: 'pa-note pa-credits' }, frTypo('Voix fluide, calculée sur l’appareil : la même voix siwis rajeunie, poids convertis en float16 ; onnxruntime-web (Microsoft, licence MIT) ; piper-phonemize (licence MIT) et espeak-ng (licence GPL-3.0 ou ultérieure, '),
+      link('https://github.com/rhasspy/espeak-ng', 'code source'), frTypo('), téléchargés depuis jsDelivr.')),
     h('p', { class: 'pa-note pa-credits' }, 'Créé par ', link(LINKEDIN_PROFILE, 'Cédric Delalande'), frTypo('. Une idée, un souci ? '),
       link(FEEDBACK_URL, 'Écrivez-moi sur LinkedIn'), '.'));
 }

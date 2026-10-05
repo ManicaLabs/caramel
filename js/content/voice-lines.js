@@ -52,10 +52,32 @@ export function speakable(s) {
     .replace(/([.,!?])(?:\s*[.,])+/g, '$1').replace(/^[\s.,]+/, '').trim();
 }
 
+/* ---------- texte pour la voix fluide (Piper calculé sur l'appareil, js/core/voice-fluid.js) ----------
+   texte affiché → ce que Piper lit : speakable(), puis les corrections de prononciation du prototype (PT-proto, phonèmes
+   vérifiés) — sans elles, espeak dirait « plus » [ply], « un pomme », « trente-hui(t) plus », [siz eɡal] */
+export function fluidText(text) {
+  /* « 7 × 8 = ? » passé par frTypo s'écrit « = ? » avec une espace fine insécable : speakable() (règle / = /) ne le
+     lirait plus « égale » ; on remet des espaces ordinaires autour du signe */
+  let t = speakable(String(text ?? '').replace(/[\s\u00A0\u202F]*=[\s\u00A0\u202F]*/g, ' = '));
+  /* « une » devant un nom féminin (1, 21… 81) */
+  t = t.replace(/(^|[^\d,\u00A0\u202F])(\d{1,2})(?=\s+(\p{L}+))/gu, (m, pre, n, w) => {
+    const word = word100(Number(n));
+    return FEM_WORDS.has(w.toLowerCase()) && /un$/.test(word) ? pre + word.replace(/un$/, 'une') : m;
+  });
+  /* « plus » de calcul : [plys] — entre deux nombres, avec « combien », « une de plus » */
+  t = t.replace(/(\d|\bcombien)\s+plus\b(?=\s+(?:\d|combien))/giu, '$1 plusse');
+  t = t.replace(/\bde plus(?=\s+dans\b|\s*[.!?,]|$)/giu, 'de plusse');
+  /* calcul : un nombre suivi d'un signe (sauf « fois ») est lu seul, sans enchaînement : « trente-huit | plusse »
+     garde son t, « six | égale » se dit [sis] ; « huit fois » reste [ɥi fwa] (« | » : js/core/piper-engine.js) */
+  t = t.replace(/(\d)\s+(?=(?:plusse|moins|égale|divisé)\b)/giu, '$1 | ');
+  return t;
+}
+
 /* ---------- réglages de l'enchaînement (mesurés : tools/voix.mjs --mesure) ---------- */
 export const GAP = Object.freeze({ word: 0, comma: 220, colon: 260, sentence: 480 });
 export const NUM_WHOLE = 100;                 /* 0 à 100 : un clip par nombre */
-const FEM_WORDS = new Set(['pomme', 'pommes', 'étoile', 'étoiles', 'réponse', 'réponses', 'dizaine', 'dizaines', 'centaine',
+/* noms féminins comptés : « une pomme », « vingt-et-une réponses » (aussi js/core/piper-tts.js, prepare) */
+export const FEM_WORDS = new Set(['pomme', 'pommes', 'étoile', 'étoiles', 'réponse', 'réponses', 'dizaine', 'dizaines', 'centaine',
   'centaines', 'unité', 'unités', 'minute', 'minutes', 'seconde', 'secondes', 'carotte', 'carottes', 'fraction', 'fractions']);
 const FEM_ONE = new Set([1, 21, 31, 41, 51, 61, 81]);
 /* devant une consonne, « six », « huit », « dix » se disent [si] [ɥi] [di] : variantes enregistrées (graphie phonétique,

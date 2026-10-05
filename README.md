@@ -15,8 +15,10 @@ ni niveau affiché, avec indice puis nouvelle chance à chaque erreur.
 - **Mes progrès** : radars calqués sur les fiches des évaluations nationales Repères ; un adulte peut saisir la fiche
   de l'enfant (photo lue automatiquement, saisie ou fichier) pour adapter le parcours.
 - **Espace parents** : détail par compétence, courbe de lecture, réglages, sauvegardes à télécharger.
-- **Simple, une étape à la fois** : l'accueil tient sur un écran avec un seul gros bouton « Jouer ▶ » ; pour les
-  petits lecteurs (CP-CE1), le compagnon lit à voix haute les questions, les indices et les bilans.
+- **Simple, une étape à la fois** : l'accueil tient sur un écran avec un seul gros bouton « Jouer ▶ » ; le compagnon
+  lit à voix haute les questions, les indices et les bilans (réglable par les parents).
+- **Une voix d'enfant** : les phrases du compagnon sont enregistrées ; les calculs et le prénom de l'enfant sont dits
+  d'un seul tenant par la même voix, calculée sur l'appareil (« voix fluide », téléchargée une fois : ≈ 45 Mo).
 - **Un compagnon vivant** : huit animaux qui respirent, regardent l'enfant, jouent tout seuls, dorment la nuit,
   réagissent quand on les nourrit, les brosse ou les promène, et grandissent avec le temps d'apprentissage.
 - **En famille** : plusieurs enfants sur le même téléphone, chacun sa progression ; classements de la semaine
@@ -30,12 +32,14 @@ et les formats des évaluations Repères. Tous les textes sont originaux.
 ## Vie privée
 
 Tout reste sur l'appareil : pas de compte, pas de serveur, pas de suivi. La voix est analysée localement
-(moteur Vosk embarqué) ; la photo d'une fiche d'évaluation n'est jamais conservée. Les échanges se font
+(moteur Vosk embarqué) ; la voix du compagnon est jouée ou calculée sur l'appareil ; la photo d'une fiche
+d'évaluation n'est jamais conservée. Les échanges se font
 uniquement par export et import de fichiers.
 
 ## Technique
 
-Site statique (GitHub Pages), modules ES natifs sans étape de build, hors ligne après la première visite.
+Site statique (GitHub Pages), modules ES natifs sans étape de build, hors ligne après la première visite,
+installable sur l'écran d'accueil (Caramel le propose, avec la marche à suivre sur iPhone et iPad).
 Spécifications : [docs/CDC-v2.md](docs/CDC-v2.md) · architecture : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) ·
 conception des jeux : [docs/JEUX.md](docs/JEUX.md).
 
@@ -43,8 +47,24 @@ conception des jeux : [docs/JEUX.md](docs/JEUX.md).
 node tests/run.mjs        # tests (Node 20)
 node tools/check.mjs      # syntaxe de tous les modules + tests
 node tools/precache.mjs   # liste des fichiers mis en cache par le service worker (avant chaque déploiement)
+node tools/voix.mjs --check   # voix enregistrée : chaque phrase de l'inventaire a son clip à jour
+PIPER=…/piper PIPER_MODEL=…/fr_FR-siwis-medium.onnx node tools/voix.mjs   # (re)génère les clips changés
+python3 tools/piper-modele.py …/fr_FR-siwis-medium.onnx   # voix fluide : modèle en poids float16 → models/piper/
 ```
+
+Banc d'essai de la voix fluide (même moteur que l'appli, `js/core/piper-tts.js`) : `tests/harness/piper.html`.
 
 Créé par [Cédric Delalande](https://www.linkedin.com/in/cedric-delalande-57bb7860/).
 Polices Fredoka et Andika sous licence SIL OFL ([fonts/OFL.txt](fonts/OFL.txt)) ;
 modèle de reconnaissance vocale `vosk-model-small-fr-pguyot-0.3`.
+Voix du compagnon : Piper (Rhasspy, licence MIT), voix siwis — SIWIS French Speech Synthesis Database, CC BY 4.0
+([datashare.is.ed.ac.uk/handle/10283/2353](https://datashare.is.ed.ac.uk/handle/10283/2353)) : phrases enregistrées
+une fois pour toutes (modèle `fr_FR-siwis-medium`, voix rajeunie : hauteur et timbre relevés de 5 demi-tons ;
+découpées et encodées en MP3 par `tools/voix.mjs` : mono 22,05 kHz, passe-bas 9,3 kHz, ≈ 1,8 Mo en tout).
+Voix fluide (la même voix, calculée sur l'appareil, téléchargée à part : ≈ 45 Mo) : modèle `fr_FR-siwis-medium`
+(Piper, MIT ; SIWIS, CC BY 4.0), poids convertis en float16 par `tools/piper-modele.py` (`models/piper/`), voix rajeunie
+de même ;
+onnxruntime-web 1.22.0 (Microsoft, licence MIT) et piper-phonemize (paquet `@diffusionstudio/piper-wasm` 1.0.0, licence
+MIT), qui embarque espeak-ng (licence GPL-3.0 ou ultérieure, code source :
+[github.com/rhasspy/espeak-ng](https://github.com/rhasspy/espeak-ng)) — téléchargés depuis jsDelivr, aucun fichier
+d'espeak-ng n'est hébergé dans ce dépôt ; seule sa partie française est gardée sur l'appareil.

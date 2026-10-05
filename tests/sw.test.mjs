@@ -95,10 +95,11 @@ test('VERSION de sw.js (et méta de index.html) = version de package.json', () =
   assert.ok(index.includes('<meta name="caramel-version" content="' + v + '">'), 'méta caramel-version');
 });
 
-test('statique : vosk-model-v1 et vosk-lib-v1 ne sont jamais supprimés', () => {
+test('statique : vosk-model-v1, vosk-lib-v1 et caramel-voix-v1 ne sont jamais supprimés', () => {
   assert.ok(swSrc.includes("const MODEL_CACHE = 'vosk-model-v1';"));
   assert.ok(swSrc.includes("const LIB_CACHE = 'vosk-lib-v1';"));
-  assert.ok(swSrc.includes('const KEEP = [MODEL_CACHE, LIB_CACHE];'));
+  assert.ok(swSrc.includes("const VOICE_CACHE = 'caramel-voix-v1';"));
+  assert.ok(swSrc.includes('const KEEP = [MODEL_CACHE, LIB_CACHE, VOICE_CACHE];'));
   /* un seul appel caches.delete, filtré par isObsolete (préfixe caramel-, ni la version courante, ni KEEP) */
   assert.equal(swSrc.match(/caches\.delete\(/g).length, 1);
   assert.ok(/keys\.filter\(isObsolete\)\.map\(k => caches\.delete\(k\)\)/.test(swSrc));
@@ -121,11 +122,11 @@ test('install : précache complet ; skipWaiting seulement si le cache v11 existe
   assert.ok(b.calls.fetches.every(f => f.cache === 'reload'), 'cache: reload');
 });
 
-test('activate : purge des caramel-* obsolètes, jamais vosk-model-v1 ni vosk-lib-v1', async () => {
+test('activate : purge des caramel-* obsolètes, jamais vosk-model-v1, vosk-lib-v1 ni caramel-voix-v1', async () => {
   const v = readVersion(root);
-  const s = loadSw({ caches: ['caramel-shell-v1', 'caramel-1.9.0', 'caramel-' + v, 'vosk-model-v1', 'vosk-lib-v1', 'autre-appli'] });
+  const s = loadSw({ caches: ['caramel-shell-v1', 'caramel-1.9.0', 'caramel-' + v, 'vosk-model-v1', 'vosk-lib-v1', 'caramel-voix-v1', 'autre-appli'] });
   await s.dispatch('activate');
-  assert.deepEqual([...s.store.keys()].sort(), ['autre-appli', 'caramel-' + v, 'vosk-lib-v1', 'vosk-model-v1']);
+  assert.deepEqual([...s.store.keys()].sort(), ['autre-appli', 'caramel-' + v, 'caramel-voix-v1', 'vosk-lib-v1', 'vosk-model-v1']);
   assert.equal(s.calls.claim, 1);
 });
 
@@ -199,4 +200,33 @@ test('rappel quotidien et clic sur la notification', async () => {
   s.ctx._windows = [{ focus() { s.calls.focus++; } }];
   await s.dispatch('notificationclick', { notification: { close() {} } });
   assert.equal(s.calls.focus, 1);
+});
+
+test('voix enregistrée (v2.2.2) : clips hors précache, cache dédié caramel-voix-v1, hors ligne → 503', async () => {
+  const assets = assetsInSw();
+  assert.ok(!assets.some(f => f.startsWith('audio/')), 'aucun clip dans ASSETS (budget du précache)');
+  const v = readVersion(root);
+  const clip = SCOPE + 'audio/voix/n7.mp3?v=0123abcd';
+  const s = loadSw({ net: async url => { const r = new Response('mp3:' + url, { status: 200 }); Object.defineProperty(r, 'type', { value: 'basic' }); return r; } });
+  await s.dispatch('install');
+  const n = s.calls.fetches.length;
+  assert.equal(await (await s.get(clip, 'cors')).text(), 'mp3:' + clip);
+  assert.equal(s.calls.fetches.length, n + 1, 'premier passage : réseau');
+  assert.ok(s.store.get('caramel-voix-v1').has(clip), 'rangé dans caramel-voix-v1');
+  assert.ok(!s.store.get('caramel-' + v).has(clip), 'jamais dans le cache versionné (vidé aux mises à jour)');
+  assert.equal(await (await s.get(clip, 'cors')).text(), 'mp3:' + clip);
+  assert.equal(s.calls.fetches.length, n + 1, 'ensuite : servi par le cache, sans réseau');
+  /* une nouvelle version du texte (autre empreinte) est un autre clip */
+  await s.get(SCOPE + 'audio/voix/n7.mp3?v=feedbeef', 'cors');
+  assert.equal(s.calls.fetches.length, n + 2);
+  /* hors ligne : clip jamais entendu → 503 (la page prend la voix du téléphone) ; erreur et réponse partielle jamais gardées */
+  const off = loadSw({ net: async () => { throw new TypeError('hors ligne'); } });
+  const r = await off.get(clip, 'cors');
+  assert.equal(r.status, 503);
+  const bad = loadSw({ net: async () => new Response('', { status: 404 }) });
+  await bad.get(clip, 'cors');
+  assert.ok(!bad.store.get('caramel-voix-v1') || !bad.store.get('caramel-voix-v1').has(clip), '404 jamais mis en cache');
+  const part = loadSw({ net: async () => { const x = new Response('x', { status: 206 }); Object.defineProperty(x, 'type', { value: 'basic' }); return x; } });
+  await part.get(clip, 'cors');
+  assert.ok(!part.store.get('caramel-voix-v1').has(clip), 'réponse partielle (206) jamais mise en cache');
 });

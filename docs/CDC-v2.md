@@ -3,7 +3,7 @@
 > Spec de référence de la refonte « v2 » (produit). Rédigée le 02/10/2026.
 > Remplace `docs/CDC-v11.md` comme source de vérité (à archiver dans `docs/archive/`).
 > Code de départ : `main` @ `c5bd8d1` (v11.3). Versions suivantes : `v2.0`, `v2.1`… (un commit = une version).
-> **État au 03/10/2026 : v2.0 livrée** (périmètre et écarts : §18). En cours : 2.1 = compagnon vivant, radar automatique, thèmes (§15).
+> **État au 05/10/2026 : v2.2.1 en production, v2.2.2 prête** (la voix du compagnon : voix d'enfant enregistrée, voix fluide calculée sur l'appareil, lecture à voix haute pour tous, invitation à installer, état de l'appareil ; périmètre et écarts : §18). Ensuite : essais sur les téléphones des filles, puis 2.3 (§15).
 
 ## 0. Vision
 
@@ -299,6 +299,11 @@ Un seul téléphone ou une seule tablette pour plusieurs enfants : chacun garde 
 - **Accessibilité** : `prefers-reduced-motion` → fondus seulement ; réglage « animations douces ».
 - **Son** (synthèse WebAudio, aucun fichier) : pentatonique pour les réussites, bois doux pour les erreurs, métronome pour les jeux rythmiques, nappe d'ambiance par monde, muet mémorisé.
 - **TTS** : `speechSynthesis` fr-FR, avec texte affiché en secours si aucune voix n'est disponible.
+- **Voix du compagnon** (v2.2.2, `docs/ARCHITECTURE.md` §8.8) : la lecture à voix haute vaut pour tous les enfants (réglage des parents : Oui par défaut, ou Non) ; le texte reste toujours affiché. Trois voix :
+  - la **voix enregistrée** : clips MP3 de Piper « siwis medium » (voix neuronale libre choisie par le parent), pour toute phrase qu'un clip couvre (consignes, encouragements, bilans fixes) : instantanée ;
+  - la **voix fluide** : la même voix, calculée sur l'appareil (≈ 45 Mo téléchargés à part), pour les phrases composées (calculs, nombres, astuces, explications) et le prénom de l'enfant ;
+  - sinon la **voix du téléphone** (`speechSynthesis`) ; sans elle, les clips composés en dernier recours.
+- **Voix d'enfant** (v2.2.2, décision du parent du 05/10/2026, après écoute : degré 4) : Siwis rajeunie d'un facteur 1,33 (+5 demi-tons ; hauteur et timbre montés, débit de Siwis à ≈ 5 % près : Piper arrondit ses durées, comme dans l'échantillon validé), pour les clips comme pour la voix fluide ; la voix du téléphone est réglée plus aiguë.
 
 ## 12. Sauvegardes & rapports
 
@@ -349,7 +354,8 @@ Assertions : pommes, étoiles, monture, accessoires portés, jauges, streak.
 
 ### 13.4 Faire réellement arriver la mise à jour
 - Service worker : cache versionné `caramel-2.x`, `skipWaiting`, bandeau « Nouvelle version — touche pour mettre à jour ».
-- Garder l'exclusion de `/models/`.
+- Garder l'exclusion de `/models/` (modèles Vosk et, v2.2.2, Piper : la page les range dans leur propre cache).
+- Caches gardés à chaque mise à jour : `vosk-model-v1`, `vosk-lib-v1` et (v2.2.2) `caramel-voix-v1` (clips de la voix) ; `piper-tts-v1` (voix fluide) ne commence pas par « caramel- » : jamais purgé.
 
 ## 14. Architecture technique
 
@@ -380,7 +386,8 @@ docs/CDC-v2.md
   - planche contact SVG ;
   - templating vérifié sur toutes les combinaisons (genre du héros × 8 montures) ;
   - migration vérifiée sur les fixtures du §13.3.
-- **Perf** : précache des modules (v2.1 : ≈ 2,1 Mo non minifié, ≈ 0,75 Mo compressé, hors modèle ; alerte de `tools/precache.mjs` au-delà de 2,5 Mo), chargement paresseux par jeu.
+- **Perf** : précache des modules (v2.1 : ≈ 2,1 Mo non minifié, ≈ 0,75 Mo compressé, hors modèle ; alerte de `tools/precache.mjs` au-delà de 3 Mo depuis la 2.2.2), chargement paresseux par jeu. v2.2.2 : 118 fichiers, 2 560 Ko le 05/10/2026 (alerte relevée de 2,5 à 3 Mo) ; hors précache : les clips de la voix (≈ 1,8 Mo, budget de 1,9 Mo vérifié par `node tools/voix.mjs --check`, téléchargés à la première écoute ou en tâche de fond) et la voix fluide (≈ 45 Mo, téléchargée à part).
+- **Dépendances externes** (jsDelivr, versions figées, jamais copiées dans le dépôt) : `vosk-browser` (reconnaissance) ; v2.2.2, pour la voix fluide seulement : `onnxruntime-web` 1.22.0 (repli 1.18.0 sans mémoire partagée) et `@diffusionstudio/piper-wasm` 1.0.0 (piper-phonemize et espeak-ng, sous GPL : seul son sous-ensemble français est gardé sur l'appareil). Licences de la voix : Piper (MIT), données SIWIS (CC BY 4.0 : crédit dans À propos et dans le README), poids du modèle convertis en float16 (`tools/piper-modele.py`, `models/piper/LISEZMOI.txt`).
 
 ## 15. Plan de livraison
 
@@ -388,10 +395,12 @@ docs/CDC-v2.md
 |---|---|---|
 | **2.0 — Socle + priorités CM2** ✅ livrée le 03/10/2026 (§18) | store v3, migration, multi-profils, onboarding (classe), référentiel + gabarits CM2, saisie guidée + import JSON, moteur adaptatif + balade du jour, vue radar, export/import de sauvegarde, `motion.js` ; jeux : Caramel (Zip adaptatif + 10 textes CM2), Chemin de la clôture, Galop des tables, Pommes express, Chef d'orchestre, Atelier des opérations | les profils s'importent ; une balade de 15 min ciblée fonctionne ; les données v11 sont intactes |
 | **2.1 — Compagnon vivant, radar automatique, thèmes, En famille** ✅ livrée le 04/10/2026 (§18) (priorités du parent après l'essai de la 2.0) | refonte des 8 espèces (kawaii, rig commun, expressions, accessoires vectoriels, stades), moteur de vie (attente, regard, sommeil la nuit, réactions aux soins), diorama jour/nuit ; détection automatique du radar photographié (plan B : réglage manuel) ; 8 thèmes visuels au choix (présélection à la création du profil) ; En famille (Qui joue ?, classements, concours, défi) ; audit design et espace parents revu | chaque espèce reconnaissable en silhouette ; une photo de fiche se lit sans réglage dans la plupart des cas ; aucun thème illisible ; plusieurs enfants sur un appareil sans rien perdre |
-| **2.2 — Simple, étape par étape** ✅ prête le 04/10/2026 (§18) (consigne du parent, §1 principe 7 ; proposition validée par le parent le 04/10/2026 : jury de 3 pistes, synthèse « un seul gros bouton » + voix ; voix automatique en CP-CE1, liens LinkedIn dans l'espace parents, essayage avant achat pour tous les objets de la boutique) | accueil « un seul gros bouton » (compagnon en grand, soins en icônes-jauges, « Jouer ▶ » qui lance l'étape du jour), balade enchaînée depuis le bilan, en-tête de jeu sur une ligne, bilans et Mes progrès allégés ; lecture à voix haute en CP-CE1 (consignes, indices, bilans) ; balade jamais bloquée (sans micro : autre jeu) ; pavé en paysage ; constats d'audit restants (`docs/AUDIT-DESIGN.md`) | un CP sait quoi toucher sans lire ; l'accueil tient dans un écran de téléphone ; aucune fonctionnalité perdue |
+| **2.2 — Simple, étape par étape** ✅ livrée le 04/10/2026 (§18), suivie de la 2.2.1 (retours du terrain, 04/10/2026) et de la 2.2.2 (la voix du compagnon, prête le 05/10/2026) (consigne du parent, §1 principe 7 ; proposition validée par le parent le 04/10/2026 : jury de 3 pistes, synthèse « un seul gros bouton » + voix ; voix automatique en CP-CE1, liens LinkedIn dans l'espace parents, essayage avant achat pour tous les objets de la boutique) | accueil « un seul gros bouton » (compagnon en grand, soins en icônes-jauges, « Jouer ▶ » qui lance l'étape du jour), balade enchaînée depuis le bilan, en-tête de jeu sur une ligne, bilans et Mes progrès allégés ; lecture à voix haute en CP-CE1 (consignes, indices, bilans) ; balade jamais bloquée (sans micro : autre jeu) ; pavé en paysage ; constats d'audit restants (`docs/AUDIT-DESIGN.md`) | un CP sait quoi toucher sans lire ; l'accueil tient dans un écran de téléphone ; aucune fonctionnalité perdue |
 | 2.3 — Tout le cycle 3 | Détective, Radio Ferme, Lettres envolées, Jardin des mots, Marché aux mots, Train de la phrase, Caméléon, Boîte aux nombres, Formes du nombre, Missions du ranch ; Grand check-up ; rapports PDF/PNG ; bilan hebdo ; snapshots + morphing | 9 axes français + 7 axes maths du CM2 jouables, ≥ 200 items par axe |
 | 2.4 — Cycle 2 | contenus CP→CE2 pour tous les jeux ; Syllabes qui dansent, Atelier des lettres ; Caramel CP (syllabes/mots) | un profil CP jouable de bout en bout |
 | 2.5 — Polish | badges, carte des mondes, décor achetable du diorama, accessibilité (police aérée, contrastes), nettoyage des anciennes clés | — |
+
+**La suite (05/10/2026)** : publier la 2.2.2 avec l'accord du parent ; l'essayer sur les téléphones des filles, une tablette et un iPhone (voix d'enfant, voix fluide — téléchargement réel, étalonnage, délai des questions —, invitation à installer : §18, Limites) ; trancher les choix ouverts de la 2.2.2 (§18) ; puis la 2.3, avec les constats restants de `docs/AUDIT-DESIGN.md`.
 
 ## 16. Pièges & conventions
 
@@ -405,16 +414,44 @@ docs/CDC-v2.md
 - Caractères invisibles (espace fine U+202F, insécable U+00A0, accents combinants) : toujours en séquence d'échappement dans le code (`\u202f`), jamais en littéral.
 - Polices : les fichiers Fredoka ont été modifiés (ajout d'un glyphe U+202F de 0,2 em, absent à l'origine) ; ne pas les remplacer par une version téléchargée sans refaire cet ajout.
 - Bancs d'essai : `tests/harness/game.html?id=<jeu>&classe=…&theta=…` monte un jeu avec le vrai ctx et une sauvegarde en mémoire ; `window.__caramelDebug = {}` expose l'item en cours dans l'app réelle (tests automatisés). Tests vocaux : voix de synthèse Piper en faux micro (`--use-file-for-fake-audio-capture`), outil de développement hors dépôt.
+- Voix du compagnon (v2.2.2) : tout texte dit a son clip quand c'est possible. Un texte de l'inventaire (`js/content/voice-lines.js`) changé → régénérer les clips (`node tools/voix.mjs`, avec Piper et ffmpeg : variables `PIPER`, `PIPER_MODEL`, `FFMPEG`), puis `node tools/voix.mjs --check` (budget 1,9 Mo) ; un réglage de voix changé (dont la voix d'enfant `YOUTH`) refait tous les clips.
+- espeak-ng, embarqué par piper-phonemize, est sous GPL : jamais dans le dépôt (téléchargé depuis jsDelivr par l'appareil, seul le sous-ensemble français est gardé). Modèle Piper (MIT) et données SIWIS (CC BY 4.0) : crédit obligatoire (À propos, README, `models/piper/LISEZMOI.txt`).
+- Une synthèse de la voix fluide ne s'interrompt pas : ne préparer à l'avance que ce qui sera dit (question suivante, bilan, visite guidée), jamais ce qui retarderait la phrase suivante (astuces, explications). Le découpage des phrases longues aux virgules a été essayé puis écarté : il crée des sauts de hauteur, le défaut reproché aux clips assemblés.
+- Tests de la voix en Chrome headless : le service worker sert l'ancien code tant que `sw.js` ne change pas (régénérer le précache ou partir d'un profil neuf), et un ancien serveur resté lancé sur le même port sert un autre code (l'arrêter avant de relancer) ; le ralentissement du processeur de DevTools ne s'applique pas aux workers (mesurer la voix fluide sur le fil principal : `?piper=main`) ; une page gelée par CDP (`Page.setWebLifecycleState frozen`) reste cachée après `active` (simuler le retour avec `Emulation.setFocusEmulationEnabled`) ; `pkill -f` tue aussi le shell qui le lance.
 
 ## 17. Checklist de démarrage (nouvelle session)
 
-1. `git log` (attendu : un commit `v2.2 : …` en tête), lire ce CDC (§1 principe 7 et §18 surtout), `docs/ARCHITECTURE.md`, `docs/JEUX.md` et `docs/AUDIT-DESIGN.md`.
+1. `git log` (attendu : un commit `v2.2.2 : …` en tête), lire ce CDC (§1 principe 7 et §18 surtout), `docs/ARCHITECTURE.md`, `docs/JEUX.md` et `docs/AUDIT-DESIGN.md`.
 2. `node tools/check.mjs` doit être vert ; ouvrir `tests/harness/game.html` pour voir un jeu isolé.
-3. Recueillir le retour du terrain (téléphones des filles), corriger si besoin (`v2.1.x`).
-4. Essayer la 2.2 sur un vrai téléphone Android et une tablette (voix française, micro des tables pendant que la voix parle, retour Android avec une feuille ouverte, zone du pouce), puis avec des enfants (protocole : 4 enfants sur 5 lancent la balade seuls en 1 toucher, aucun achat par erreur) ; ensuite la 2.3 (§15) et les constats restants de `docs/AUDIT-DESIGN.md`.
-5. Avant le push : précache, check, version, mise à jour de ce CDC (§18).
+3. Recueillir le retour du terrain (téléphones des filles), corriger si besoin (`v2.2.x`).
+4. Essayer la 2.2.2 sur les téléphones des filles, une tablette et un iPhone (voix d'enfant ; voix fluide : téléchargement réel, étalonnage, délai des questions ; voix du téléphone ; micro des tables pendant que la voix parle ; invitation à installer ; retour Android avec une feuille ouverte ; zone du pouce ; « État de cet appareil » donne l'essentiel en une capture), puis avec des enfants (protocole : 4 enfants sur 5 lancent la balade seuls en 1 toucher, aucun achat par erreur) ; ensuite la 2.3 (§15) et les constats restants de `docs/AUDIT-DESIGN.md`.
+5. Avant le push : précache, check, `node tools/voix.mjs --check`, version, mise à jour de ce CDC (§18).
 
 ## 18. Journal de livraison
+
+### v2.2.2 (05/10/2026) — la voix du compagnon
+**Livré** (décisions du parent des 04 et 05/10/2026, après écoute) :
+- **voix enregistrée** : ≈ 360 phrases et morceaux (consignes, encouragements, bilans, visite guidée, invitation à installer, nombres de 0 à 100, morceaux de calcul) enregistrés une fois pour toutes avec Piper « siwis medium », voix neuronale libre (`tools/voix.mjs`, `audio/voix/`, ≈ 1,8 Mo hors précache) ; jouée sans trou par Web Audio, phrases courantes préchargées ;
+- **voix fluide** : la même voix calculée sur l'appareil (Piper dans un worker ; modèle de 32 Mo en float16 hébergé dans `models/piper/`) : calculs, astuces, explications et prénom de l'enfant dits d'un seul tenant (« 7 × 8 = ? » en 1,0 s sans pause, contre 1,7 s et 2 pauses en clips assemblés). ≈ 45 Mo téléchargés une fois : jamais au premier lancement ni pendant un jeu ; tout seuls après une séance en Wi-Fi (Android) ou sur un ordinateur ; sinon proposés aux parents (« Sur cet appareil › Voix fluide »). Étalonnage une fois par version (« trop lente » → voix du téléphone ; « Refaire l'essai de vitesse ») ; question suivante, bilan et visite guidée préparés à l'avance ; hors ligne une fois téléchargée ;
+- **aiguillage entre trois voix** : un clip pour ce qu'un clip couvre, la voix fluide pour le reste quand elle est prête, sinon la voix du téléphone, sinon les clips composés ;
+- **voix d'enfant** (degré 4) : Siwis rajeunie de 5 demi-tons (facteur 1,33 : hauteur et timbre montés, débit de Siwis à ≈ 5 % près), clips régénérés et voix fluide rééchantillonnée ; voix du téléphone plus aiguë ;
+- **lecture à voix haute pour tous** : « Lire les consignes à voix haute » Oui (défaut) / Non ; l'ancien « Automatique » devient Oui ; 🔊 partout où un texte est dit, même sons coupés ; visite guidée des CM1-CM2 enregistrée ;
+- **invitation à installer** (« 📲 Mets Caramel sur l'écran d'accueil ») : feuille à la fin de la création d'un enfant, bannière discrète de l'accueil, ligne de l'espace parents ; vrai bouton « Installer » sur Android et ordinateur, marche à suivre illustrée et dite sur iPhone et iPad ;
+- **État de cet appareil** (espace parents › À propos) : ce que l'appareil sait faire (son, trois voix, micro, reconnaissance, stockage…), ✓ / ✗, « Copier le texte » ;
+- crédits et licences : Piper (MIT), SIWIS (CC BY 4.0), onnxruntime-web et piper-phonemize (MIT), espeak-ng (GPL, téléchargé depuis jsDelivr, jamais hébergé).
+
+**Vérifié** : ≈ 520 tests Node (voix enregistrée, voix fluide sur faux cache et faux moteur, installation, état de l'appareil) ; `node tools/voix.mjs --check` ; une vérification indépendante par chantier en Chrome headless : 21 constats (5 sur la voix enregistrée, 9 sur la lecture pour tous, l'installation et l'état de l'appareil, 7 sur la voix fluide), tous corrigés, preuves avant / après. Parcours simulés : CP sur Android (53 phrases sur 53 en clips, aucun chevauchement entre voix ni avec le micro), CM2 sur iPhone ; dictée des tables 8/8 et course 3 ⭐ au faux micro Piper. Voix fluide : la question part ≈ 0,3 s après la demande aux tables (≈ 50 ms avant la voix d'enfant), ≈ 0,45 s à Pommes express en CP (médianes sur PC) ; Wi-Fi, données mobiles, hors ligne, mise à jour depuis la 2.2.1, appareil lent (processeur ×4 et ×6 : « trop lente »), micro sur 4 Go, page gelée pendant l'étalonnage ; Vosk reconnaît les phrases calculées ; 0 erreur console.
+
+**Écarts** : lecture à voix haute étendue à tous les enfants (2.2 : automatique en CP-CE1) ; voix neuronale enregistrée et calculée sur l'appareil au lieu de la seule synthèse du téléphone (§11) ; deux dépendances jsDelivr de plus, pour la voix fluide seulement (§14) ; précache à 2 560 Ko, alerte relevée de 2,5 à 3 Mo (§14) ; coupure MP3 des clips relevée de 7 à 9,3 kHz (7 kHz × 1,33 : les « s » montés de la voix d'enfant étaient rognés ; sur 123 nombres, Vosk en reconnaît 76 à 7 kHz et 115 à 9,3 kHz, voix ramenée à la hauteur de Siwis) et budget des clips porté de 1,7 à 1,9 Mo (≈ +12 %).
+
+**À trancher par le parent** : une phrase à prénom qu'un clip couvre garde ce clip, sans le prénom, tant que la voix fluide n'est pas prête (sinon : la voix du téléphone, qui dit le prénom) ; après « Arrêter » par un parent, les règles ordinaires reprennent (en Wi-Fi sur Android, le téléchargement repart après une séance) ; sur un appareil de 4 Go ou moins, la voix fluide reste en pause après le micro jusqu'à la prochaine ouverture ; feuille d'installation avant la création du premier enfant sur iPhone et iPad (pas faite).
+
+**Limites** (il faut un vrai téléphone) :
+- vitesse de la voix fluide sur les téléphones des filles : l'émulation ×4 la juge « trop lente » ; iPhone 8 ou X et Android de milieu de gamme incertains (chauffe, petits cœurs) : l'étalonnage tranche sur l'appareil ;
+- iPhone : mémoire partagée d'onnxruntime 1.22 (repli 1.18 vérifié seulement en simulant le refus dans Chrome), SIMD (iOS 16.4 et plus), workers modules, mémoire (+280 Mo) ; Safari efface le cache après 7 jours sans visite si Caramel n'est pas installé ; marche à suivre de l'installation ;
+- `navigator.connection` réel (Android en Wi-Fi, ordinateur) ; téléchargement réel (≈ 44 Mo, ≈ 18 s à 20 Mbit/s ; un jeu qui l'interrompt fait repartir de zéro le fichier en cours) ;
+- délai de la question préparée, à mesurer sur les téléphones des filles : sur PC, avec la voix d'enfant (34 % de calcul en plus), ≈ 0,3 s aux tables et ≈ 0,45 s à Pommes express en CP (médianes ; à Pommes, 0,3 à 1,2 s avant la voix d'enfant, tous niveaux) ; sur un téléphone deux fois plus lent, ≈ 1,1 s aux tables (estimation) ; batterie (un cœur occupé pendant chaque calcul) ; au-delà de 4 Go, Vosk et la voix fluide restent tous deux en mémoire ;
+- voix d'enfant à écouter sur le haut-parleur d'un téléphone ; sans voix fluide prête, quelques phrases partent encore à la voix du téléphone (euros, nombres de 26 à 98 finissant par 6 ou 8 et suivis d'un nom, liaisons devant voyelle).
 
 ### v2.2.1 (04/10/2026) — retours du terrain (voix et dictée)
 **Corrigé** (essais du parent sur deux téléphones Android) : la **dictée des réponses** des tables se déréglait après la 1re réponse (la grammaire ne connaissait que des nombres : « euh » → 16, « je sais pas » → 7, comptés faux ; phrase coupée entre deux calculs ; micro rendu sourd par Android) ; le **🔊** restait muet (aucune phrase à relire hors tables et clôture, ou téléphone sans voix française — cas d'une ROM chinoise sans services Google) ; l'appareil photo de l'import ne s'ouvrait pas sans le dire (autorisation Android de Chrome) : message et contournement par « Choisir une image ».

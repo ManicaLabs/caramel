@@ -557,9 +557,21 @@ function createTables(root, ctx) {
   }
 
   /* ---------- item ---------- */
+  /* v2.2.2, voix fluide (ctx.voice.canPrepare) : l'item suivant est tiré dès que celui-ci est rapporté, et sa question
+     calculée pendant le saut ; sans voix fluide, ou micro voulu (question pas dite), rien ne change (l'item est tiré à la
+     réception) */
+  let upcoming = null;
+  const lineFor = (item, n) => L.promptAria(L.promptParts(item)) + (item.assist ? ' ' + frTypo('Petit coup de pouce : ') + item.hint : n <= 1 ? ' ' + idleText() : '');
+  function peekNext() {
+    if (upcoming || !alive || ended || micWanted() || !ctx.voice || !ctx.voice.canPrepare) return;
+    const item = safe(() => ctx.nextItem());
+    upcoming = { item };
+    if (item) safe(() => ctx.voice.prepareNext(lineFor(item, index + 1)));
+  }
   function nextItem() {
     if (!alive || ended) return;
-    const item = safe(() => ctx.nextItem());
+    const item = upcoming ? upcoming.item : safe(() => ctx.nextItem());
+    upcoming = null;
     if (!item) { finish(); return; }
     prevAnswer = cur && Number.isFinite(cur.info.value) ? cur.info.value : null;
     index++;
@@ -582,8 +594,11 @@ function createTables(root, ctx) {
     /* petits lecteurs : le compagnon dit le calcul (et, au premier, comment répondre) ; le temps d'écoute ne compte
        pas dans la vitesse de réponse */
     const c = cur;
-    const line = L.promptAria(parts) + (item.assist ? ' ' + frTypo('Petit coup de pouce : ') + item.hint : index <= 1 ? ' ' + idleText() : '');
+    const line = lineFor(item, index);
     say(line).then(ok => { if (ok && cur === c && !c.resolved && c.tries === 0) c.t0 = nowMs(); });
+    /* voix fluide : ni l'astuce ni l'explication ne sont calculées d'avance — un calcul en cours ne s'interrompt pas et
+       retarderait la question suivante quand la réponse est juste (mesuré : jusqu'à 2 s en CM2) ; après une erreur,
+       l'encouragement enregistré (instantané) couvre l'essentiel de leur calcul */
   }
 
   function onTyped(str) {
@@ -605,6 +620,7 @@ function createTables(root, ctx) {
     kp.disable(true);
     const fb = safe(() => ctx.report(c.item, { correct: true, hinted, ms: Math.max(0, Math.round(ms)), tries: c.tries + 1 })) || {};
     const streak = fb && !fb.ignored ? (fb.streak | 0) : 0;
+    peekNext();
     safe(() => ctx.kit.celebrateRight(kp.answer, streak));
     flyApple();
     hideBoard();
@@ -663,6 +679,7 @@ function createTables(root, ctx) {
       if (cur !== c || c.resolved) return;
       c.resolved = true;
       safe(() => ctx.report(c.item, { correct: false, hinted: true, ms: Math.max(0, Math.round(nowMs() - c.t0)), tries: 2 }));
+      peekNext();
       showCombo(0);
       removeLearn();
       hideBoard();

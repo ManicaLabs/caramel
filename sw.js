@@ -3,14 +3,21 @@
    - install : précache ; skipWaiting() immédiat SEULEMENT si le cache v11 'caramel-shell-v1' existe
      (la v11 n'a pas de bandeau de mise à jour : on bascule tout de suite) ; sinon la nouvelle version attend
      que l'enfant ou le parent touche le bandeau « Nouvelle version » (message SKIP_WAITING).
-   - activate : supprime les caches caramel-* obsolètes — JAMAIS 'vosk-model-v1' (modèle de 44 Mo) ni 'vosk-lib-v1'.
+   - activate : supprime les caches caramel-* obsolètes — JAMAIS 'vosk-model-v1' (modèle de 44 Mo), 'vosk-lib-v1'
+     ni 'caramel-voix-v1' (voix enregistrée du compagnon, v2.2.2) ; 'piper-tts-v1' (voix fluide, ≈ 45 Mo : modèle
+     models/piper/, onnxruntime-web et piper-phonemize de jsDelivr, rempli par la page : js/core/piper-tts.js) ne commence
+     pas par « caramel- » : jamais touché. Ni le modèle ni le moteur ne sont dans le précache (seuls les petits modules
+     js/core/piper-*.js et voice-fluid.js le sont, comme tout js/).
    - fetch : GET de même origine hors /models/ (le modèle a son propre cache) ; navigation vers l'appli →
      index.html du cache, puis réseau ; autres ressources : cache d'abord, puis réseau ;
-     vosk.js (jsDelivr) gardé dans 'vosk-lib-v1' pour la lecture hors ligne.
+     vosk.js (jsDelivr) gardé dans 'vosk-lib-v1' pour la lecture hors ligne ;
+     clips de la voix (audio/voix/*.mp3?v=<empreinte>, ≈ 1,8 Mo, HORS précache) : cache dédié 'caramel-voix-v1',
+     rempli à la première écoute (et en tâche de fond par la page, js/core/voice-clips.js) ; hors ligne, un clip
+     absent répond 503 et la page passe à la voix du téléphone.
    - Rappels quotidiens (periodicsync 'caramel-daily', enregistré par js/core/notifs.js) et notificationclick. */
 
 /* ASSETS:START */
-const VERSION = '2.2.1';
+const VERSION = '2.2.2';
 const ASSETS = [
   'index.html',
   'manifest.webmanifest',
@@ -40,6 +47,7 @@ const ASSETS = [
   'css/ui/game.css',
   'css/ui/home.css',
   'css/ui/import.css',
+  'css/ui/install.css',
   'css/ui/kit.css',
   'css/ui/mount.css',
   'css/ui/onboarding.css',
@@ -60,11 +68,14 @@ const ASSETS = [
   'js/content/stories/index.js',
   'js/content/stories/legacy.js',
   'js/content/stories/questions.js',
+  'js/content/voice-lines.js',
+  'js/content/voice-manifest.js',
   'js/core/adaptive.js',
   'js/core/audio.js',
   'js/core/axes.js',
   'js/core/economy.js',
   'js/core/family.js',
+  'js/core/install.js',
   'js/core/leitner.js',
   'js/core/levels.js',
   'js/core/manche.js',
@@ -72,6 +83,9 @@ const ASSETS = [
   'js/core/motion.js',
   'js/core/notifs.js',
   'js/core/numbers-fr.js',
+  'js/core/piper-engine.js',
+  'js/core/piper-tts.js',
+  'js/core/piper-worker.js',
   'js/core/profiles.js',
   'js/core/radar-model.js',
   'js/core/rng.js',
@@ -81,6 +95,8 @@ const ASSETS = [
   'js/core/themes.js',
   'js/core/tts.js',
   'js/core/util.js',
+  'js/core/voice-clips.js',
+  'js/core/voice-fluid.js',
   'js/games/cloture-logic.js',
   'js/games/cloture.js',
   'js/games/course-engine.js',
@@ -101,12 +117,14 @@ const ASSETS = [
   'js/ui/battle.js',
   'js/ui/companion-life.js',
   'js/ui/companion.js',
+  'js/ui/diag.js',
   'js/ui/famille.js',
   'js/ui/game-ctx.js',
   'js/ui/game-header.js',
   'js/ui/game-shell.js',
   'js/ui/home.js',
   'js/ui/import-eval.js',
+  'js/ui/install.js',
   'js/ui/kit.js',
   'js/ui/mount-svg.js',
   'js/ui/onboarding.js',
@@ -117,6 +135,7 @@ const ASSETS = [
   'js/ui/radar-detect.js',
   'js/ui/radar.js',
   'js/ui/theme-picker.js',
+  'js/ui/voice-fluid.js',
   'js/ui/voice.js'
 ];
 /* ASSETS:END */
@@ -125,7 +144,8 @@ const CACHE = 'caramel-' + VERSION;
 const LEGACY_CACHE = 'caramel-shell-v1';     /* cache de la v11 */
 const MODEL_CACHE = 'vosk-model-v1';         /* modèle Vosk, rempli par la page (js/core/speech.js) */
 const LIB_CACHE = 'vosk-lib-v1';             /* bibliothèque vosk-browser */
-const KEEP = [MODEL_CACHE, LIB_CACHE];       /* jamais supprimés, quelle que soit la version */
+const VOICE_CACHE = 'caramel-voix-v1';       /* voix enregistrée du compagnon (clips MP3 versionnés par ?v=) */
+const KEEP = [MODEL_CACHE, LIB_CACHE, VOICE_CACHE];   /* jamais supprimés, quelle que soit la version */
 const VOSK_LIB = 'https://cdn.jsdelivr.net/npm/vosk-browser@0.0.8/dist/vosk.js';
 const SHELL_URL = new URL('index.html', self.location).href;
 
@@ -193,6 +213,25 @@ async function fromCache(e) {
   return res;
 }
 
+/* clip de la voix : cache dédié d'abord (l'URL porte l'empreinte du texte : une nouvelle version est un autre clip),
+   puis réseau ; seule une réponse complète (200) est gardée ; hors ligne → 503 (la page prend la voix du téléphone) */
+async function voiceClip(e) {
+  const req = e.request;
+  let cache = null;
+  try {
+    cache = await caches.open(VOICE_CACHE);
+    const hit = await cache.match(req);
+    if (hit) return hit;
+  } catch (_) {}
+  try {
+    const res = await fetch(req);
+    if (cache && res && res.status === 200 && res.type === 'basic') e.waitUntil(cache.put(req, res.clone()).catch(() => {}));
+    return res;
+  } catch (_) {
+    return new Response('', { status: 503, statusText: 'hors ligne' });
+  }
+}
+
 async function voskLib(e) {
   let cache = null;
   try {
@@ -218,6 +257,7 @@ self.addEventListener('fetch', e => {
   if (url.href === VOSK_LIB) { e.respondWith(voskLib(e)); return; }
   if (url.origin !== location.origin) return;
   if (url.pathname.includes('/models/')) return; /* le gros modele a deja son propre cache */
+  if (url.pathname.includes('/audio/voix/')) { e.respondWith(voiceClip(e)); return; }
   if (req.mode === 'navigate') {
     if (isShell(url)) e.respondWith(shell(req));
     return;

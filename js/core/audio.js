@@ -84,6 +84,9 @@ export function unlock() {
 }
 
 export function audioSupported() { return !!(G.AudioContext || G.webkitAudioContext); }
+/* v2.2.2 : le contexte partagé, pour la voix enregistrée du compagnon (js/core/voice-clips.js, sortie directe : hors du
+   bus du muet, comme la synthèse vocale) ; null avant le premier geste, sans Web Audio ou contexte fermé */
+export function context() { return ctx(); }
 
 /* ---------- muet ---------- */
 export function setMuted(b) {

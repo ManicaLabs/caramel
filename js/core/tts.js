@@ -34,6 +34,10 @@ export const TIMING = {
   msPerChar: 110
 };
 const MAX_CHUNK = 160;         /* morceaux courts : Chrome coupe les longues lectures (~15 s) */
+/* hauteur par défaut (0 à 2, 1 = voix telle quelle) : la voix du téléphone, dernier recours, rehaussée pour rester
+   proche de la voix d'enfant des clips et de la voix fluide (Siwis rajeunie, × 1,33 : décision du parent, 05/10/2026) ;
+   chaque moteur l'interprète à sa façon (Android : setPitch, iPhone : pitchMultiplier) */
+export const PITCH = 1.5;
 
 let job = null;                /* lecture en cours : { cancelled, finish(), wake(), u } */
 let lastCancel = -1e9;         /* horodatage du dernier cancel() envoyé au moteur */
@@ -203,13 +207,13 @@ function speakOne(text, voice, o, j) {
   });
 }
 
-/* lit le texte ; interrompt toute lecture en cours. opts : { rate = 0.95, pitch = 1, volume = 1 } */
+/* lit le texte ; interrompt toute lecture en cours. opts : { rate = 0.95, pitch = PITCH, volume = 1 } */
 export async function speakResult(text, opts = {}) {
   const s = synth();
   if (!s || !hasUtterance()) return R(false, 'no-api');
   const parts = chunkText(text);
   if (!parts.length) return R(false, 'empty');
-  const o = { rate: Number(opts.rate) || 0.95, pitch: Number(opts.pitch) || 1, volume: opts.volume === undefined ? 1 : Number(opts.volume) };
+  const o = { rate: Number(opts.rate) || 0.95, pitch: Number(opts.pitch) || PITCH, volume: opts.volume === undefined ? 1 : Number(opts.volume) };
   stopSpeaking();
   const my = job = { cancelled: false, finish: null, wake: null, u: null };
   const release = () => { if (job === my) job = null; };

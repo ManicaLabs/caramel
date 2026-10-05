@@ -6,11 +6,19 @@
    3. service worker + bandeau « Nouvelle version » (rechargement UNIQUEMENT après un geste) ;
    4. déverrouillage du son au premier geste ;
    5. route initiale (contrat §8.3) puis routeur.
+   0. (v2.2.2) dès le chargement du module : l'invitation du navigateur à installer Caramel (beforeinstallprompt, Chrome
+      Android) est gardée pour le vrai bouton « Installer », et l'installation notée (appinstalled) — js/core/install.js.
+   6. (v2.2.2) voix fluide (js/core/voice-fluid.js) : le moteur démarre en tâche de fond s'il est en cache ; chaque
+      changement d'écran lui est signalé (aucun téléchargement pendant un jeu ; après une séance, téléchargement
+      automatique s'il est permis).
    Les modules d'autres équipes sont chargés dynamiquement : s'il en manque un (écran, son, mouvement…),
    l'appli démarre quand même et le routeur affiche son écran de secours. */
 import * as router from './router.js';
+import { watch as watchInstall } from './core/install.js';
 
 window.__caramelBooted = true;          /* pour le chien de garde de index.html : le JS moderne tourne */
+/* l'invitation à installer arrive tôt, parfois avant la fin du démarrage : gardée tout de suite (js/ui/install.js) */
+try { watchInstall(window); } catch (e) { console.error('Installation', e); }
 
 const PICKED_KEY = 'caramel-picked';    /* sessionStorage : profil choisi pendant cette session */
 
@@ -92,6 +100,7 @@ const BUSY_ROUTES = ['play', 'battle', 'onboarding', 'welcome', 'import'];
 function renderBar() {
   const route = router.current();
   const show = !!pendingUpdate && !(route && BUSY_ROUTES.includes(route.name));
+  document.documentElement.classList.toggle('has-update', show);   /* l'accueil range son invitation à installer */
   if (!show) { if (bar) bar.hidden = true; return; }
   if (!bar) {
     bar = document.createElement('button');
@@ -174,6 +183,14 @@ async function boot() {
   const beforeSwap = () => { try { if (kit && kit.closeAllSheets) kit.closeAllSheets('nav'); } catch (_) {} };
   await router.start(ROUTES, { fallback: 'home', transition: vt, initial: initialRoute(store), beforeSwap });
   document.documentElement.classList.add('booted');
+  const fluid = await load('./core/voice-fluid.js');
+  if (fluid) {
+    try {
+      fluid.init();
+      fluid.onRoute(router.current());
+      router.onChange(() => fluid.onRoute(router.current()));
+    } catch (e) { console.error('Voix fluide', e); }
+  }
 }
 
 boot().catch(e => {

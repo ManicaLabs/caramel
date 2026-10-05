@@ -10,10 +10,15 @@
      ses accessoires portés ET son stade (petit / junior / champion selon companion.minutes : stageOf de
      js/ui/companion.js, seuils dans js/ui/companion-life.js).
    - voix (CDC §1 principe 7, js/ui/voice.js) : ctx.voice.say(texte) confie au compagnon la phrase du moment (question,
-     indice, explication) : elle est lue à voix haute pour les petits lecteurs (réglage parent « Lire les consignes à
-     voix haute » : CP-CE1 par défaut) et 🔊 dans l'en-tête la relit ; jamais pendant que le micro écoute.
+     indice, explication) : elle est lue à voix haute (réglage parent « Lire les consignes à voix haute » : Oui par
+     défaut, pour tous les enfants depuis la 2.2.2 ; sons coupés : rien n'est lu) et 🔊 dans l'en-tête la relit (montré
+     dès que la lecture est activée, même sons coupés ; caché si le parent a choisi Non) ; jamais micro ouvert.
      Chaque jeu choisit ce qu'il confie (aucune bulle n'est interceptée) ; ctx.voice.on dit si la voix est active ;
      ctx.voice.settle() (v2.2.1) → Promise résolue quand la voix s'est tue (à attendre avant d'ouvrir le micro).
+     v2.2.2, voix fluide (js/core/voice-fluid.js) : ctx.voice.prepare(...textes) fait calculer À L'AVANCE ce qui sera sans
+     doute dit (question suivante, astuce, explication) ; ctx.speech est js/core/speech.js tel quel (jamais modifié), sauf
+     que ensureVosk et startListening préviennent d'abord la voix (voice.micWillStart : le moteur de la voix fluide ne
+     démarre jamais en même temps que le micro, et sur un appareil à mémoire faible il est libéré).
    - micro impossible (D1-01, D4-04) : ctx.mic.trouble(code) → phrase courte pour l'enfant (tutoiement) et marche à
      suivre pour l'adulte (vouvoiement, adaptée à l'appli installée) ; ctx.mic.help(code, { onRetry }) ouvre la feuille
      de l'adulte. ctx.changeGame() : la coquille remplace l'étape de balade par un autre jeu (partie libre : choix d'un
@@ -42,6 +47,12 @@ function petOf(p) {
     name: typeof c.name === 'string' && c.name ? c.name : 'Caramel'
   };
 }
+
+/* ctx.speech : js/core/speech.js tel quel, mais le micro prévient la voix avant de démarrer (voix fluide, v2.2.2) */
+const speechCtx = Object.freeze(Object.assign({}, speech, {
+  ensureVosk(...a) { voice.micWillStart(); return speech.ensureVosk(...a); },
+  startListening(...a) { voice.micWillStart(); return speech.startListening(...a); }
+}));
 
 /* ---------- micro impossible : textes (D1-01, D4-04) ----------
    code (js/core/speech.js, onError) : 'not-allowed' | 'service-not-allowed' | 'audio-capture' | 'network' |
@@ -128,7 +139,7 @@ export function buildCtx({ game, makeManche, manche: first, mode = 'libre', head
     get rng() { return manche.rng; },
     get manche() { return manche; },
     get ended() { return ended; },
-    motion, audio, tts, speech, kit,
+    motion, audio, tts, speech: speechCtx, kit,
 
     nextItem(axis, opts) {
       if (ended) return null;
@@ -169,20 +180,27 @@ export function buildCtx({ game, makeManche, manche: first, mode = 'libre', head
     progress(i, n, st) { autoProgress = false; if (header) header.setProgress(i, n, st || []); },
     setTitle(t) { if (header) header.setTitle(t); },
     announce(t) { if (header && header.announce) header.announce(t); },
-    /* la phrase du moment, dite par le compagnon aux petits lecteurs (le texte reste affiché par le jeu) */
+    /* la phrase du moment, dite par le compagnon (lecture à voix haute activée ; le texte reste affiché par le jeu) */
     voice: {
       get on() { return voice.voiceOn(getProfile()); },
       /* → Promise<boolean> : true quand la phrase a été dite jusqu'au bout ; quiet : la phrase est seulement confiée à
          🔊 (le micro est demandé : le compagnon se tait) */
       say(text, { quiet = false } = {}) {
-        const on = voice.voiceOn(getProfile());
-        if (header && header.setLine) header.setLine(text, on);
+        const q = getProfile();
+        const on = voice.voiceOn(q);
+        if (header && header.setLine) header.setLine(text, voice.listenOn(q));
         return on && !quiet ? voice.speak(text) : Promise.resolve(false);
       },
       hush() { voice.hush(); },
       /* → Promise : la voix s'est tue et le moteur a repris son souffle (v2.2.1) — à attendre après hush() avant d'ouvrir
          le micro (Chrome Android : synthèse et reconnaissance se disputent le son juste après un cancel()) */
-      settle() { return voice.settle(); }
+      settle() { return voice.settle(); },
+      /* v2.2.2 : calcul à l'avance par la voix fluide (sans effet si elle n'est pas prête ou si la lecture est coupée) ;
+         canPrepare : la voix fluide est prête et la lecture automatique active (sinon, rien à préparer) */
+      prepare(...texts) { voice.prepare(...texts); },
+      /* ce qui sera dit dans moins d'une seconde (la question suivante) : calculé avant les astuces */
+      prepareNext(...texts) { voice.prepareNext(...texts); },
+      get canPrepare() { return voice.canPrepare(); }
     },
     get applesEl() { return header ? header.applesEl : null; },
     /* micro impossible : textes (enfant, adulte) et feuille d'aide pour l'adulte (onRetry : « Réessayer 🎤 ») */

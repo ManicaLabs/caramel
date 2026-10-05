@@ -34,7 +34,7 @@
        boutique en deux rayons (👒 Habits / 🐾 Animaux, un seul visible) ; cabine d'essayage : toucher un objet qu'on
        n'a pas encore le fait ESSAYER (le compagnon le porte), « Acheter » (ou toucher encore l'objet) l'achète ;
        « Il te manque N 🍎 » plutôt qu'un refus ;
-       voix (js/ui/voice.js) : pour les petits lecteurs, ce qu'il dit après un geste de l'enfant est lu à voix haute ;
+       voix (js/ui/voice.js) : ce qu'il dit après un geste de l'enfant est lu à voix haute (réglage des parents, Oui par défaut) ;
        hud = élément posé sur le ciel (pommes, série) ; un panneau ouvert garde la scène visible (collée en haut) ;
      wornWord(id) / chosenWord(type) → « portée », « choisie »… (accords des étiquettes de la boutique). */
 
@@ -692,7 +692,7 @@ export function renderCompanionCard(container, opts = {}) {
     }
     mood.textContent = text;
   }
-  /* ce qu'il dit après un geste de l'enfant (soin, boutique, câlin…) : affiché, et lu à voix haute aux petits lecteurs */
+  /* ce qu'il dit après un geste de l'enfant (soin, boutique, câlin…) : affiché, et lu à voix haute (lecture activée) */
   function sayOut(text) {
     tell(text);
     try { if (readAloud(profile())) voiceSpeak(text); } catch (_) {}

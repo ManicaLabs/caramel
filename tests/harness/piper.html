@@ -52,23 +52,30 @@
   .log { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .75rem; white-space: pre-wrap; background: var(--card);
     border: 2px solid var(--pink-200); border-radius: var(--r-s); padding: 8px; max-height: 30vh; overflow: auto; margin: 0; }
   h2.card-title { margin: 0 0 8px; }
+  .pv-deg { border: 0; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+  .pv-deg legend { font-weight: 700; color: var(--ink); margin-bottom: 6px; padding: 0; }
+  .pv-deg label { display: flex; gap: 6px; align-items: center; min-height: 44px; padding: 4px 12px; border: 2px solid var(--pink-200);
+    border-radius: var(--r-m); background: var(--card); cursor: pointer; font-size: var(--fs-s); font-variant-numeric: tabular-nums; }
+  .pv-deg label:has(input:checked) { border-color: var(--pink-800); background: var(--pink-50); }
+  .pv-deg input { width: 18px; height: 18px; accent-color: var(--pink-800); margin: 0; }
 </style>
 </head>
 <body>
 <main class="screen stack">
   <h1 class="title">Voix Piper dans le navigateur</h1>
-  <p class="lead">Banc d’essai : la voix du compagnon (Piper, voix «&#8239;siwis&#8239;») calculée sur l’appareil, sans serveur.
-    Rien n’est branché sur l’appli. La voix est téléchargée une fois (en Wi-Fi de préférence), puis gardée hors ligne ;
-    «&#8239;Vider le cache&#8239;» rend la place. Sur un téléphone : charger la voix Standard, puis «&#8239;Mesurer sans le son&#8239;» — le
-    résumé dit si l’appareil peut s’en servir.</p>
+  <p class="lead">Banc d’essai : la voix du compagnon (Piper, voix «&#8239;siwis&#8239;») calculée sur l’appareil, sans serveur — le
+    même moteur que la «&#8239;voix fluide&#8239;» de l’appli (js/core/piper-tts.js) et le même cache : la voix Standard chargée ici
+    sert aussi à l’appli. Elle est téléchargée une fois (en Wi-Fi de préférence), puis gardée hors ligne ;
+    «&#8239;Vider le cache&#8239;» rend la place (l’appli devra alors la retélécharger). Sur un téléphone : charger la voix Standard,
+    puis «&#8239;Mesurer sans le son&#8239;» — le résumé dit si l’appareil peut s’en servir.</p>
 
   <section class="card stack" aria-labelledby="t-voix">
     <h2 class="card-title" id="t-voix">1. La voix</h2>
     <div class="pv-voices" role="radiogroup" aria-label="Modèle">
       <label class="pv-voice"><input type="radio" name="voix" value="low">
-        <div><b>Légère — siwis low</b><span>40 Mo au premier chargement (dont 28 Mo de voix), son 16 kHz</span></div></label>
+        <div><b>Légère — siwis low</b><span>40 Mo au premier chargement (dont 28 Mo de voix, huggingface.co), son 16 kHz</span></div></label>
       <label class="pv-voice"><input type="radio" name="voix" value="medium" checked>
-        <div><b>Standard — siwis medium</b><span>75 Mo au premier chargement (dont 63 Mo de voix), son 22 kHz : la voix des clips enregistrés</span></div></label>
+        <div><b>Standard — siwis medium</b><span>44 Mo au premier chargement (dont 32 Mo de voix, poids float16), son 22 kHz : la voix des clips enregistrés et de l’appli</span></div></label>
     </div>
     <details class="opts">
       <summary>Options de mesure</summary>
@@ -100,6 +107,11 @@
     <p class="muted small">▶ calcule puis lit la phrase. «&#8239;dit&#8239;» : le texte donné à Piper («&#8239;|&#8239;» : le nombre est lu à
       part, sans pause, pour garder «&#8239;trente-huit&#8239;» entier). Dessous : le temps de calcul, la durée du son et le rapport
       des deux (sous 1, la voix est prête plus vite qu’elle ne parle).</p>
+    <fieldset class="pv-deg" id="deg">
+      <legend>Voix d’enfant : degré</legend>
+    </fieldset>
+    <p class="muted small" id="deg-help">Siwis «&#8239;rajeunie&#8239;» : hauteur et timbre multipliés par r, débit de Siwis à ≈&#8239;5&#8239;% près (Piper parle r fois
+      plus lentement, puis le son est lu r fois plus vite). 0 = Siwis telle quelle ; 4 = la voix de l’appli et des clips.</p>
     <ol class="phrases" id="phrases"></ol>
     <div class="free">
       <input id="free" type="text" value="Bravo Maël, tu as trouvé 21 réponses : 9 + 12 = 21 !" aria-label="Phrase à essayer">
@@ -130,7 +142,7 @@
   <details class="opts"><summary>Journal</summary><pre class="log" id="log" aria-live="off"></pre></details>
 </main>
 <script type="module">
-  import { loadPiper, prepare, unlockAudio, encodeWav, joinPcm, clearCache, cacheBytes, features, VOICES, ORT_VERSION, ORT_LEGACY, PARAMS } from './tests/harness/piper-tts.js';
+  import { loadPiper, prepare, unlockAudio, encodeWav, joinPcm, clearCache, cacheBytes, features, VOICES, ORT_VERSION, ORT_LEGACY, PARAMS, YOUTH, YOUTH_DEGREES } from './js/core/piper-tts.js';
   import { frTypo } from './js/core/util.js';
 
   const $ = id => document.getElementById(id);
@@ -153,6 +165,19 @@
     { id: 'explication', tag: 'Explication', text: 'Le drapeau est 3 petits piquets après 40. Chaque petit piquet vaut 2, donc 3 petits piquets font 6 : 40 + 6 = 46.' }
   ].map(p => ({ ...p, text: frTypo(p.text) }));
 
+  /* degré de la voix d'enfant (0 : Siwis telle quelle … 4 : celle de l'appli, YOUTH) ; ?degre=0..4 */
+  const DEG_DEFAULT = YOUTH_DEGREES.indexOf(YOUTH);
+  const semi = r => Math.round(12 * Math.log2(r));
+  YOUTH_DEGREES.forEach((r, d) => {
+    const l = document.createElement('label');
+    const i = Object.assign(document.createElement('input'), { type: 'radio', name: 'degre', value: String(d), checked: d === DEG_DEFAULT });
+    l.append(i, d + (r === 1 ? ' · telle quelle' : ' · × ' + nf(r, 2) + ' (+' + semi(r) + ' demi-tons)') + (d === DEG_DEFAULT ? ' · l’appli' : ''));
+    $('deg').append(l);
+  });
+  if (q.has('degre') && YOUTH_DEGREES[Number(q.get('degre'))]) document.querySelector('input[name=degre][value="' + Number(q.get('degre')) + '"]').checked = true;
+  const degree = () => Number(document.querySelector('input[name=degre]:checked').value);
+  const params = () => ({ ...PARAMS, youth: YOUTH_DEGREES[degree()] });
+
   /* état observable par les scripts de mesure (tests : Chrome headless) */
   const P = window.__piper = { done: false, error: null, load: null, runs: [], features: features(), wavs: {} };
   let piper = null, busy = false;
@@ -162,7 +187,8 @@
     const f = P.features;
     const rows = [
       ['Cœurs', f.cores ?? '?'], ['Mémoire annoncée', f.deviceMemory ? f.deviceMemory + ' Go' : 'inconnue'],
-      ['WebAssembly SIMD', f.simd ? 'oui' : 'non — Piper ne peut pas tourner ici'], ['Plusieurs fils', f.crossOriginIsolated ? 'oui' : 'non (normal sur GitHub Pages : un seul fil)'],
+      ['WebAssembly SIMD', f.simd ? 'oui' : 'non — Piper ne peut pas tourner ici'], ['Mémoire partagée', f.shared ? 'oui (onnxruntime ' + ORT_VERSION + ')' : 'non (onnxruntime ' + ORT_LEGACY + ')'],
+      ['Plusieurs fils', f.crossOriginIsolated ? 'oui' : 'non (normal sur GitHub Pages : un seul fil)'],
       ['onnxruntime-web', ORT_VERSION + ' (repli : ' + ORT_LEGACY + ')'], ['Navigateur', f.ua]
     ];
     $('dev').replaceChildren(...rows.flatMap(([k, v]) => { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = k; dd.textContent = v; return [dt, dd]; }));
@@ -199,7 +225,7 @@
     if (P.wavs[id]) URL.revokeObjectURL(P.wavs[id]);
     P.wavs[id] = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = P.wavs[id]; a.download = 'piper-' + piper.voice + '-' + id + '.wav'; a.textContent = 'WAV';
+    a.href = P.wavs[id]; a.download = 'piper-' + piper.voice + '-degre' + r.degree + '-' + id + '.wav'; a.textContent = 'WAV';
     el.append(' · ', a);
   }
   async function play(p) {
@@ -208,7 +234,7 @@
     const m = rows[p.id].querySelector('.ph-m');
     m.textContent = 'calcul…';
     try {
-      const r = await piper.speak(prepare(p.text));
+      const r = await synthAt(prepare(p.text), true);
       m.textContent = metrics(r);
       wavLink(m, p.id, r);
       record(p.id, r, 'lecture');
@@ -221,24 +247,32 @@
     busy = true;
     const text = frTypo($('free').value);
     $('free-m').textContent = 'dit : « ' + prepare(text) + ' » — calcul…';
-    try { const r = await piper.speak(prepare(text)); $('free-m').textContent = 'dit : « ' + prepare(text) + ' » — ' + metrics(r); wavLink($('free-m'), 'libre', r); }
+    try { const r = await synthAt(prepare(text), true); $('free-m').textContent = 'dit : « ' + prepare(text) + ' » — ' + metrics(r); wavLink($('free-m'), 'libre', r); }
     catch (e) { $('free-m').textContent = 'Erreur : ' + e.message; }
     busy = false;
   });
   $('all').addEventListener('click', async () => { unlockAudio(); for (const p of PHRASES) { await play(p); await new Promise(r => setTimeout(r, 400 + (P.lastAudio || 0) * 1000)); } });
   $('stop').addEventListener('click', () => piper && piper.stop());
 
+  /* une phrase au degré choisi (WAV, mesures : même degré) */
+  async function synthAt(text, loud) {
+    const d = degree();
+    const r = await (loud ? piper.speak(text, { params: params() }) : piper.synth(text, { params: params() }));
+    r.degree = d;
+    return r;
+  }
+
   /* ---------- mesures ---------- */
   function record(id, r, kind, pass = 0) {
     P.lastAudio = r.audioSec;
-    P.runs.push({ id, kind, pass, synthMs: r.synthMs, firstMs: r.firstMs, firstSoundMs: r.firstSoundMs ?? null, audioSec: +r.audioSec.toFixed(3),
+    P.runs.push({ id, kind, pass, degree: r.degree, synthMs: r.synthMs, firstMs: r.firstMs, firstSoundMs: r.firstSoundMs ?? null, audioSec: +r.audioSec.toFixed(3),
       rtf: +r.rtf.toFixed(3), inferMs: r.inferMs, phonMs: r.phonMs, sentences: r.sentences.map(s => ({ ms: s.inferMs, dur: +s.dur.toFixed(3), ids: s.ids, phonemes: s.phonemes, missing: s.missing })) });
   }
   async function bench(passes = 2) {
     const out = [];
     for (let pass = 1; pass <= passes; pass++) {
       for (const p of PHRASES) {
-        const r = await piper.synth(prepare(p.text));
+        const r = await synthAt(prepare(p.text), false);
         record(p.id, r, 'mesure', pass);
         if (pass === passes) { out.push({ p, r }); const m = rows[p.id].querySelector('.ph-m'); m.textContent = metrics(r); wavLink(m, p.id, r); }
       }
@@ -263,14 +297,14 @@
     for (const v of ['Total', sec(S), 'méd. ' + sec(med), nf(A, 1) + ' s', nf(rtf, 2)]) { const td = document.createElement('td'); td.textContent = v; tr.append(td); }
     tf.append(tr);
     $('sum').hidden = false;
-    P.summary = { synthMs: S, audioSec: +A.toFixed(2), rtf: +rtf.toFixed(3), firstMedianMs: med, firstWorstMs: worst, passes };
+    P.summary = { synthMs: S, audioSec: +A.toFixed(2), rtf: +rtf.toFixed(3), firstMedianMs: med, firstWorstMs: worst, passes, degree: out[0].r.degree };
     /* verdict pour cet appareil : en direct (réponse quasi immédiate), en préparant à l'avance (la phrase suivante est
        calculée pendant que l'enfant réfléchit), ou trop lent (garder les clips enregistrés) */
     const use = rtf <= 0.5 && med <= 1200 ? 'Sur cet appareil, la voix peut parler en direct.'
       : rtf <= 1 ? 'Sur cet appareil, la voix suit à condition de préparer chaque phrase à l’avance.'
       : 'Sur cet appareil, la voix est trop lente : garder les clips enregistrés.';
     P.summary.verdict = use;
-    $('verdict').textContent = 'Voix ' + VOICES[piper.voice].label.toLowerCase() + ' : ' + sec(S) + ' de calcul pour ' + nf(A, 1) +
+    $('verdict').textContent = 'Voix ' + VOICES[piper.voice].label.toLowerCase() + ', degré ' + out[0].r.degree + ' : ' + sec(S) + ' de calcul pour ' + nf(A, 1) +
       ' s de parole, soit un rapport de ' + nf(rtf, 2) + (rtf < 1 ? ' (' + nf(1 / rtf, 1) + ' fois plus vite que la parole)' : ' (plus lent que la parole)') +
       '. Première phrase prête en ' + sec(med) + ' en médiane, ' + sec(worst) + ' au pire' + (passes > 1 ? ' (passe ' + passes + ', moteur chaud). ' : '. ') + use;
   }
@@ -291,7 +325,7 @@
       P.load = { voice, mode, espeakUrl: espeakUrl || null, modelUrl: modelUrl || null, ...i, memJsMB: memNow() };
       $('prog').value = $('prog').max;
       $('prog-txt').textContent = 'Voix prête.';
-      $('k-src').textContent = i.cachedAll ? 'tout depuis le cache (hors ligne)' : (i.fromCache ? 'en partie depuis le cache' : 'téléchargement complet');
+      $('k-src').textContent = i.cachedAll ? 'tout depuis le cache (hors ligne)' : i.fetched + ' fichier' + (i.fetched > 1 ? 's' : '') + ' téléchargé' + (i.fetched > 1 ? 's' : '');
       $('k-net').textContent = i.network ? mo(i.network) + ' reçus (décompressés)' : 'rien';
       $('k-fetch').textContent = sec(i.fetchMs);
       $('k-boot').textContent = sec(i.bootMs) + ' (modèle ' + sec(t.session) + ', phonémiseur ' + sec(t.phonemizer) + ')';
@@ -315,7 +349,7 @@
   $('load').addEventListener('click', () => { unlockAudio(); load(pick('voix'), pick('mode'), $('espeak-url').value.trim(), '', pick('ort')); });
   $('purge').addEventListener('click', async () => { log('cache vidé : ' + await clearCache()); $('k-cache').textContent = 'vide'; });
 
-  /* ---------- scénario automatique : ?auto=1&voix=low|medium&mode=worker|main&ort=1.18.0&espeak=<url>&modele=<url>&passes=2 ---------- */
+  /* ---------- scénario automatique : ?auto=1&voix=low|medium&mode=worker|main&ort=1.18.0&espeak=<url>&modele=<url>&passes=2&degre=0..4 ---------- */
   if (q.has('auto')) {
     (async () => {
       const voice = q.get('voix') === 'medium' ? 'medium' : 'low', mode = q.get('mode') === 'main' ? 'main' : 'worker';

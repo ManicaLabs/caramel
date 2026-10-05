@@ -1,0 +1,39 @@
+Voix fluide de Caramel — modèle Piper « fr_FR-siwis-medium », poids convertis en float16
+==========================================================================================
+
+Fichiers
+  fr_FR-siwis-medium-f16.onnx        32 041 984 octets, sha256 4d426066bef2504c7d3f5c43cbd844643631563d66360c201b8df2292ff61150
+  fr_FR-siwis-medium-f16.onnx.json   réglages d'origine (table des phonèmes, 22 050 Hz), copiés tels quels
+
+Origine
+  huggingface.co/rhasspy/piper-voices, commit c10ece1aade47bb51c153c893d14e5bf8e5b7117, fr/fr_FR/siwis/medium/
+  (fr_FR-siwis-medium.onnx, sha256 641d1ab097da2b81128c076810edb052b385decc8be3381814802a64a73baf99).
+
+Adaptation
+  Poids stockés en float16 et reconvertis en float32 au chargement (nœuds Cast) : calcul inchangé, 32 Mo au lieu
+  de 63 Mo. Refaire : python3 tools/piper-modele.py <fr_FR-siwis-medium.onnx> (même entrée → même fichier).
+
+Licences
+  Modèle Piper (rhasspy/piper-voices) : licence MIT.
+  Données d'entraînement : SIWIS French Speech Synthesis Database, licence CC BY 4.0
+  (https://datashare.is.ed.ac.uk/handle/10283/2353).
+  Utilisé par js/core/piper-tts.js avec onnxruntime-web (MIT) et piper-phonemize (MIT), qui embarque espeak-ng
+  (GPL-3.0-or-later, code source : https://github.com/rhasspy/espeak-ng) ; ces bibliothèques sont téléchargées
+  depuis jsDelivr par l'appareil : aucune n'est dans ce dépôt.
+
+MIT License
+
+Copyright (c) 2022 Michael Hansen
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
+rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit
+persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

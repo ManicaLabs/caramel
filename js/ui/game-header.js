@@ -1,7 +1,7 @@
 /* ============ EN-TÊTE COMMUN DES JEUX ============
    « Un seul gros bouton » : UNE ligne, rien à lire — ← retour · pastilles de progression (au centre) · 🔊 · joker 💡.
-   🔊 (petits lecteurs seulement, js/ui/voice.js) : relit la dernière chose que le compagnon a dite (la question, l'indice,
-   l'explication) ; caché tant que le jeu ne lui a rien confié (setLine) et quand la voix n'est pas activée.
+   🔊 (js/ui/voice.js) : relit la dernière chose que le compagnon a dite (la question, l'indice, l'explication) ; caché
+   tant que le jeu ne lui a rien confié (setLine) et quand la lecture à voix haute est réglée sur Non (voice.listenOn).
    Le titre du jeu reste le titre de la page (h1 masqué, lu par les lecteurs d'écran ; la scène dit le jeu).
    Les 🍎 gagnées ne s'affichent plus ici (le bilan les compte) : la pomme d'une bonne réponse vole dans la
    pastille de la question (applesEl), qui devient verte.
@@ -79,7 +79,7 @@ export function createHeader({ icon = '🎲', title = '', short = '', hints = 2,
       }
     },
     announce(text) { live.textContent = ''; setTimeout(() => { live.textContent = text; }, 30); },
-    /* phrase que 🔊 relit ; show = la voix est activée pour cet enfant (sinon le bouton reste caché) */
+    /* phrase que 🔊 relit ; show = la lecture à voix haute est activée pour cet enfant (sinon le bouton reste caché) */
     setLine(text, show) {
       line = String(text || '');
       listen.hidden = !(show && line);

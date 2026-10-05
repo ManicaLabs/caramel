@@ -7,8 +7,11 @@
      → 4. nom du compagnon (poney « Caramel » par défaut, aperçu) → profil créé (defaultProfile +
      settings.theme + store.addProfile, mémorisé pour la session ; le compagnon fête son nom sur place, puis l'étape
      suivante arrive) → 5. « Une question pour tes parents » : l'enfant montre l'écran à un adulte, qui peut prendre en
-     photo la fiche des évaluations nationales (→ #/import?from=onboarding ; plus tard → #/home) ; petit lecteur
-     (js/ui/voice.js) : « Une question pour tes parents. Montre cet écran à un adulte. » est dit à voix haute.
+     photo la fiche des évaluations nationales (→ #/import?from=onboarding ; plus tard → #/home) ; lecture à voix haute
+     (js/ui/voice.js, Oui par défaut) : « Une question pour tes parents. Montre cet écran à un adulte. » est dit.
+     v2.2.2 — fin de la création : la petite feuille « 📲 Mets Caramel sur l'écran d'accueil » (js/ui/install.js : vrai
+     bouton « Installer » sur Android, marche à suivre sur iPhone et iPad, rien si l'installation est impossible ou faite),
+     puis l'accueil ; après l'import de la fiche, js/ui/import-eval.js la propose de même.
    « Suivant » n'est jamais désactivé : s'il manque le prénom ou fille / garçon, le toucher (ou la touche Entrée du
    clavier) secoue ce qui manque et une ligne d'aide dit quoi faire (lue par les lecteurs d'écran).
    Mode 'welcome' (params.mode === 'welcome' : profil migré de la v11, sans classe) :
@@ -29,6 +32,7 @@ import { totalStarsOf } from '../content/stories/index.js';
 import { mountReady, avatarSVG, avatarOf, setAvatar, stageOf } from './companion.js';
 import { themeGrid, previewTheme, endPreview, swapTheme, cheerTheme } from './theme-picker.js';
 import { readAloud, speak as voiceSpeak, hush as voiceHush } from './voice.js';
+import { offerThen as offerInstallThen } from './install.js';
 
 const PICKED_KEY = 'caramel-picked';
 const ssSet = (k, v) => { try { sessionStorage.setItem(k, v); } catch (_) {} };
@@ -160,10 +164,17 @@ export default {
         h('span', { 'aria-hidden': 'true' }, '📷'), frTypo('Prendre la fiche en photo'));
       const no = h('button', { type: 'button', class: 'btn white big block ob-anim' }, 'Plus tard');
       yes.addEventListener('click', () => { audio.tap(); router.go('import', { query: { from: 'onboarding' }, replace: true }); });
-      no.addEventListener('click', () => { audio.tap(); audio.whoosh(); router.go('home', { replace: true }); });
+      let leaving = false;
+      no.addEventListener('click', () => {
+        if (leaving) return;
+        leaving = true;
+        audio.tap();
+        try { voiceHush(); } catch (_) {}
+        offerInstallThen(() => { if (st !== my) return; audio.whoosh(); router.go('home', { replace: true }); });
+      });
       const q = store.getProfile();
       const buddy = (q && q.companion && q.companion.name) || DEFAULT_MOUNT_NAME;
-      /* petit lecteur (CP, CE1, ou réglage des parents) : la consigne de l'enfant est dite à voix haute */
+      /* lecture à voix haute (Oui par défaut, tous les enfants) : la consigne de l'enfant est dite */
       later(() => { try { if (readAloud(store.getProfile())) voiceSpeak('Une question pour tes parents. Montre cet écran à un adulte.'); } catch (_) {} }, 450);
       return h('div', { class: 'ob-card' },
         h('div', { class: 'ob-fiche ob-anim', 'aria-hidden': 'true' }, h('span', null, '📄'), h('span', { class: 'ob-fiche-star' }, '✨')),

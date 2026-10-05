@@ -549,6 +549,7 @@ function createPommes(root, ctx) {
     } else { kp.setState('right'); kp.disable(true); }
     const fb = safe(() => ctx.report(c.item, { correct: true, hinted, ms, tries: c.tries + 1 })) || {};
     const streak = fb && !fb.ignored ? (fb.streak | 0) : 0;
+    peekNext();
     safe(() => ctx.kit.celebrateRight(c.hole, streak));
     const msg = cheer(hinted ? 'helped' : 'right');
     showBubble(msg, 'good', '🌟');
@@ -641,6 +642,7 @@ function createPommes(root, ctx) {
     if (cur !== c || c.resolved) return;
     c.resolved = true;
     safe(() => ctx.report(c.item, { correct: false, hinted: true, ms: Math.max(0, Math.round(nowMs() - c.t0)), tries: 2 }));
+    peekNext();
     removeLearn();
     sprintResume('learn');
     /* la pomme remonte dans l'arbre : on la retrouvera une autre fois */
@@ -674,10 +676,21 @@ function createPommes(root, ctx) {
   }));
 
   /* ================= ITEM ================= */
+  /* v2.2.2, voix fluide (ctx.voice.canPrepare) : l'item suivant est tiré dès que celui-ci est rapporté, et son calcul
+     calculé pendant que la pomme s'envole ; sans voix fluide, rien ne change */
+  let upcoming = null;
+  const lineFor = (item, n) => L.promptAria(item.prompt) + (item.assist ? ' ' + frTypo('Petit coup de pouce ! Astuce : ') + item.hint : n <= 1 ? ' ' + L.idleText(item) : '');
+  function peekNext() {
+    if (upcoming || !alive || ended || (sp.on && sp.over) || !ctx.voice || !ctx.voice.canPrepare) return;
+    const item = safe(() => ctx.nextItem());
+    upcoming = { item };
+    if (item) safe(() => ctx.voice.prepareNext(lineFor(item, index + 1)));
+  }
   function nextItem() {
     if (!alive || ended) return;
     if (sp.on && sp.over) { finish(); return; }
-    const item = safe(() => ctx.nextItem());
+    const item = upcoming ? upcoming.item : safe(() => ctx.nextItem());
+    upcoming = null;
     if (!item) { finish(); return; }
     index++;
     const c = {
@@ -697,8 +710,10 @@ function createPommes(root, ctx) {
     if (sp.on && sp.clock && !sp.clock.started) sprintBegin();
     c.t0 = nowMs();
     /* petits lecteurs : le calcul dit à voix haute (au premier, comment répondre ; coup de pouce : l'astuce) */
-    const line = L.promptAria(item.prompt) + (item.assist ? ' ' + frTypo('Petit coup de pouce ! Astuce : ') + item.hint : index <= 1 ? ' ' + L.idleText(item) : '');
+    const line = lineFor(item, index);
     say(line).then(ok => { if (ok && cur === c && !c.resolved && c.tries === 0) c.t0 = nowMs(); });
+    /* voix fluide : ni l'astuce ni l'explication ne sont calculées d'avance (elles retarderaient la pomme suivante) ;
+       après une erreur, l'encouragement enregistré (instantané) couvre l'essentiel de leur calcul */
   }
 
   /* ================= SPRINT ================= */

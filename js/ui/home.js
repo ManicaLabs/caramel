@@ -13,6 +13,11 @@
    Balade finie : le bouton devient « 🎲 Encore un jeu ? » (couleur secondaire).
    Déplacés dans l'espace parents (js/ui/parents.js) : rappels quotidiens, crédits et liens, version, moteur vocal.
    Bandeau « Je passe en … ! » (rentrée) : inchangé.
+   v2.2.2 — invitation à installer (js/ui/install.js) : bannière DISCRÈTE « 📲 Mets Caramel sur l'écran d'accueil » tout en
+   bas (elle ne concurrence pas « Jouer ▶ » ; la scène du compagnon lui laisse sa place), tant que Caramel n'est pas
+   installé et qu'une installation est possible ; ✕ = elle revient dans 7 jours. Une invitation à la fois : jamais avant
+   ni pendant la visite guidée, ni avec le bandeau de mise à jour (html.has-update, main.js) ou celui de la rentrée, ni
+   quand un panneau du compagnon est ouvert.
    « Qui joue ? » (plusieurs enfants sur un même appareil) : toucher l'avatar ouvre une feuille avec tous les profils
    (compagnon + prénom, chaque carte aux couleurs du thème de l'enfant : la MÊME carte que l'écran #/profiles,
    kidCard de js/ui/profiles.js), « ➕ Ajouter » et, dès deux enfants, « 🏆 En famille ». Toucher un autre enfant =
@@ -37,6 +42,7 @@ import { openThemeSheet } from './theme-picker.js';
 import { stageOf } from '../core/family.js';
 import { kidCard, kidActions } from './profiles.js';
 import * as voice from './voice.js';
+import * as inst from './install.js';
 
 const FROM_KEY = 'caramel-play-from';
 const ssGet = k => { try { return sessionStorage.getItem(k); } catch (_) { return null; } };
@@ -75,12 +81,12 @@ const HOME = {
     if (!p.classe) { router.go('welcome', { replace: true }); return; }
     /* balade.css : tuiles de la feuille « Choisis ton jeu » ; profiles.css : cartes de la feuille « Qui joue ? » */
     await Promise.all([loadCSS('css/ui/home.css'), loadCSS('css/ui/companion.css'), loadCSS('css/ui/balade.css'),
-      loadCSS('css/ui/profiles.css'), mountReady(), svgReady]);
+      loadCSS('css/ui/profiles.css'), inst.cssReady(), mountReady(), svgReady]);
     if (!root.isConnected) return;
     teardown();
     p = store.getProfile();
     if (!p || !p.classe) return;
-    const my = st = { root, timers: new Set(), unsubs: [], card: null, sheet: null, today, switching: false, tour: null };
+    const my = st = { root, timers: new Set(), unsubs: [], card: null, sheet: null, today, switching: false, tour: null, inst: null };
 
     /* plan du jour (recalculé s'il manque, date d'un autre jour ou n'est plus valable) */
     try { store.mutateProfile(pp => { ensureToday(pp, today); }); } catch (e) { console.error('Balade du jour', e); }
@@ -133,7 +139,10 @@ const HOME = {
     progressBtn.addEventListener('click', () => { audio.tap(); router.go('progres'); });
     const alt = h('nav', { class: 'hm-alt', 'aria-label': 'Autres activités' }, gamesBtn, progressBtn);
 
-    const screen = h('div', { class: 'screen hm' }, head, nextBox, petBox, play, alt);
+    /* ----- invitation à installer (v2.2.2) : tout en bas, discrète ----- */
+    const instBan = my.inst = inst.homeBanner({ onHide: () => screen.classList.remove('has-inst') });
+
+    const screen = h('div', { class: 'screen hm' }, head, nextBox, petBox, play, alt, instBan.el);
     clear(root);
     root.appendChild(screen);
 
@@ -183,12 +192,12 @@ const HOME = {
         audio.tap();
         const ok = await askNext(next);
         if (my !== st) return;
-        if (!ok) { ssSet('caramel-next-later-' + q.id, today); renderNext(); return; }
+        if (!ok) { ssSet('caramel-next-later-' + q.id, today); renderNext(); renderInstall(); return; }
         store.mutateProfile(pp => { setClasse(pp, next, today); ensureToday(pp, today); });
         motion.confetti();
         audio.fanfare();
         kit.toast(frTypo('Bienvenue en ' + next + ' ! 🎉'));
-        renderNext(); renderPlay();
+        renderNext(); renderPlay(); renderInstall();
       });
       nextBox.appendChild(box);
       if (my.ready) motion.enter(box, { from: 'top' });
@@ -228,6 +237,18 @@ const HOME = {
         go.setAttribute('aria-label', 'Jouer : ' + (info.title || 'jeu au choix') + ', étape ' + (cur + 1) + ' sur ' + N);
       }
     }
+    /* invitation à installer : une invitation à la fois, jamais avant ni pendant la visite guidée (premier accueil d'un
+       enfant), ni avec le bandeau de la rentrée ; le bandeau de mise à jour la range (css/ui/install.css) */
+    function renderInstall() {
+      const q = store.getProfile();
+      const want = !!q && my === st && !my.switching && !my.tour && hasSeen(q, 'tour') && !nextBox.firstChild;
+      const was = instBan.shown;
+      instBan.show(want);
+      screen.classList.toggle('has-inst', instBan.shown);
+      if (instBan.shown && !was && my.ready) motion.enter(instBan.el, { from: 'bottom', dist: 10, dur: 360 });
+    }
+    my.unsubs.push(inst.onChange(() => { if (my === st) renderInstall(); }));
+
     /* une feuille est-elle ouverte ? (les feuilles des autres modules ne préviennent pas de leur fermeture) */
     const sheetOpen = () => !!(my.sheet && my.sheet.el && my.sheet.el.isConnected);
     function onGo() {
@@ -348,8 +369,9 @@ const HOME = {
 
     /* ----- visite guidée (v2.2.1) : une fois par enfant, au premier accueil (profils existants compris : l'accueil a
        changé en 2.2). UNE chose à la fois : le compagnon (bonjour), « Jouer ▶ », les soins. Grand lecteur (CM1-CM2) :
-       deux étapes en texte, sans « coucou ». Jamais pendant le bandeau de mise à jour (main.js), une feuille, un
-       panneau du compagnon, ni la bascule « Qui joue ? ». La voix dit chaque étape (petits lecteurs), le texte reste. */
+       deux étapes, sans « coucou ». Jamais pendant le bandeau de mise à jour (main.js), une feuille, un panneau du
+       compagnon, ni la bascule « Qui joue ? ». La voix dit chaque étape (lecture à voix haute activée : tous les enfants
+       par défaut depuis la 2.2.2, CM1-CM2 compris, avec la voix enregistrée), le texte reste ; 🔊 la relit. */
     const barShown = () => { const b = document.querySelector('.update-bar'); return !!(b && !b.hidden); };
     const busy = () => my !== st || my.switching || sheetOpen() || barShown() || document.documentElement.classList.contains('kit-lock')
       || !!petBox.querySelector('.cc.has-panel') || document.visibilityState === 'hidden';
@@ -374,10 +396,11 @@ const HOME = {
       const q = store.getProfile();
       if (!q || hasSeen(q, 'tour') || my.tour || busy()) return;
       const steps = tourSteps(q);
+      instBan.show(false);                        /* une invitation à la fois */
       let said = '', waiting = '', waitingGreet = false;
       const who = h('span', { class: 'hm-tour-who' });
       setAvatar(who, petSVG(q, 60, 'happy', '', { view: 'portrait' }));
-      const listen = voice.voiceOn(q) ? voice.listenButton(() => said, { label: 'Écouter encore' }) : null;
+      const listen = voice.listenOn(q) ? voice.listenButton(() => said, { label: 'Écouter encore' }) : null;
       /* appli ouverte directement sur l'accueil : le navigateur refuse la voix avant le premier geste. 🔊 se signale
          doucement ; la phrase est dite au premier toucher. Si ce toucher passe à l'étape suivante, celle-ci est dite,
          précédée du bonjour s'il n'a pas pu l'être ; si c'est 🔊, il la dit lui-même */
@@ -410,6 +433,9 @@ const HOME = {
           voice.hush();
           if (reason === 'done' || reason === 'skip') {
             try { store.mutateProfile(pp => { markSeen(pp, 'tour'); }, q.id); } catch (e) { console.error('Visite guidée', e); }
+            /* l'invitation à installer attend la fin de la visite, puis un court instant */
+            const t = setTimeout(() => { my.timers.delete(t); if (my === st) renderInstall(); }, motion.reduced() ? 200 : 900);
+            my.timers.add(t);
           }
         }
       });
@@ -418,11 +444,13 @@ const HOME = {
     function scheduleTour(ms) {
       const q = store.getProfile();
       if (!q || hasSeen(q, 'tour')) return;
+      /* voix fluide (v2.2.2) : les étapes (le bonjour avec le prénom) sont calculées pendant l'attente */
+      try { const tx = tourSteps(q).map(s => s.text); voice.prepareNext(tx[0]); voice.prepare(tx.slice(1)); } catch (_) {}
       const t = setTimeout(() => { my.timers.delete(t); if (my === st) startTour(); }, motion.reduced() ? Math.min(ms, 400) : ms);
       my.timers.add(t);
     }
 
-    renderHead(); renderNext(); renderPlay();
+    renderHead(); renderNext(); renderPlay(); renderInstall();
     my.card = renderCompanionCard(petBox, { hero: true, hud });
     fitPlate();                                   /* trésor posé sur la scène : sa largeur est connue */
     try { document.fonts.ready.then(() => { if (my === st) fitPlate(); }); } catch (_) {}
@@ -462,7 +490,7 @@ const HOME = {
       try { kit.toast(frTypo('À toi de jouer, ' + p.name + ' ! ' + (MOUNTS[p.companion.type] || MOUNTS.pony).em)); } catch (_) {}
       scheduleTour(1400);
     } else {
-      const blocks = [head, nextBox.firstChild, petBox, play, alt].filter(Boolean);
+      const blocks = [head, nextBox.firstChild, petBox, play, alt, instBan.shown ? instBan.el : null].filter(Boolean);
       motion.stagger(blocks, el => motion.enter(el, { from: 'bottom', dist: 14, dur: 420 }), 60);
       scheduleTour(900);
     }
@@ -482,4 +510,5 @@ function teardown() {
   try { if (my.sheet) my.sheet.close('api'); } catch (_) {}
   try { if (my.tour) my.tour.close('nav'); } catch (_) {}
   try { if (my.card) my.card.destroy(); } catch (_) {}
+  try { if (my.inst) my.inst.destroy(); } catch (_) {}
 }
