@@ -3,7 +3,8 @@
    et liste §6 n° 24 : règlement « Familles » de Google Play, politique de confidentialité pages/confidentialite.html).
    Double confirmation (feuille « Tout effacer sur cet appareil ? » puis « Vraiment tout effacer ? »), jamais hors
    connexion (Caramel doit pouvoir se recharger : ses fichiers partent avec le reste).
-   CE QUI EST EFFACÉ, pour Caramel seulement : l'origine cdelalande38.github.io est PARTAGÉE avec les autres sites de
+   CE QUI EST EFFACÉ, pour Caramel seulement : l'origine (ancienne adresse cdelalande38.github.io, comme toute adresse en
+   *.github.io) peut être PARTAGÉE avec les autres sites de
    projet du même compte GitHub (même localStorage, mêmes caches, mêmes bases) ; on ne vide donc jamais tout à l'aveugle :
      - localStorage et sessionStorage : les clés « caramel-… » (toutes les clés de Caramel portent ce préfixe : profils
        caramel-v3, anciennes sauvegardes v1/v11, code parent, préférences, journal de diagnostic…) ;

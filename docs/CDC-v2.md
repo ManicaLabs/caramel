@@ -438,6 +438,9 @@ docs/CDC-v2.md
 
 ## 18. Journal de livraison
 
+### Domaine (07/10/2026) — caramel.manica.fr
+Le dépôt est passé chez **ManicaLabs** (github.com/ManicaLabs/caramel) ; l'adresse de Caramel devient **https://caramel.manica.fr/** (fichier `CNAME`, DNS du parent). L'ancienne adresse (cdelalande38.github.io/caramel) reste en ligne grâce à un dépôt recréé à l'ancien nom : les progrès des enfants y vivent, et c'est là que s'allumera le déménagement (ARCHITECTURE §8.16) une fois le nouveau domaine vérifié en HTTPS.
+
 ### v2.5.1 (07/10/2026) — l'ours debout, « une pomme »
 **Retours du parent** : « l'ours est à 4 pattes, il serait mieux debout sur ses deux pattes » ; « 1 pomme = une pomme et pas un pomme ; fais aussi attention aux liaisons ». **Corrigé** : l'ours se tient debout, façon ourson en peluche (bras qui balancent, dandinement, il grignote en ramenant sa patte, s'endort assis) ; avant la voix du téléphone et la voix fluide, « 1 » s'accorde avec le nom qui suit (« une pomme », « une heure », « quarante-et-une chèvres ») et fait sa liaison (« un‿œuf », « un‿euro »), « neuf ans » se dit « neuv‿ans » (`agree`, ARCHITECTURE §8.8) ; un test oblige à classer tout nouveau nom qui suit un nombre dans les exercices.
 

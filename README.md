@@ -1,7 +1,8 @@
 # Caramel
 
 **Le compagnon qui fait progresser en lecture et en maths, du CP au CM2.**
-Application web gratuite (PWA) : https://cdelalande38.github.io/caramel/
+Application web gratuite (PWA) : https://caramel.manica.fr/ (éditeur : Manica Labs ; dépôt : github.com/ManicaLabs/caramel).
+Ancienne adresse, gardée le temps du déménagement des progrès : https://cdelalande38.github.io/caramel/
 
 L'enfant choisit sa classe, s'occupe de son compagnon (poney, licorne, dragon…) et fait chaque jour une courte
 « balade » de 10 à 20 minutes. Les mini-jeux s'adaptent en douceur à ses forces et à ses besoins, sans note
