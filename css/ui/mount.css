@@ -318,6 +318,36 @@ html.motion-soft .c-rig .c-head, html.motion-soft .c-rig .m-tail { transform: tr
 /* ours, koala : queue pompon (le bout ne traîne pas) ; le koala respire plus lentement (un grand calme) */
 .sp-bear .c-tail-tip, .sp-koala .c-tail-tip { animation: none; }
 .sp-koala { --c-breath: 4.2s; }
+/* ours debout (v2.5.1) : bras = second .c-leg de chaque groupe de pattes (pivot à l'épaule, au repos un peu écartés) ;
+   ils suivent les poses du torse (translate --c-by). Il se dandine en marchant (tout le corps bascule d'un pied sur
+   l'autre, petits pas, bras en balancier opposés aux jambes : décalages de mount.css), lève les bras en V de joie, les
+   écarte en se trémoussant, les agite en dansant, ramène la patte sous le menton pour manger (il grignote), dort ASSIS
+   (corps posé au sol, jambes repliées, pattes sur le ventre) ; triste : bras serrés contre lui */
+.sp-bear { --c-sit: 4.6px; }
+.sp-bear .c-arm { translate: 0 var(--c-by, 0px); }
+.sp-bear.walk .c-all { animation: step .5s ease-in-out infinite; --sa: -3.5deg; --sb: 3.5deg; --sy0: 0px; --sy1: -1.2px; }
+.sp-bear.walk .c-leg { --sa: -9deg; --sb: 9deg; }
+.sp-bear.walk .c-arm { --sa: -16deg; --sb: 16deg; }
+.sp-bear.joy .c-arm-n, .sp-bear.hop .c-arm-n { rotate: 108deg; }
+.sp-bear.joy .c-arm-f, .sp-bear.hop .c-arm-f { rotate: -90deg; }
+.sp-bear.wiggle .c-arm-n { rotate: 50deg; } .sp-bear.wiggle .c-arm-f { rotate: -50deg; }
+.sp-bear.dance .c-leg { --sa: -12deg; --sb: 12deg; }
+.sp-bear.dance .c-arm-n { animation: step .3s ease-in-out 5; --sa: 88deg; --sb: 128deg; }
+.sp-bear.dance .c-arm-f { animation: step .3s ease-in-out -.15s 5; --sa: -70deg; --sb: -105deg; }
+.sp-bear.eat .c-arm-n { animation: c-bear-eat-n .44s ease-in-out infinite; }
+.sp-bear.eat .c-arm-f { animation: c-bear-eat-f .44s ease-in-out infinite; }
+.sp-bear.sad .c-arm-n { rotate: -14deg; } .sp-bear.sad .c-arm-f { rotate: 14deg; }
+.sp-bear.sleep { --c-ty: var(--c-sit); --c-tr: 0deg; }
+.sp-bear.sleep .c-arm { scale: 1 1; }
+.sp-bear.sleep .c-arm-n { rotate: -42deg; } .sp-bear.sleep .c-arm-f { rotate: 44deg; }
+@keyframes c-bear-eat-n {
+  0%, 100% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) rotate(-68deg); }
+  50% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) rotate(-76deg); }
+}
+@keyframes c-bear-eat-f {
+  0%, 100% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) rotate(70deg); }
+  50% { transform: translate(var(--px), var(--py)) rotate(var(--pr)) rotate(78deg); }
+}
 /* oreilles : rondes en haut de la tête (ours), plantées sur les côtés (koala : pivot côté tête), tombantes et
    accrochées en haut (chien : pivot à la racine ; elles flottent vers l'arrière quand il trotte ou qu'il saute) */
 .sp-koala .c-ear-l { transform-origin: 85% 75%; } .sp-koala .c-ear-r { transform-origin: 15% 75%; }

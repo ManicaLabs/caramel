@@ -27,6 +27,6 @@ test('milliers et centaines en lettres pour la voix du téléphone et la voix fl
 });
 
 test('branché : voix du téléphone (viaTts) et voix fluide (fluidText)', () => {
-  assert.match(SRC('js/ui/voice.js'), /tts\.speakResult\(bigNumbers\(t\)\)/);
+  assert.match(SRC('js/ui/voice.js'), /tts\.speakResult\(bigNumbers\(agree\(t\)\)\)/);
   assert.match(SRC('js/content/voice-lines.js'), /return bigNumbers\(t\);/);
 });

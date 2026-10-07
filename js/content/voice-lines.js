@@ -78,11 +78,8 @@ export function fluidText(text) {
   /* « 7 × 8 = ? » passé par frTypo s'écrit « = ? » avec une espace fine insécable : speakable() (règle / = /) ne le
      lirait plus « égale » ; on remet des espaces ordinaires autour du signe */
   let t = speakable(String(text ?? '').replace(/[\s\u00A0\u202F]*=[\s\u00A0\u202F]*/g, ' = '));
-  /* « une » devant un nom féminin (1, 21… 81) */
-  t = t.replace(/(^|[^\d,\u00A0\u202F])(\d{1,2})(?=\s+(\p{L}+))/gu, (m, pre, n, w) => {
-    const word = word100(Number(n));
-    return FEM_WORDS.has(w.toLowerCase()) && /un$/.test(word) ? pre + word.replace(/un$/, 'une') : m;
-  });
+  /* accords et liaisons : « une pomme », « un‿œuf », « neuf‿ans » (v2.5.1, agree) */
+  t = agree(t);
   /* « plus » de calcul : [plys] — entre deux nombres, avec « combien », « une de plus » */
   t = t.replace(/(\d|\bcombien)\s+plus\b(?=\s+(?:\d|combien))/giu, '$1 plusse');
   t = t.replace(/\bde plus(?=\s+dans\b|\s*[.!?,]|$)/giu, 'de plusse');
@@ -95,10 +92,53 @@ export function fluidText(text) {
 /* ---------- réglages de l'enchaînement (mesurés : tools/voix.mjs --mesure) ---------- */
 export const GAP = Object.freeze({ word: 0, comma: 220, colon: 260, sentence: 480 });
 export const NUM_WHOLE = 100;                 /* 0 à 100 : un clip par nombre */
+/* v2.5.1 (retour du parent du 07/10/2026 : « 1 pomme = une pomme et pas un pomme ; fais aussi attention aux liaisons ») :
+   noms comptés après un nombre, relevés dans les générateurs, les phrases et l'interface (tests/accords-voix.test.mjs
+   vérifie que chaque nom qui suit un nombre dans les exercices est classé ici ou est sans enjeu). Le pluriel est déduit
+   (+ s, sauf -s -x -z ; -eau → -eaux). */
+const plurals = list => list.flatMap(w => [w, /[sxz]$/.test(w) ? w : /eau$/.test(w) ? w + 'x' : w + 's']);
 /* noms féminins comptés : « une pomme », « vingt-et-une réponses » (aussi js/core/piper-tts.js, prepare) */
-export const FEM_WORDS = new Set(['pomme', 'pommes', 'étoile', 'étoiles', 'réponse', 'réponses', 'dizaine', 'dizaines', 'centaine',
-  'centaines', 'unité', 'unités', 'minute', 'minutes', 'seconde', 'secondes', 'carotte', 'carottes', 'fraction', 'fractions']);
+export const FEM_WORDS = new Set(plurals(['pomme', 'étoile', 'réponse', 'dizaine', 'centaine', 'unité', 'minute', 'seconde',
+  'heure', 'carotte', 'fraction', 'retenue', 'part', 'botte', 'poule', 'boîte', 'brosse', 'chèvre', 'barre', 'pile', 'ligne',
+  'colonne', 'tenue', 'place', 'ferme', 'selle', 'question', 'partie', 'étape', 'mission', 'semaine', 'notion', 'famille',
+  'histoire', 'phrase', 'série', 'médaille', 'carte', 'erreur', 'chenille', 'abeille', 'vache', 'graine', 'oie', 'poire',
+  'fraise', 'tarte', 'voiture', 'maison', 'fleur', 'patte', 'plume', 'roue', 'pièce', 'bille', 'bougie', 'crêpe', 'tomate',
+  'banane', 'cerise', 'noisette', 'noix', 'feuille', 'branche', 'pousse', 'glace', 'sucette', 'souris', 'table', 'chaise',
+  'classe', 'fille', 'sœur', 'journée', 'année', 'nuit', 'saison', 'personne', 'équipe', 'course', 'balade', 'promenade',
+  'image', 'photo', 'bouteille', 'assiette', 'tasse', 'mangue', 'saucisse', 'crevette', 'mandarine', 'salade', 'pastèque',
+  'pizza', 'tranche', 'tablette', 'case', 'marche', 'lettre', 'syllabe', 'page', 'chanson', 'note', 'fourmi', 'coccinelle',
+  'grenouille', 'brebis', 'jument', 'lapine', 'cane', 'dinde', 'licorne', 'baleine', 'chouette', 'girafe', 'tortue', 'porte',
+  'fenêtre', 'pierre', 'perle', 'rose', 'tulipe', 'plante', 'olive', 'orange', 'prune', 'figue', 'framboise', 'pêche',
+  'clémentine', 'citrouille', 'châtaigne', 'gaufre', 'galette', 'brioche', 'madeleine', 'balle', 'raquette', 'toupie', 'poupée',
+  'caisse', 'cage', 'ruche', 'niche', 'grange', 'écurie', 'cuve', 'brouette', 'charrette', 'calèche', 'remorque', 'cabane',
+  'tente', 'échelle', 'corde', 'chaussette', 'chaussure', 'robe', 'casquette', 'écharpe', 'couronne', 'aile', 'corne', 'dent',
+  'oreille', 'planche', 'lampe', 'guirlande', 'enveloppe', 'brochette', 'chèvre', 'vitre', 'bûche', 'gourde', 'gomme',
+  'règle', 'trousse', 'craie', 'cartouche', 'framboise', 'myrtille', 'noisette', 'part', 'portion', 'parcelle', 'rangée',
+  'haie', 'clôture', 'barrière', 'mare', 'rivière', 'montagne', 'colline', 'forêt', 'île', 'école', 'ville', 'rue', 'piste',
+  'semence', 'récolte', 'citerne', 'tonne', 'livre', 'centime',
+  /* adjectifs des énoncés (« 7 sont rousses » : « une rousse ») */ 'rousse', 'grise', 'blanche', 'noire', 'brune']));
+/* noms masculins qui commencent par une voyelle ou un h muet : « un‿œuf », « un‿euro » (la liaison en [n] ne se fait que
+   si « un » est écrit en lettres ; jamais devant un h aspiré : hibou, haricot, hamburger, hérisson… ne sont pas ici) */
+export const MASC_VOWEL = new Set(plurals(['œuf', 'euro', 'enclos', 'âne', 'an', 'arbre', 'oiseau', 'objet', 'enfant', 'élève',
+  'escargot', 'éléphant', 'agneau', 'abricot', 'ananas', 'aigle', 'avion', 'arrosoir', 'oignon', 'ours', 'os', 'orage',
+  'épi', 'étage', 'insecte', 'outil', 'ordinateur', 'ami', 'animal', 'anniversaire', 'atelier', 'élastique', 'écureuil',
+  'homme', 'hôtel', 'hectare', 'oursin', 'ouvrier', 'exercice', 'essai', 'écran', 'étui', 'igloo', 'iceberg', 'accessoire',
+  'aliment', 'arc-en-ciel', 'autocollant', 'album', 'abri', 'arbuste', 'épouvantail', 'entrepôt', 'avocat', 'éclair']));
 const FEM_ONE = new Set([1, 21, 31, 41, 51, 61, 81]);
+/* « neuf ans », « neuf heures » : [nœv] (le phonémiseur ne le fait qu'avec le mot écrit) */
+const NEUF_V = /^(ans?|heures?)$/;
+/* accords et liaisons du nombre qui précède un nom (voix du téléphone, voix fluide) : 1, 21… 81 → « une » devant un nom
+   féminin, « un » écrit en lettres devant un nom masculin à voyelle (liaison [n]) ; 9, 19… 99 devant « ans » / « heures » en
+   lettres ([nœv]). Le reste garde ses chiffres (les voix lisent bien « deux œufs », « dix euros », « cent euros »). */
+export function agree(text) {
+  return String(text ?? '').replace(/(^|[^\d,.\u00A0\u202F])(\d{1,2})(?=[ \u00A0\u202F]+(\p{L}[\p{L}’'-]*))/gu, (m, pre, d, w) => {
+    const n = Number(d), lw = w.toLowerCase();
+    if (FEM_ONE.has(n) && FEM_WORDS.has(lw)) return pre + word100(n).replace(/un$/, 'une');
+    if (FEM_ONE.has(n) && MASC_VOWEL.has(lw)) return pre + word100(n);
+    if (n % 10 === 9 && NEUF_V.test(lw)) return pre + word100(n);
+    return m;
+  });
+}
 /* devant une consonne, « six », « huit », « dix » se disent [si] [ɥi] [di] : variantes enregistrées (graphie phonétique,
    vérifiée au phonémiseur de Piper : « si » [si], « hui » [ɥi], « di » [di], « dix-hui » [dizɥi]) */
 const PC = new Map([[6, 'si'], [8, 'hui'], [10, 'di'], [18, 'dix-hui']]);

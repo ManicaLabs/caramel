@@ -508,9 +508,10 @@ function dragon(c) {
 }
 
 /* ===== v2.5 — TERRE : ours, koala, chien (zone de l'agent « terre ») =====
-   Trois quadrupèdes « peluche » sur le gabarit du chat (tête ronde de trois quarts tournée vers la droite, pattes sur
-   y = 74). Ours brun : tout rond, oreilles rondes sur le haut de la tête, museau clair en ovale, truffe sombre, queue
-   pompon. Koala : gris, très grosse tête, grandes oreilles duveteuses (festons, blanc dedans), gros nez noir ovale,
+   Trois « peluches » à la tête ronde de trois quarts tournée vers la droite, pattes sur y = 74. Ours brun (v2.5.1 :
+   DEBOUT sur ses deux pattes arrière, une jambe et un bras par groupe de pattes) : oreilles rondes sur le haut de la
+   tête, museau clair en ovale, truffe sombre, gros ventre clair, queue pompon. Koala et chien : quadrupèdes sur le
+   gabarit du chat. Koala : gris, très grosse tête, grandes oreilles duveteuses (festons, blanc dedans), gros nez noir ovale,
    corps court et trapu au dessous blanc qui remonte au poitrail, une touffe en guise de queue, pieds gris foncé.
    Chien (chiot beagle / golden) : oreilles tombantes (le lobe .m-ear pend derrière la tête, pivot à la racine dans
    mount.css), liste et museau crème, truffe noire au bout du museau, tache sur le dos, queue relevée et effilée au bout
@@ -544,36 +545,68 @@ function taper(p, w0, w1, t0, t1, n, cap) {
   return 'M' + A.map(pts).join('L') + (cap ? `A${we},${we} 0 0 0 ` : 'L') + B.reverse().map(pts).join('L') + 'Z';
 }
 
-/* ----- ours brun (en peluche : tout rond, oreilles rondes en haut de la tête, museau clair, queue pompon) ----- */
-const BEAR_BODY = 'M25.8,51C25.2,43.2 31.6,39.4 39.6,39.4C47.4,39.4 54.6,40 58.8,41.8C64,44 66.8,48.6 66.4,53.8C66,59.2 62.4,63.2 56,63.8C48,64.4 37.6,64.4 31.4,63.6C26.6,62.8 26.2,57.4 25.8,51Z';
+/* ----- ours brun : ourson en peluche DEBOUT sur ses deux pattes arrière (demande du parent après la 2.5) : tête ronde
+   de trois quarts (oreilles rondes en haut, museau clair, truffe sombre), corps en œuf au gros ventre clair, deux bras
+   un peu écartés, pattes courtes aux coussinets clairs, queue pompon.
+   Squelette debout (comme les oiseaux, une jambe par groupe) : chaque groupe de pattes porte une jambe ET un bras, deux
+   .c-leg — .m-legB = jambe et bras du fond (à droite, ombrés, DERRIÈRE le torse), .m-legF = jambe et bras proches (à
+   gauche, DEVANT le torse : order tail, legsB, body, legsF). Ainsi la marche (keyframes « step », décalage d'une
+   demi-période entre la jambe et le bras d'un même groupe) balance les bras à l'opposé des jambes, le bras proche
+   passe devant la selle, le foulard et la médaille, et rien ne disparaît avec les ailes de fée ; le papillon
+   (companion-life.js) fait lever le bras proche (dernier .c-leg de .m-legF). Bras : .c-leg.c-arm.c-arm-n / -f, pivot
+   à l'épaule (transform-origin en ligne, cadre .c-pv), contour ouvert à l'épaule ; mount.css suit les poses du torse
+   (translate --c-by), les lève de joie, les agite en dansant, ramène la patte sous le menton pour manger, les pose sur
+   le ventre quand il dort (assis). Stade petit : les bras suivent l'échelle des jambes (un peu plus courts). */
+/* bras (repère local : épaule en 0,0, il pend vers le bas) : contour ouvert en haut (l'épaule se fond dans le torse) */
+const BEAR_ARM = 'M-4,0C-4.4,3.6 -4.4,7 -3.8,9.4C-3.2,11.8 -1.6,12.8 .2,12.8C2.2,12.8 3.8,11.6 4.2,9.2C4.6,6.6 4.4,3.2 4,0';
+/* jambe d'ourson : colonne courte, pied arrondi tourné vers la droite, coussinet clair (contour à l'extérieur, comme
+   leg()) ; round : haut arrondi (cuisse de la jambe proche, dessinée devant le ventre) */
+function bearLeg(x, top, w, c, far, round) {
+  const g = GROUND - SW / 2, coat = far ? dark(c.body, 0.2) : c.body, r = round ? 3.4 : 0;
+  return G('c-leg', P(`M${pts([x, top + r])}V${r1(g - 3)}Q${pts([x, g])} ${pts([x + 3, g])}H${r1(x + w + 0.8)}Q${pts([x + w + 3, g])} ${pts([x + w + 3, g - 2.4])}`
+    + `Q${pts([x + w + 3, g - 4.8])} ${pts([x + w, g - 5.2])}V${r1(top + r)}` + (r ? `Q${pts([x + w, top])} ${pts([x + w - r, top])}H${r1(x + r)}Q${pts([x, top])} ${pts([x, top + r])}` : '') + 'Z', coat, PO)
+    + (far ? '' : E(x + w + 0.4, g - 2.4, 1.9, 1.5, c.muzzle)));
+}
+const BEAR_BODY = 'M34.4,53C34,43.4 41,37.6 49.6,37.6C58.2,37.6 65,43.4 64.8,52.8C64.6,60.8 58.4,65.8 49.6,65.8C40.8,65.8 34.6,60.8 34.4,53Z';
+/* tête : dessin d'origine (centre 64,6 ; 31,8) agrandi de 10 % et posé en (52,4 ; 26,4), sur le corps */
+const bearH = (x, y) => [52.4 + 1.1 * (x - 64.6), 26.4 + 1.1 * (y - 31.8)];
 function bear(c) {
   const s = {};
-  s.hip = 57; s.bx = 45;
-  s.shadow = E(46, 74.2, 24.5, 2.8, INK, op('.16'));
+  s.hip = 59; s.bx = 49.6;
+  s.order = ['tail', 'legsB', 'body', 'legsF'];
+  s.shadow = E(49.6, 74.2, 17.5, 2.6, INK, op('.16'));
   s.tail = {
-    tip: C(25.2, 48.4, 3.5, c.body, OUT) + HL(24, 47, 1.3, 0.7, -30),
-    base: '', pivot: [27.6, 49.4], frame: [12, 36, 22, 22], tipO: '80% 60%'
+    tip: C(35.8, 59.4, 3.6, c.body, OUT) + HL(34.8, 58.2, 1.2, 0.7, -30),
+    base: '', pivot: [37.4, 59.8], frame: [24, 48, 22, 22], tipO: '80% 60%'
   };
-  const L = (x, far) => leg(x + 1.2, 57, 6.2, c, far, 'paw');
-  s.legsB = [L(27.4, 1), L(33, 0)];
-  s.legsF = [L(50.6, 1), L(56.2, 0)];
-  s.body = P(BEAR_BODY, c.body, OUT) + E(47, 59.6, 11.6, 3.2, c.belly) + HL(36, 44.2, 6, 1.6, -4);
-  const earL = C(54.4, 21, 5, c.body, OUT) + C(54.6, 21.4, 2.8, c.inner);
-  const earR = C(74.6, 20.6, 4.7, c.body, OUT) + C(74.4, 21, 2.6, c.inner);
-  const base = P('M50.8,32.4C50.6,23.6 57,18.4 64.6,18.4C72.4,18.4 78.6,23.8 78.4,32C78.2,40.4 72.4,45.2 64.6,45.2C57,45.2 51,40.6 50.8,32.4Z', c.body, OUT)
-    + E(70.4, 38.8, 6.8, 4.8, c.muzzle) + HL(57.8, 24.4, 2.8, 1.3, -40);
+  /* bras : posé à l'épaule (x, y), tourné de deg ; le contour remonte sur l'épaule du côté extérieur ; coussinet clair */
+  const arm = (x, y, deg, far) => {
+    const f = affine(x, y, 1, deg), fr = [x - 9, y - 4, 18, 22].map(v => Math.round(v * 10) / 10);
+    const d = mapPath(BEAR_ARM, f);
+    const o = far ? d + mapPath('C3.9,-.9 3.2,-1.6 1.8,-2', f) : mapPath('M-1.8,-2C-3.2,-1.6 -3.9,-.9 ', f) + d.slice(1);
+    return G('c-leg c-arm ' + (far ? 'c-arm-f' : 'c-arm-n'), FRAME(fr) + P(d + mapPath('C3.8,-2.6 -3.8,-2.6 -4,0Z', f), far ? dark(c.body, 0.12) : c.body)
+      + LINE(o, SW) + E(...f(0.2, 10), 2.6, 2, far ? dark(c.muzzle, 0.1) : c.muzzle), pv(fr, x, y));
+  };
+  s.legsB = [bearLeg(51.4, 58, 7, c, 1), arm(59.8, 43.4, -40, 1)];
+  s.legsF = [bearLeg(40.6, 62.8, 7.2, c, 0, 1), arm(41, 44, 8, 0)];
+  s.body = P(BEAR_BODY, c.body, OUT) + E(52.8, 54.6, 10, 9.4, c.belly) + HL(46.6, 43.4, 2.6, 1.1, -30);
+  const H = d => mapPath(d, bearH);
+  const earL = C(...bearH(54.4, 21), 5.5, c.body, OUT) + C(...bearH(54.6, 21.4), 3.1, c.inner);
+  const earR = C(...bearH(74.6, 20.6), 5.2, c.body, OUT) + C(...bearH(74.4, 21), 2.9, c.inner);
+  const base = P(H('M50.8,32.4C50.6,23.6 57,18.4 64.6,18.4C72.4,18.4 78.6,23.8 78.4,32C78.2,40.4 72.4,45.2 64.6,45.2C57,45.2 51,40.6 50.8,32.4Z'), c.body, OUT)
+    + E(...bearH(70.4, 38.8), 7.5, 5.3, c.muzzle) + HL(...bearH(57.8, 24.4), 3.1, 1.4, -40);
   s.head = { earL, earR, maneB: '', base, maneF: '', extra: '' };
   s.face = {
-    eyes: [[59.8, 30.6, 1], [70.8, 30.2, 0.92]], lid: c.body,
-    cheeks: [[56.2, 36.4, 1], [75.8, 34.8, 0.62]],
-    nose: P('M67.6,35.6C67.6,34 73.6,34 73.6,35.6C73.6,37.2 71.4,38.6 70.6,38.6C69.8,38.6 67.6,37.2 67.6,35.6Z', c.nose, st(1))
-      + E(69.4, 35.1, 1.1, 0.5, '#fff', op('.45')),
-    mouth: [70.6, 39.8, 5, 'c']
+    eyes: [[...bearH(59.8, 30.6), 1.1], [...bearH(70.8, 30.2), 1]], lid: c.body,
+    cheeks: [[...bearH(56.2, 36.4), 1.1], [...bearH(75.2, 34.6), 0.62]],
+    nose: P(H('M67.6,35.6C67.6,34 73.6,34 73.6,35.6C73.6,37.2 71.4,38.6 70.6,38.6C69.8,38.6 67.6,37.2 67.6,35.6Z'), c.nose, st(1))
+      + E(...bearH(69.4, 35.1), 1.2, 0.5, '#fff', op('.45')),
+    mouth: [...bearH(70.6, 39.8), 5.5, 'c']
   };
-  s.headPivot = [60, 45.6]; s.headFrame = [36, -12, 64, 72];
+  s.headPivot = [51.8, 40.4]; s.headFrame = [24, -14, 58, 64];
   s.anchors = {
-    top: [64.6, 18.8, -4, 0.92], neck: [60.4, 47.4, 6, 1], back: [42, 41, -2, 1], tail: [24.4, 47.4, -20, 0.8],
-    wings: [44, 42.6, 0, 0.95], chest: [59.8, 55]
+    top: [52.4, 12.4, -2, 0.98], neck: [57, 41.2, -8, 0.95], back: [34.4, 51.4, -80, 0.8], tail: [35.6, 58, -30, 0.8],
+    wings: [40, 44.4, 0, 0.9], chest: [52.2, 48.6]
   };
   return s;
 }

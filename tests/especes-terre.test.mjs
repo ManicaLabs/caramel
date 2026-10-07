@@ -66,7 +66,10 @@ test('terre : ancrages dans le cadre, bouche devant les yeux, sol à 74, portrai
     }
     assert.ok(a.mouth[0] > Math.max(...a.eyes.map(e => e[0])) - 8, `${t} : bouche sous les yeux, vers l'avant`);
     assert.ok(a.top[1] < Math.min(...a.eyes.map(e => e[1])), `${t} : sommet au-dessus des yeux`);
-    assert.ok(a.back[1] < a.chest[1] && a.tail[0] < a.chest[0], `${t} : dos au-dessus du poitrail, queue à l'arrière`);
+    /* quadrupèdes : dos au-dessus du poitrail ; ours debout : dos derrière lui (à gauche), poitrail sous la tête */
+    if (t === 'bear') assert.ok(a.back[0] < a.chest[0] && a.chest[1] > a.mouth[1], 'bear : dos à l’arrière, médaille sous le menton');
+    else assert.ok(a.back[1] < a.chest[1], `${t} : dos au-dessus du poitrail`);
+    assert.ok(a.tail[0] < a.chest[0], `${t} : queue à l'arrière`);
     assert.ok(Math.abs(a.ground - 74) < 0.5);
     for (const size of [48, 96]) {
       const svg = mountSVG(t, [], size, '', { view: 'portrait', stage });
@@ -147,5 +150,32 @@ test('mount.css (zone terre) : queue du chien qui remue (pose reprise), langue, 
   /* pas de pose rotate / translate sur la tête, le torse ou la queue (Chrome ne les dessine pas sous une animation) */
   for (const [, sel, body] of z.replace(/\/\*[^]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     if (/\.(c-head|m-body|m-tail)\b/.test(sel) && !/%/.test(sel)) assert.ok(!/(^|;|\s)(rotate|translate)\s*:/.test(body), sel.trim());
+  }
+});
+
+test('ours debout (v2.5.1) : une jambe et un bras par groupe, bras proche devant le torse, poses de mount.css', () => {
+  for (const stage of [1, 2, 3]) for (const mood of ['', ...MOODS]) {
+    const svg = mountSVG('bear', ['selle', 'foulard', 'ailes'], 120, mood, { stage });
+    const legsB = svg.slice(svg.indexOf('class="m-legB"'), svg.indexOf('class="m-legF"'));
+    assert.equal((legsB.match(/class="c-leg[ "]/g) || []).length, 2, 'm-legB : jambe + bras');
+    assert.ok(legsB.includes('c-leg c-arm c-arm-f'), 'bras du fond dans m-legB');
+    const iBody = svg.indexOf('class="m-body"'), iF = svg.indexOf('class="m-legF"'), iHead = svg.indexOf('class="c-head"');
+    assert.ok(iBody < iF && iF < iHead, 'jambe et bras proches dessinés après le torse (devant la selle, le foulard), avant la tête');
+    const legsF = svg.slice(iF, iHead);
+    assert.equal((legsF.match(/class="c-leg[ "]/g) || []).length, 2, 'm-legF : jambe + bras');
+    assert.match(legsF, /class="c-leg c-arm c-arm-n" style="transform-origin:[\d.]+% [\d.]+%"/, 'bras proche : pivot à l’épaule');
+    assert.ok(svg.includes('acc-selle') && svg.includes('acc-foulard') && svg.includes('acc-ailes'));
+  }
+  /* la tête domine (ourson en peluche) et il tient debout : pieds sur le sol, tête au-dessus du corps */
+  const a = mountAnchors('bear');
+  assert.ok(a.top[1] < 16 && a.mouth[1] < 40 && a.chest[1] > 44, JSON.stringify(a));
+  const css = readFileSync(new URL('../css/ui/mount.css', import.meta.url), 'utf8');
+  const z = css.slice(css.indexOf('v2.5 — TERRE'), css.indexOf('fin TERRE'));
+  for (const sel of ['.sp-bear.walk .c-all', '.sp-bear.walk .c-arm', '.sp-bear.joy .c-arm-n', '.sp-bear.eat .c-arm-n', '.sp-bear.sleep .c-arm-n', '.sp-bear .c-arm'])
+    assert.ok(z.includes(sel), 'mount.css : ' + sel);
+  assert.ok(/\.sp-bear\.walk \.c-all\s*\{[^}]*animation:\s*step\b/.test(z), 'dandinement : keyframes « step » (vitesse réglée par tables.js)');
+  for (const k of ['c-bear-eat-n', 'c-bear-eat-f']) {
+    const m = new RegExp('@keyframes ' + k + '\\s*\\{([^]*?)\\n\\}').exec(z);
+    assert.ok(m && (m[1].match(/transform:[^;}]*/g) || []).every(f => f.includes('translate(var(--px), var(--py)) rotate(var(--pr))')), k);
   }
 });

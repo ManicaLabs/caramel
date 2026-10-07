@@ -163,7 +163,7 @@ export const SPECIES_ACTS = Object.freeze({
   lion: ['roar', 'maneShake'],
   dragon: ['flap', 'smoke'],
   /* v2.5 : provisoire (actions génériques), chaque agent remplace la ligne de ses espèces */
-  bear: ['sniff', 'stretch', 'butterfly', 'bliss'], koala: ['yawn', 'bliss', 'bliss', 'stretch'], dog: ['sniff', 'paw', 'wiggle', 'butterfly'],
+  bear: ['sniff', 'butterfly', 'bliss', 'roar'], koala: ['yawn', 'bliss', 'bliss', 'stretch'], dog: ['sniff', 'paw', 'wiggle', 'butterfly'],
   whale: ['spout', 'spout', 'jump', 'bubbles'],          /* v2.5 — eau : elle souffle (plus souvent), saute, fait des bulles */
   /* v2.5 — oiseaux (les ailes .c-wing battent avec flap ; whinny = il chante, notes de musique ; sniff = le poussin picore ;
      maneShake = il s'ébroue ; le pingouin ne s'envole pas : pas de flap) */
