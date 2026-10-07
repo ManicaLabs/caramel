@@ -1,7 +1,7 @@
 /* ============ COMPAGNON : carte de l'accueil (diorama vivant, v2.1) + avatar partagé ============
    Carte du compagnon de l'accueil, sur le profil ACTIF : un petit DIORAMA (ciel selon l'heure réelle — aube, jour,
    crépuscule, nuit étoilée avec la lune —, soleil, nuages qui dérivent, colline, pommier, clôture, herbe fleurie,
-   flaque, ou lac pour le dauphin, touche de saison : feuilles qui tombent en automne, flocons en hiver, pétales au
+   flaque, ou lac pour les nageurs (dauphin, baleine : inWater), touche de saison : feuilles qui tombent en automne, flocons en hiver, pétales au
    printemps, lucioles les soirs d'été) où le compagnon VIT grâce au moteur js/ui/companion-life.js.
    Les soins reprennent les règles v11 (port de c5bd8d1:index.html « JAUGES & HUMEUR », « ACTIONS », « PANNEAUX » :
    jauges faim / forme / joie qui baissent doucement — plancher 15, jamais de « mort » —, boutique un objet par
@@ -55,7 +55,7 @@ import { h, clear, dayStr, frTypo, loadCSS, accorde } from '../core/util.js';
 import * as store from '../core/store.js';
 import * as audio from '../core/audio.js';
 import * as motion from '../core/motion.js';
-import { MOUNTS, SHOP, PET, FOOD_BY_ID, foodsOf, foodLine } from '../content/companion-data.js';
+import { MOUNTS, SHOP, PET, FOOD_BY_ID, foodsOf, foodLine, coatOf, inWater } from '../content/companion-data.js';
 import { fillTemplate, sanitizeName, DEFAULT_HERO } from '../core/profiles.js';
 import { addApples } from '../core/economy.js';
 import { gaugesAt, settle, foodOffer, feed, careOffer, doCare } from '../core/care.js';
@@ -146,16 +146,17 @@ const napShown = new Set();
 
 /* ---------- accords (genre grammatical de la monture) ---------- */
 const mountOf = p => MOUNTS[p && p.companion && p.companion.type] || MOUNTS.pony;
+const typeOf = p => (p && p.companion && MOUNTS[p.companion.type] ? p.companion.type : 'pony');
 const fem = p => mountOf(p).g === 'f';
 const say = (p, str) => frTypo(fillTemplate(str, p));
 
 function moodOf(p, g) {
-  const f = fem(p), kind = mountOf(p).kind;
+  const f = fem(p);
   const avg = (g.faim + g.forme + g.joie) / 3;
   if (avg < 40) {
     if (g.faim <= g.forme && g.faim <= g.joie) return { cls: 'sad', msg: say(p, '{N} a un petit creux 🍎') };
     if (g.forme <= g.joie) {
-      return { cls: 'sad', msg: say(p, kind === 'dolphin' ? '{N} aimerait bien faire un petit tour 🚶' : '{N} aimerait bien se dégourdir les pattes 🚶') };
+      return { cls: 'sad', msg: say(p, inWater(typeOf(p)) ? '{N} aimerait bien faire un petit tour 🚶' : '{N} aimerait bien se dégourdir les pattes 🚶') };
     }
     return { cls: 'sad', msg: say(p, '{N} a envie de câlins 💛 (touche la scène !)') };
   }
@@ -207,9 +208,9 @@ function landSVG(gid) {
     + `<path class="l-grass" fill="url(#${gid})" d="M-10,154C70,146 150,150 200,149C262,148 330,142 410,150V200H-10Z"/>`
     + '<ellipse class="l-clear" cx="200" cy="187" rx="98" ry="12"/>'
     + `<g class="l-tufts" fill="none" stroke="${INK}" stroke-width="1.6" stroke-linecap="round"><path d="M104,175l-2.5,-6M107,175l0,-8M110,175l2.5,-6"/><path d="M292,180l-2.5,-6M295,180l0,-8M298,180l2.5,-6"/><path d="M150,196l-2,-5M152.5,196l0,-7M155,196l2,-5"/><path d="M28,168l-2,-5M30.5,168l0,-7M33,168l2,-5"/></g>`
-    /* flaque (toutes les espèces sauf le dauphin) */
+    /* flaque (toutes les espèces, sauf les nageurs) */
     + `<g class="l-puddle"><ellipse class="l-water" cx="328" cy="184" rx="31" ry="7.5" stroke="${INK}" stroke-width="1.6"/><path class="l-water-hi" d="M310,182.5C316,181 324,180.6 332,181" fill="none" stroke-width="1.8" stroke-linecap="round"/></g>`
-    /* lac du dauphin */
+    /* lac des nageurs (dauphin, baleine) */
     + `<g class="l-lake"><path class="l-water" d="M-10,166C60,160 140,164 200,162C270,160 340,164 410,161V200H-10Z" stroke="${INK}" stroke-width="1.8"/>`
     + '<path class="l-water-hi" d="M24,176q8,-3 16,0M92,184q8,-3 16,0M300,178q8,-3 16,0M352,188q8,-3 16,0M150,192q8,-3 16,0" fill="none" stroke-width="2" stroke-linecap="round"/></g>'
     + '</svg>';
@@ -1106,8 +1107,7 @@ export function renderCompanionCard(container, opts = {}) {
     if (!done) return;
     audio.beep(880, 0.08, 0.08);
     refresh();
-    const kind = mountOf(profile()).kind;
-    const coat = kind === 'dolphin' ? 'quelle peau toute douce !' : kind === 'dragon' ? 'quelles belles écailles !' : 'quel beau poil !';
+    const coat = { peau: 'quelle peau toute douce !', ecailles: 'quelles belles écailles !', plumes: 'quelles belles plumes !' }[coatOf(typeOf(profile()))] || 'quel beau poil !';
     whenAwake(() => {
       if (ctl) ctl.react('brush').then(ok => { if (ok && !destroyed && svgEl) motion.sparkle(svgEl, { count: 8 }); });
       sayOut(say(profile(), '{N} adore le brossage, ' + coat + ' ✨'));

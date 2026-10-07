@@ -12,7 +12,7 @@ import { fillTemplate, defaultProfile } from '../js/core/profiles.js';
 import * as store from '../js/core/store.js';
 import { frTypo, fmtNum } from '../js/core/util.js';
 import { CHEERS } from '../js/ui/kit.js';
-import { MOUNTS, foodsOf, foodLine } from '../js/content/companion-data.js';
+import { MOUNTS, foodsOf, foodLine, coatOf } from '../js/content/companion-data.js';
 import { micTrouble } from '../js/ui/game-ctx.js';
 import * as TL from '../js/games/tables-logic.js';
 import * as PL from '../js/games/pommes-logic.js';
@@ -151,7 +151,7 @@ test('couverture : 1re partie, visite, bilans, course, encouragements, soins et 
     for (const f of foodsOf(type)) assert.deepEqual(ok(frTypo(foodLine(f)), q).clips.map(c => c.id), ['soin.miam', 'soin.' + (f.id === 'pomme' ? 'poire' : f.id)]);
     for (const s of ['{N} n’a plus faim 😊', 'C’est trop pour {N} : choisis plus petit 😊', '{N} est déjà en pleine forme ! 🚶']) assert.equal(ok(say(s), q).clips.length, 1, s);
     ok(say('{N} est déjà ' + (fem ? 'toute belle' : 'tout beau') + ' ✨ Reviens un peu plus tard !'), q);
-    const coat = M.kind === 'dolphin' ? 'quelle peau toute douce !' : M.kind === 'dragon' ? 'quelles belles écailles !' : 'quel beau poil !';
+    const coat = { peau: 'quelle peau toute douce !', ecailles: 'quelles belles écailles !', plumes: 'quelles belles plumes !' }[coatOf(type)] || 'quel beau poil !';
     ok(say('{N} adore le brossage, ' + coat + ' ✨'), q);
     for (const s of ['{N} part en promenade, quel bonheur ! 🚶', '{N} est en promenade… attends son retour ! 🚶',
       'C’est à toi ! {N} est trop chic ! ✨', '{N} est trop chic ! ✨']) ok(say(s), q);

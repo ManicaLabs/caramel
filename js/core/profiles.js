@@ -490,15 +490,18 @@ export function tplMap(profile) {
   const m = has(MOUNTS, c.type) ? MOUNTS[c.type] : MOUNTS.pony;
   const mf = m.g === 'f';                                  /* genre de la monture (licorne = féminin) */
   const hf = (p.g === undefined ? 'f' : p.g) === 'f';      /* genre du héros */
-  const le = mf ? 'la' : 'le', son = mf ? 'sa' : 'son', du = mf ? 'de la' : 'du';
+  /* v2.5 : élision devant une voyelle (« l’ours », « de l’ours », « son ours ») ; aucun nom de monture ne commence
+     par un h (h aspiré ou muet : à traiter au cas par cas s'il en vient un) */
+  const el = /^[aeiouyàâäéèêëîïôöûùü]/i.test(m.noun), sp = el ? '' : ' ';
+  const le = el ? 'l’' : mf ? 'la' : 'le', son = mf && !el ? 'sa' : 'son', du = el ? 'de l’' : mf ? 'de la' : 'du';
   const df = hf && mf;                                     /* duo entièrement féminin */
   return {
     P: typeof p.name === 'string' ? p.name : DEFAULT_HERO,
     N: typeof c.name === 'string' ? c.name : DEFAULT_MOUNT_NAME,
     El: hf ? 'Elle' : 'Il', el: hf ? 'elle' : 'il', fiere: hf ? 'fière' : 'fier',
-    leM: le + ' ' + m.noun,  LeM: capFirst(le) + ' ' + m.noun,
+    leM: le + sp + m.noun,  LeM: capFirst(le) + sp + m.noun,
     sonM: son + ' ' + m.noun, SonM: capFirst(son) + ' ' + m.noun,
-    duM: du + ' ' + m.noun,
+    duM: du + sp + m.noun,
     IlM: mf ? 'Elle' : 'Il', ilM: mf ? 'elle' : 'il',
     contentM: mf ? 'contente' : 'content',
     surprisM: mf ? 'surprise' : 'surpris',

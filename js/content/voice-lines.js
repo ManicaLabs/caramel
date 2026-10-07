@@ -282,6 +282,7 @@ const SRC = [
     { id: 'brosse-poil', text: '{N} adore le brossage, quel beau poil ! ✨', say: 'J’adore le brossage, quel beau poil !' },
     { id: 'brosse-peau', text: '{N} adore le brossage, quelle peau toute douce ! ✨', say: 'J’adore le brossage, quelle peau toute douce !' },
     { id: 'brosse-ecailles', text: '{N} adore le brossage, quelles belles écailles ! ✨', say: 'J’adore le brossage, quelles belles écailles !' },
+    { id: 'brosse-plumes', text: '{N} adore le brossage, quelles belles plumes ! ✨', say: 'J’adore le brossage, quelles belles plumes !' },   /* v2.5 : oiseaux */
     { id: 'en-forme', text: '{N} est déjà en pleine forme ! 🚶', say: 'Je suis déjà en pleine forme !' },
     { id: 'promenade', text: '{N} part en promenade, quel bonheur ! 🚶', say: 'Je pars en promenade, quel bonheur !' },
     { id: 'en-promenade', text: '{N} est en promenade… attends son retour ! 🚶', say: 'Je suis en promenade… attends mon retour !' },
@@ -536,7 +537,8 @@ const SRC = [
     { id: 'elle-en-vend-les-trois-quart-s53jn', text: 'Elle en vend les trois quarts au marché.' }
   ]),
   ...grp('boutique', [
-    ...['poney', 'cheval', 'chat', 'capybara', 'dauphin', 'lion', 'licorne', 'dragon'].map(n => 'Et en ' + n + ' ?'),
+    ...['poney', 'cheval', 'chat', 'capybara', 'dauphin', 'lion', 'licorne', 'dragon',
+      'ours', 'koala', 'chien', 'baleine', 'chouette', 'perroquet', 'pingouin', 'poussin'].map(n => 'Et en ' + n + ' ?'),   /* v2.5 : 8 de plus */
     ...[['foulard', 'le foulard'], ['noeud', 'le nœud'], ['chapeau', 'le chapeau'], ['lunettes', 'les lunettes'], ['echarpe', 'l’écharpe'],
       ['selle', 'la selle dorée'], ['couronne', 'la couronne'], ['ailes', 'les ailes de fée']]
       .map(([id, w]) => ({ id: 'essaie-' + id, text: '{N} essaie ' + w + ' ✨', say: 'J’essaie ' + w + ' !' })),

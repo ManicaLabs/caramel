@@ -26,7 +26,10 @@ function kid(pet = {}, apples = 100, type = 'pony') {
 /* ---------- aliments par espèce ---------- */
 /* version Emoji de chaque aliment (les Android anciens n'ont rien après Emoji 12) */
 const EMOJI_VERSION = { '🥕': 3, '🍐': 1, '🥧': 5, '🍓': 1, '🍰': 1, '🥣': 5, '🐟': 1, '🍣': 1, '🦐': 3, '🦑': 3,
-  '🍊': 1, '🥬': 11, '🍉': 1, '🍗': 1, '🥩': 5, '🍔': 1, '🌶': 1, '🍿': 1, '🍕': 1 };
+  '🍊': 1, '🥬': 11, '🍉': 1, '🍗': 1, '🥩': 5, '🍔': 1, '🌶': 1, '🍿': 1, '🍕': 1,
+  /* v2.5 — eau (baleine) */ '🐠': 1,
+  /* v2.5 — terre (ours, koala, chien) */ '🍒': 1, '🍯': 1, '🌱': 1, '🍃': 1, '🌿': 1, '🌭': 1, '🦴': 11,
+  /* v2.5 — oiseaux */ '🐛': 1, '🦗': 5, '🍢': 1, '🌻': 1, '🍌': 1, '🥭': 11, '🌾': 1, '🌽': 1 };
 
 test('aliments : trois par espèce (petit 5 🍎 +15, moyen 10 🍎 +30 +5 joie, régal 25 🍎 +70 +12 joie)', () => {
   assert.deepEqual(Object.keys(DIET).sort(), Object.keys(MOUNTS).sort(), 'une liste par espèce');

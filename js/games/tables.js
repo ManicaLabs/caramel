@@ -25,6 +25,7 @@
 import { h, svg, clear, fmtNum, frTypo } from '../core/util.js';
 import * as dl from '../core/debuglog.js';
 import { SESSION_KEY } from '../ui/voice-answer.js';
+import { inWater } from '../content/companion-data.js';
 import * as L from './tables-logic.js';
 
 const JUMP_MS = 660;            /* saut (élan, envol, réception) */
@@ -133,9 +134,9 @@ function createTables(root, ctx) {
   const hero = h('div', { class: 'tb-hero', 'aria-hidden': 'true' }, heroBob);
   const heroSvg = heroBob.querySelector('svg');
   /* saut et trébuchement : c'est le CORPS du rig qui bouge (.c-all) ; son ombre (.c-shadow) reste au sol et la vague
-     du dauphin (.c-wave, hors de .c-all) dans l'eau — une seule ombre, toujours au sol (JEUX §0) */
+     d'un animal qui nage (.c-wave, hors de .c-all : dauphin, baleine) dans l'eau ; sa surface ne rétrécit pas (inWater) — une seule ombre, toujours au sol (JEUX §0) */
   const heroBody = heroSvg && heroSvg.querySelector('.c-all');
-  const heroShadow = heroSvg && heroSvg.getAttribute('data-species') !== 'dolphin' ? heroSvg.querySelector('.c-shadow') : null;
+  const heroShadow = heroSvg && !inWater(heroSvg.getAttribute('data-species')) ? heroSvg.querySelector('.c-shadow') : null;
   /* px de l'écran → unités du viewBox du rig (100 unités = largeur du compagnon ; offsetWidth : insensible aux animations) */
   const unit = () => 100 / (hero.offsetWidth || 100);
 

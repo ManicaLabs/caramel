@@ -8,7 +8,7 @@
 import { test, assert } from './_t.mjs';
 import { readFileSync } from 'node:fs';
 import { mountSVG, mountAnchors, EXPRESSIONS, MOODS } from '../js/ui/mount-svg.js';
-import { MOUNTS, SHOP } from '../js/content/companion-data.js';
+import { MOUNTS, SHOP, inWater } from '../js/content/companion-data.js';
 
 const TYPES = Object.keys(MOUNTS);
 const MOOD_SET = ['', ...MOODS, 'joy dance', 'sad walk'];
@@ -187,11 +187,12 @@ test('révision : oreilles du lion visibles, ailes de fée à la place des ailes
   assert.equal(wingsOf(mountSVG('dragon', [], 100, '')), 2);
   assert.equal(wingsOf(mountSVG('dragon', ['ailes'], 100, '')), 0);
   assert.ok(mountSVG('dragon', ['ailes'], 100, '').includes('acc-ailes'));
-  /* dauphin : vague au premier plan, HORS de .c-all (il saute hors de l'eau), après le corps ; rien d'autre n'en a */
+  /* animaux qui nagent (inWater : dauphin, baleine) : vague au premier plan, HORS de .c-all (ils sautent hors de l'eau),
+     après le corps ; aucun autre n'en a (css/ui/companion.css s'en sert pour montrer le lac de l'accueil) */
   for (const type of TYPES) {
     const els = parse(mountSVG(type, [], 100, 'joy'));
     const iWave = els.findIndex(e => e.cls.includes('c-wave')), iAll = els.findIndex(e => e.cls.includes('c-all'));
-    if (type !== 'dolphin') { assert.equal(iWave, -1, type + ' : pas de vague'); continue; }
+    if (!inWater(type)) { assert.equal(iWave, -1, type + ' : pas de vague'); continue; }
     assert.ok(iWave > iAll && els[iWave].depth === els[iAll].depth, 'vague au premier plan, sœur de .c-all');
   }
   /* capybara : la mandarine (cercle #ffa33a dans .x-happy, cherché par companion-life.js) sans chapeau ni couronne */

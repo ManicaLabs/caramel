@@ -32,7 +32,7 @@
 import { h, clear, frTypo, buzz } from '../core/util.js';
 import * as dl from '../core/debuglog.js';
 import { mclmTarget } from '../core/levels.js';
-import { MOUNTS } from '../content/companion-data.js';
+import { MOUNTS, inWater } from '../content/companion-data.js';
 import {
   STORIES, WORLDS, OOV, storyById, storyIndex, storiesOf, isUnlocked, totalStarsOf, classBonus, itemFor
 } from '../content/stories/index.js';
@@ -452,7 +452,7 @@ function createCourse(root, ctx) {
   /* animation du compagnon : on retire, on force un reflow, on remet (v11) ; v2.1 : la classe reste un repère, c'est le
      CORPS du rig (.c-all) qui bondit ou trébuche (mêmes hauteurs et durées que la v11, converties en unités du viewBox :
      100 unités = largeur du compagnon), en composition « add » sur le trot ; son ombre reste au sol (elle rétrécit
-     pendant un bond) et la vague du dauphin dans l'eau */
+     pendant un bond) et la vague d'un animal qui nage (dauphin, baleine : inWater) dans l'eau — sa surface ne rétrécit pas */
   function ponyAnim(r, cls) {
     const pony = r.els.pony;
     if (!pony) return;
@@ -467,7 +467,7 @@ function createCourse(root, ctx) {
     const ease = k => k.map(f => Object.assign({ easing: 'ease' }, f));
     r.ponyFx = [];
     try { r.ponyFx.push(body.animate(ease(fx.body(u)), { duration: fx.ms, composite: 'add' })); } catch (_) {}
-    const sh = fx.lift && s.getAttribute('data-species') !== 'dolphin' ? s.querySelector('.c-shadow') : null;
+    const sh = fx.lift && !inWater(s.getAttribute('data-species')) ? s.querySelector('.c-shadow') : null;
     if (sh) {
       try {
         r.ponyFx.push(sh.animate(ease([{ transform: 'scale(1)', opacity: 1 }, { transform: 'scale(.7)', opacity: 0.6, offset: fx.lift },
@@ -489,7 +489,7 @@ function createCourse(root, ctx) {
     let res = null;
     try {
       res = await ctx.speech.startListening({
-        grammar: E.grammarOf(r.st.target),
+        grammar: E.grammarOf(r.st.target).concat(E.elisionsOf(r.st.target)),   /* v2.5 : « l'ours » (monture élidée) */
         keepVoice: true,                              /* v2.2.3 : moteur en retard, la voix lue n'est jamais écartée */
         onText: t => ingest(r, t),
         onError: (code, msg) => {

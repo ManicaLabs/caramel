@@ -87,6 +87,19 @@ const grammarForm = raw => raw.toLowerCase().replace(/[^\p{L}0-9]/gu, '');
 export function grammarOf(tokens){
   return [...new Set(tokens.map(w => grammarForm(w.raw)))].filter(Boolean);
 }
+/* v2.5 : formes élidées du texte (« l’ours » quand la monture est un ours, « l’enfant »…) telles que les écrit le
+   lexique Vosk, avec l'apostrophe droite (« l'ours ») : la grammaire v11 ci-dessus retire l'apostrophe (« lours »,
+   inconnu de Vosk, donc jamais reconnu) ; le jeu les AJOUTE à la grammaire (course.js). Vosk répond alors « l'ours »,
+   que normalize ramène à « lours », comme le mot du texte. Les textes des histoires n'ont pas d'apostrophe (seuls
+   les jetons de la monture en produisent) : la grammaire v11 reste inchangée. */
+export function elisionsOf(tokens){
+  const out = new Set();
+  for(const w of tokens){
+    const f = String(w.raw).toLowerCase().replace(/[’‘ʼ]/g, "'").replace(/[^\p{L}0-9']/gu, '').replace(/^'+|'+$/g, '');
+    if(/^\p{L}+'\p{L}/u.test(f)) out.add(f);
+  }
+  return [...out];
+}
 
 /* obstacles liés aux pauses de ponctuation (openStory v11) : un par mot-pause, sauf le dernier mot ;
    textes longs (> 10 mots-pause) : obstacles uniquement en fin de phrase (l'évaluation statistique des
@@ -120,7 +133,12 @@ export function createRace(text, { mountNoun = '', oov = null } = {}){
   state.wordTime = new Array(state.target.length).fill(null);
   state.pauseResults = new Array(state.target.length).fill(null);
   state.proper = computeProper(state.target);
-  if(mountNoun) state.proper.add(normalize(String(mountNoun)));
+  if(mountNoun){
+    const mn = normalize(String(mountNoun));
+    state.proper.add(mn);
+    /* v2.5 : même règle pour la monture élidée (« l’ours », « d’ours ») */
+    for(const t of state.target) if(/^\p{L}['’‘ʼ]/u.test(t.raw) && normalize(t.raw.slice(2)) === mn) state.proper.add(t.norm);
+  }
   if(oov && typeof oov.has === 'function'){
     for(const t of state.target) if(oov.has(grammarForm(t.raw))) state.proper.add(t.norm);
   }

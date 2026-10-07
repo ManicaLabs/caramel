@@ -506,8 +506,8 @@ function createGame(root, ctx) {
       { rotate: (to * 0.82 + L.batonAngle(pos + 1) * 0.18) + 'deg' }
     ], { duration: d, fill: 'forwards' });
     /* temps fort : c'est le CORPS du chef qui marque le temps (.c-all du rig, composition « add » sur son attente,
-       2 unités de la scène converties en unités du viewBox du rig) ; son ombre et la vague du dauphin restent sur
-       l'estrade (ARCHITECTURE §8.6) */
+       2 unités de la scène converties en unités du viewBox du rig) ; son ombre et la vague d'un animal qui nage
+       (dauphin, baleine) restent sur l'estrade (ARCHITECTURE §8.6) */
     if (pos === 0) {
       anim(stage.body, 'bob', [{ transform: 'translateY(0px)' }, { transform: 'translateY(' + (-stage.bobH).toFixed(2) + 'px)', offset: 0.25 }, { transform: 'translateY(0px)' }],
         { duration: Math.min(420, d * 0.6), easing: 'ease-out', composite: 'add' });

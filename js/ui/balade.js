@@ -24,6 +24,7 @@ import { ensureToday } from '../core/session.js';
 import { gamesFor, GAME_BY_ID } from '../games/index.js';
 import { mountReady, avatarOf, setAvatar } from './companion.js';
 import { timeUp, restLine, restNotice, restKind, REST_TEXT } from './play-limit.js';
+import { inWater } from '../content/companion-data.js';
 
 /* étapes : libellés enfant (jamais de niveau scolaire) — JEUX.md §8 */
 export const STEP_KIND = Object.freeze({
@@ -496,7 +497,8 @@ export default {
     /* petits bonds de la marche (7 px à l'écran, 330 ms) : c'est le CORPS du rig qui bondit (.c-all, composition « add »
        sur le pas de l'humeur walk, en unités du viewBox : 100 unités = largeur du compagnon), jamais un conteneur qui
        emporterait l'ombre et la vague ; l'ombre reste sur le sentier et rétrécit en l'air (comme au petit saut du rig),
-       la vague du dauphin reste dans l'eau (ARCHITECTURE §8.6, JEUX §0) */
+       la vague d'un animal qui nage reste dans l'eau, et sa surface ne rétrécit jamais (inWater : dauphin, baleine ;
+       ARCHITECTURE §8.6, JEUX §0) */
     function walkHops(rig, dur) {
       const body = rig && rig.querySelector('.c-all');
       if (!body || typeof body.animate !== 'function') return [];
@@ -504,7 +506,7 @@ export default {
       const timing = { duration: 330, iterations: Math.max(1, Math.round(dur / 330)), easing: 'ease-in-out' };
       const hops = [body.animate([{ transform: 'translateY(0px)' }, { transform: 'translateY(' + (-H).toFixed(2) + 'px)' }, { transform: 'translateY(0px)' }],
         { ...timing, composite: 'add' })];
-      const shadow = rig.getAttribute('data-species') !== 'dolphin' ? rig.querySelector('.c-shadow') : null;
+      const shadow = !inWater(rig.getAttribute('data-species')) ? rig.querySelector('.c-shadow') : null;
       if (shadow) {
         hops.push(shadow.animate([{ transform: 'scale(1)', opacity: 1 },
           { transform: 'scale(' + (1 - 0.3 * k).toFixed(2) + ')', opacity: +(1 - 0.4 * k).toFixed(2) },

@@ -27,6 +27,7 @@ import { h, svg, clear, frTypo, fmtNum } from '../core/util.js';
 import { fracWords } from '../content/maths/ligne.js';
 import { createVoiceAnswer } from '../ui/voice-answer.js';
 import { dlog } from '../core/debuglog.js';
+import { inWater } from '../content/companion-data.js';
 import * as L from './cloture-logic.js';
 
 const PAD = 8;              /* marge intérieure totale d'une plaquette (px) */
@@ -645,9 +646,9 @@ function createCloture(root, ctx) {
     face(mpos.kind === 'bale' ? 1 : facing);
   }
   function face(dir) { facing = dir < 0 ? -1 : 1; mountFlip.classList.toggle('is-left', facing < 0); }
-  /* saut en arc : le conteneur glisse AU SOL (l'ombre du rig et la vague du dauphin y restent) ; le CORPS du rig
+  /* saut en arc : le conteneur glisse AU SOL (l'ombre du rig et la vague d'un animal qui nage y restent) ; le CORPS du rig
      (.c-all, en unités du viewBox, composition « add ») et la carotte tenue à la bouche montent par-dessus ;
-     l'ombre rétrécit quand il s'élève (sauf la flaque du dauphin, mount.css) */
+     l'ombre rétrécit quand il s'élève (sauf la surface de l'eau d'un animal qui nage : dauphin, baleine, inWater) */
   function arcLift(pts, from, to, dur, easing) {
     const body = svgRoot && svgRoot.querySelector('.c-all');
     const up = pts.map(q => q.y - (from.y + (to.y - from.y) * q.t));        /* px, ≤ 0 : hauteur au-dessus du sol */
@@ -658,7 +659,7 @@ function createCloture(root, ctx) {
     const add = a => { if (a) arcAnims.push(a); };
     if (body) add(anim(body, up.map(v => ({ transform: `translateY(${f2(v * u)}px)` })), { ...opts, composite: 'add' }));
     if (!mouth.classList.contains('hidden')) add(anim(mouth, up.map(v => ({ translate: `0px ${f2(v)}px` })), { ...opts, composite: 'add' }));
-    const sh = svgRoot && svgRoot.getAttribute('data-species') !== 'dolphin' ? svgRoot.querySelector('.c-shadow') : null;
+    const sh = svgRoot && !inWater(svgRoot.getAttribute('data-species')) ? svgRoot.querySelector('.c-shadow') : null;
     if (sh) add(anim(sh, up.map(v => { const k = v / top; return { transform: `scale(${f2(1 - 0.45 * k)})`, opacity: f2(1 - 0.5 * k) }; }), opts));
   }
   /* humeur ponctuelle du rig ; le style est recalculé AUSSITÔT après chaque changement de classe : sinon Chrome perd,

@@ -78,8 +78,10 @@
 .cc-land .l-water { fill: var(--cc-water); }
 .cc-land .l-water-hi { stroke: var(--cc-water-hi); }
 .cc-land .l-lake { display: none; }
-.cc-stage[data-species="dolphin"] .l-lake { display: inline; }
-.cc-stage[data-species="dolphin"] .l-puddle, .cc-stage[data-species="dolphin"] .l-clear { display: none; }
+/* un animal qui nage (dauphin, baleine : inWater de js/content/companion-data.js) vit dans le lac. Repère : la vague
+   .c-wave, que le rig (js/ui/mount-svg.js) ne dessine QUE pour eux (tests/companion-art.test.mjs le vérifie) */
+.cc-stage:has(.c-wave) .l-lake { display: inline; }
+.cc-stage:has(.c-wave) .l-puddle, .cc-stage:has(.c-wave) .l-clear { display: none; }
 
 /* lumière de l'évolution (stade atteint) */
 .cc-glow {
@@ -94,7 +96,7 @@
   position: absolute; left: 0; right: 0; bottom: 2px; z-index: 3;
   display: flex; justify-content: center; transform-origin: 50% 100%;
 }
-.cc-stage[data-species="dolphin"] .cc-walker { bottom: 9px; }
+.cc-stage:has(.c-wave) .cc-walker { bottom: 9px; }
 .cc-holder { line-height: 0; transform-origin: 50% 100%; }
 .cc-holder svg { overflow: visible; }
 
@@ -108,8 +110,8 @@
 .cc-flower.f1 { left: 6%; }
 .cc-flower.f2 { right: 7%; bottom: 9px; width: 20px; height: 30px; animation-duration: 6.3s; animation-delay: -2.2s; }
 .cc-flower.f3 { left: 15%; bottom: 0; width: 15px; height: 22px; animation-duration: 4.8s; animation-delay: -1.1s; }
-.cc-stage[data-species="dolphin"] .cc-flower { bottom: 30px; width: 15px; height: 22px; }
-.cc-stage[data-species="dolphin"] .cc-flower.f3 { display: none; }
+.cc-stage:has(.c-wave) .cc-flower { bottom: 30px; width: 15px; height: 22px; }
+.cc-stage:has(.c-wave) .cc-flower.f3 { display: none; }
 @keyframes cc-sway { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
 
 /* saison : feuilles (automne), flocons (hiver), pétales (printemps), lucioles (soirs d'été) */
@@ -258,7 +260,7 @@
   .cc-stage { height: 214px; }
   .cc-act-txt { font-size: .85rem; }
   .cc-act { min-height: 66px; }
-  .cc-stage[data-species="dolphin"] .cc-walker { bottom: 11px; }
+  .cc-stage:has(.c-wave) .cc-walker { bottom: 11px; }
 }
 
 /* ---------- hors de l'écran : tout est figé (batterie) ---------- */

@@ -44,11 +44,11 @@ function hero(g, type, extra = {}) {
 /* ---------- templating ---------- */
 /* v2 : accords du duo héros + monture et de la monture, ajoutés APRÈS les 17 jetons v11 */
 const V2_EXTRA = ['ils', 'Ils', 'eux', 'tousD', 'assisD', 'premiersD', 'herosD', 'pleinM', 'toutM', 'douxM'];
-test('templating : 2 genres de héros × 8 montures, aucune accolade restante', () => {
+test('templating : 2 genres de héros × 16 montures (v2.5), aucune accolade restante', () => {
   const used = new Set();
   for (const [, title, text] of V11_STORIES) for (const m of (title + text).matchAll(/\{(\w+)\}/g)) used.add(m[1]);
   assert.deepEqual([...used].sort(), [...TOKENS].sort(), 'la fixture couvre les 17 jetons');
-  assert.equal(Object.keys(MOUNTS).length, 8);
+  assert.equal(Object.keys(MOUNTS).length, 16, 'v2.5 : 8 compagnons v11 + ours, koala, chien, baleine, chouette, perroquet, pingouin, poussin');
   for (const g of ['f', 'm']) {
     for (const type of Object.keys(MOUNTS)) {
       const p = hero(g, type);
@@ -92,10 +92,11 @@ test('templating : accords féminins de la licorne', () => {
 });
 
 test('templating : accords masculins et genre du héros', () => {
-  for (const type of Object.keys(MOUNTS).filter(t => t !== 'unicorn')) {
+  /* v2.5 : la baleine et la chouette sont féminines comme la licorne ; l'ours s'élide (test suivant) */
+  assert.deepEqual(Object.keys(MOUNTS).filter(t => MOUNTS[t].g === 'f').sort(), ['owl', 'unicorn', 'whale']);
+  for (const type of Object.keys(MOUNTS).filter(t => MOUNTS[t].g === 'm' && t !== 'bear')) {
     const m = tplMap(hero('m', type));
     const noun = MOUNTS[type].noun;
-    assert.equal(MOUNTS[type].g, 'm');
     assert.deepEqual([m.leM, m.LeM, m.sonM, m.SonM, m.duM], ['le ' + noun, 'Le ' + noun, 'son ' + noun, 'Son ' + noun, 'du ' + noun]);
     assert.deepEqual([m.IlM, m.ilM, m.contentM, m.surprisM, m.legerM, m.rassureM, m.fascineM],
       ['Il', 'il', 'content', 'surpris', 'léger', 'rassuré', 'fasciné']);
@@ -106,6 +107,21 @@ test('templating : accords masculins et genre du héros', () => {
   const concours = V11_STORIES.find(s => s[0] === 'concours')[2];
   assert.ok(fillTemplate(concours, hero('m', 'pony')).includes('Zoé respire un grand coup, il a un peu peur.'));
   assert.ok(fillTemplate(concours, hero('f', 'pony')).includes('Elle serre son poney dans ses bras'));
+});
+
+test('templating v2.5 : élision devant une voyelle (l’ours), baleine et chouette au féminin', () => {
+  const bear = tplMap(hero('f', 'bear'));
+  assert.deepEqual([bear.leM, bear.LeM, bear.sonM, bear.SonM, bear.duM, bear.IlM, bear.contentM],
+    ['l’ours', 'L’ours', 'son ours', 'Son ours', 'de l’ours', 'Il', 'content']);
+  for (const [type, noun] of [['whale', 'baleine'], ['owl', 'chouette']]) {
+    const m = tplMap(hero('m', type));
+    assert.deepEqual([m.leM, m.LeM, m.sonM, m.SonM, m.duM, m.IlM, m.contentM],
+      ['la ' + noun, 'La ' + noun, 'sa ' + noun, 'Sa ' + noun, 'de la ' + noun, 'Elle', 'contente']);
+  }
+  const story = id => V11_STORIES.find(s => s[0] === id);
+  assert.equal(fillTemplate(story('pomme')[1], hero('f', 'bear')), 'Pistou l’ours');
+  assert.equal(fillTemplate(story('tresor')[1], hero('f', 'bear')), 'Le trésor de l’ours pirate');
+  for (const [, title, text] of V11_STORIES) assert.ok(!/\b(le|du|la|sa|Le|La|Sa) ours\b/.test(fillTemplate(title + ' ' + text, hero('f', 'bear'))), 'jamais « le ours »');
 });
 
 test('fillTemplate : jeton inconnu laissé tel quel, entrées farfelues', () => {

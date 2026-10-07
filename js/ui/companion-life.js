@@ -161,7 +161,14 @@ export const SPECIES_ACTS = Object.freeze({
   capy: ['yawn', 'bliss', 'mandarin'],
   dolphin: ['jump', 'bubbles'],
   lion: ['roar', 'maneShake'],
-  dragon: ['flap', 'smoke']
+  dragon: ['flap', 'smoke'],
+  /* v2.5 : provisoire (actions génériques), chaque agent remplace la ligne de ses espèces */
+  bear: ['sniff', 'stretch', 'butterfly', 'bliss'], koala: ['yawn', 'bliss', 'bliss', 'stretch'], dog: ['sniff', 'paw', 'wiggle', 'butterfly'],
+  whale: ['spout', 'spout', 'jump', 'bubbles'],          /* v2.5 — eau : elle souffle (plus souvent), saute, fait des bulles */
+  /* v2.5 — oiseaux (les ailes .c-wing battent avec flap ; whinny = il chante, notes de musique ; sniff = le poussin picore ;
+     maneShake = il s'ébroue ; le pingouin ne s'envole pas : pas de flap) */
+  owl: ['tilt', 'tilt', 'lookAround', 'flap', 'yawn'], parrot: ['whinny', 'whinny', 'maneShake', 'flap', 'tilt'],
+  penguin: ['wiggle', 'maneShake', 'lookAround', 'whinny'], chick: ['sniff', 'sniff', 'whinny', 'flap']
 });
 export const GENERIC_ACTS = Object.freeze(['tilt', 'lookAround', 'hop', 'wiggle', 'sigh', 'hungry', 'yawn', 'proudPose']);
 export const SLEEP_ACTS = Object.freeze(['sleepTwitch', 'sleepSigh']);
@@ -395,6 +402,16 @@ export const CRUMBS = Object.freeze({
   '🍊': ['#ffa53a', '#ffd38a', '#f08a1c'], '🥬': ['#8fd16a', '#d6f2b8', '#5fae45'], '🍉': ['#f2556a', '#ffd0d6', '#4fae5a'],
   '🍗': ['#d98a45', '#f5c993', '#a85f2a'], '🥩': ['#d65a5a', '#f6c0b0', '#a83a3a'], '🍔': ['#e8a54a', '#7a4a2a', '#6cbf5a'],
   '🌶\uFE0F': ['#e8402e', '#ff8a5c', '#5aa84a'], '🍿': ['#fffbe8', '#ffe28a', '#f2c94c'], '🍕': ['#f6c453', '#e8553e', '#fff0c8']
+  /* v2.5 — terre : miettes des nouveaux aliments ici (chaque entrée commence par sa virgule) */
+  , '🍒': ['#d8283c', '#ff8a96', '#6aa84f'], '🍯': ['#f6b42c', '#ffd977', '#e08e0b']
+  , '🌱': ['#7ccf5a', '#c8f0a8', '#4f9e3a'], '🍃': ['#6cc46a', '#b9eab0', '#3f9a4a'], '🌿': ['#7fb59a', '#cfe8d8', '#4f8f74']
+  , '🌭': ['#c8553a', '#f2c27a', '#e8a948'], '🦴': ['#fff6e6', '#e8dcc4', '#cbb898']
+  /* v2.5 — eau : miettes des nouveaux aliments ici */
+  , '🐠': ['#ffa53a', '#fff3e0', '#4fa8e8']
+  /* v2.5 — oiseaux : miettes des nouveaux aliments ici */
+  , '🐛': ['#9ad64f', '#e2f5a8', '#6aa83a'], '🦗': ['#8fbf4a', '#d4e89a', '#5e8a2c'], '🍢': ['#d9a066', '#f6d9a8', '#a86a3a']
+  , '🌻': ['#5a4030', '#f6f0dc', '#f6c344'], '🍌': ['#ffe066', '#fff6c2', '#e8c33a'], '🥭': ['#ffb02e', '#ffd36b', '#f2763a']
+  , '🌾': ['#e8c06a', '#f6dfa0', '#c99a3e'], '🌽': ['#ffd84a', '#fff0a0', '#7cc25a']
 });
 const DEFAULT_CRUMBS = ['#e8c18a', '#c9965a', '#fff0c8'];
 /* repli si les ancres du rig sont indisponibles */
@@ -1556,6 +1573,31 @@ class Life {
     envRemove(this);
   }
 }
+
+/* ===== v2.5 — EAU : action « souffle » de la baleine (SPECIES_ACTS.whale) — bloc à part, ajouté à la classe =====
+   Elle prend son souffle (yeux fermés, elle se gonfle un peu), puis souffle : le jet d'eau du rig jaillit plus haut
+   (classe spout sur la racine, css/ui/mount.css) et des gouttes retombent en gerbe autour de l'évent ; elle est ravie.
+   L'évent n'est pas une ancre du rig : il est déduit du sommet de la tête (ancre top), à l'échelle du stade. */
+Object.assign(Life.prototype, {
+  async _actSpout(tok) {
+    const t = this.A.top, e = this.A.eyes || ANCHORS0.eyes;
+    const k = e.length > 1 ? Math.max(0.6, Math.min(1.3, (e[e.length - 1][0] - e[0][0]) / 10.2)) : 1;
+    const hole = [t[0] - 12.6 * k, t[1] - 1.3 * k], jet = [hole[0], hole[1] - 18 * k];
+    this.setExpression('proud', 650);
+    this._g(this.P.all, 'scale', [1, [1.025, 1.04], [1.025, 1.04], 1], 900, { offsets: [0, 0.55, 0.7, 1] });
+    if (!await this._wait(600, tok)) return false;
+    this.setExpression('delighted', 1900);
+    this._pulse('spout', 2400);
+    this._g(this.P.all, 'translate', [[0, 0], [0, -1.6], [0, 0]], 700);
+    for (let i = 0; i < 8; i++) {
+      const side = i % 2 ? 1 : -1, dx = side * this._rand(5, 12) * k;
+      this._later(150 + i * 110, () => this._spawn(FX.drop(), jet[0] + this._rand(-1, 1), jet[1], [
+        { s: 0.5, o: 0 }, { s: 1, o: 1, dx: dx * 0.45, dy: -3 * k, offset: 0.3 }, { s: 0.85, o: 0, dx, dy: 16 * k }
+      ], { dur: 900, easing: 'cubic-bezier(.2,.6,.5,1)' }), tok);
+    }
+    return this._wait(2200, tok);
+  }
+});
 
 /* ================= API ================= */
 /* donne vie à un compagnon (svg.c-rig) ; un contrôleur déjà présent sur ce SVG est remplacé */
