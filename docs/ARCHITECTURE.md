@@ -591,6 +591,7 @@ Tout se fait sur l'appareil, dans un Web Worker (message `{ id, width, height, b
 ```js
 readAloud(profile) → boolean        // settings.readAloud : tout sauf 'off' (v2.2.2 : Oui par défaut, pour TOUS les enfants) ; anciens booléens acceptés
 voiceOn(profile) → boolean          // lecture AUTOMATIQUE : readAloud ET sons activés ET une voix possible (clips ou voix française du téléphone)
+bigNumbers(texte) → texte           // v2.4.1 (js/content/voice-lines.js) : « 1 000 » → « mille », tout entier ≥ 1 000 en lettres (toWords), avant la voix du téléphone (viaTts) et à la fin de fluidText — la voix du téléphone lisait « un… zéro zéro zéro »
 listenOn(profile) → boolean         // 🔁 montré : readAloud ET sons activés ET une voix possible (v2.4 ; v2.2.2-2.3 : 🔊, sons coupés compris)
 speakable(texte) → texte à dire     // « × » → « fois », « 20 🍎 » → « 20 pommes », « … » → pause, emojis muets (js/content/voice-lines.js)
 speak(texte, { force }) → Promise<boolean>   // aiguillage ci-dessous ; force = geste explicite (🔊, « Tester la voix ») : lit même

@@ -57,7 +57,7 @@ import * as clips from '../core/voice-clips.js';
 import * as fluid from '../core/voice-fluid.js';
 import { getProfile } from '../core/store.js';
 import { fillTemplate } from '../core/profiles.js';
-import { speakable, planSpeech, namedLines, commonIds, LINE_BY_ID, isNamed, endsSentence } from '../content/voice-lines.js';
+import { speakable, bigNumbers, planSpeech, namedLines, commonIds, LINE_BY_ID, isNamed, endsSentence } from '../content/voice-lines.js';
 import * as kit from './kit.js';
 
 export { speakable };
@@ -190,7 +190,7 @@ function viaTts(t) {
   clips.stop();
   stopFluid();
   let p;
-  try { p = tts.speakResult(t); } catch (_) { p = Promise.resolve({ ok: false, reason: 'error:speak', heard: false }); }
+  try { p = tts.speakResult(bigNumbers(t)); } catch (_) { p = Promise.resolve({ ok: false, reason: 'error:speak', heard: false }); }   /* « 1 000 » → « mille » */
   return Promise.resolve(p).then(r => { ttsDown = failed(r); if (r && r.ok) said.tts++; return r; });
 }
 /* clips (un seul, composés, ou phrases couvertes seules) */

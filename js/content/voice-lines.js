@@ -31,6 +31,7 @@
    l'inventaire n'a pas, la phrase part à la voix du téléphone, qui sait le lire. Un morceau à intonation de fin de
    phrase n'est joué qu'en fin de phrase. */
 
+import { toWords, MAX as NUM_MAX } from '../core/numbers-fr.js';
 import { FOODS } from './companion-data.js';        /* aliments du compagnon (module pur, comme celui-ci) */
 
 /* ---------- texte à dire (repris de js/ui/voice.js 2.2.1 ; v2.2.2 : emoji entre deux phrases → point) ---------- */
@@ -54,6 +55,22 @@ export function speakable(s) {
     .replace(/([.,!?])(?:\s*[.,])+/g, '$1').replace(/^[\s.,]+/, '').trim();
 }
 
+/* ---------- grands nombres pour les voix calculées (v2.4, retour du parent du 07/10/2026) ----------
+   « Lorsqu'il y a 1 000, il dit 1 zéro zéro zéro au lieu de mille. » Les nombres s'écrivent avec une espace fine entre
+   les tranches (« 1 000 », « 54 014 ») : la voix du téléphone et la voix fluide lisaient « un… zéro zéro zéro »,
+   « cinquante-quatre… zéro quatorze ». On recolle les tranches, puis tout entier à partir de 1 000 est écrit en lettres
+   (toWords de js/core/numbers-fr.js : « mille quatre cent soixante-quatorze », « deux cent cinquante mille », « un
+   million ») : chaque voix dit la même chose. Un nombre à virgule garde ses chiffres, recollés (« 1250,50 »). Les clips
+   n'en ont pas besoin : planSpeech recolle déjà les tranches et compose mille, centaines… (intClips). */
+export function bigNumbers(text) {
+  return String(text ?? '')
+    .replace(/(\d)[ \u00A0\u202F\u2009\u2007](?=\d{3}(?!\d))/g, '$1')
+    .replace(/(^|[^\d,.])(\d{4,})(?!\d|,\d)/g, (m, pre, d) => {
+      const n = Number(d);
+      return d.length > 1 && d[0] === '0' || !(n <= NUM_MAX) ? m : pre + toWords(n);
+    });
+}
+
 /* ---------- texte pour la voix fluide (Piper calculé sur l'appareil, js/core/voice-fluid.js) ----------
    texte affiché → ce que Piper lit : speakable(), puis les corrections de prononciation du prototype (PT-proto, phonèmes
    vérifiés) — sans elles, espeak dirait « plus » [ply], « un pomme », « trente-hui(t) plus », [siz eɡal] */
@@ -72,7 +89,7 @@ export function fluidText(text) {
   /* calcul : un nombre suivi d'un signe (sauf « fois ») est lu seul, sans enchaînement : « trente-huit | plusse »
      garde son t, « six | égale » se dit [sis] ; « huit fois » reste [ɥi fwa] (« | » : js/core/piper-engine.js) */
   t = t.replace(/(\d)\s+(?=(?:plusse|moins|égale|divisé)\b)/giu, '$1 | ');
-  return t;
+  return bigNumbers(t);                               /* « 1 000 » → « mille » (en dernier : les règles voient les chiffres) */
 }
 
 /* ---------- réglages de l'enchaînement (mesurés : tools/voix.mjs --mesure) ---------- */

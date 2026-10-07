@@ -434,6 +434,9 @@ docs/CDC-v2.md
 
 ## 18. Journal de livraison
 
+### v2.4.1 (07/10/2026) — les milliers dits en entier
+**Retour du parent** (tablette d'une de ses filles) : « Lorsqu'il y a 1 000, il dit 1 zéro zéro zéro au lieu de mille. » Les nombres s'écrivent avec une espace fine entre les tranches ; la voix du téléphone les coupait en deux (« un… zéro zéro zéro », « cinquante-quatre… zéro quatorze »). **Corrigé** : avant la voix du téléphone et la voix fluide, les tranches sont recollées et tout entier à partir de 1 000 est écrit en lettres (« mille quatre cent soixante-quatorze », « deux cent cinquante mille », « deux millions trois cent mille ») — `bigNumbers`, ARCHITECTURE §8.8 ; la voix enregistrée composait déjà « mille » et les centaines.
+
 ### v2.4 (07/10/2026) — un temps de jeu raisonnable, des soins qui ont du sens, au rythme de la classe
 **Retours du parent et d'autres familles** (07/10/2026) : un enfant a joué 3 heures d'affilée ; on pouvait nourrir le compagnon à l'infini ; tous les animaux mangeaient la même chose ; en octobre, le programme de toute l'année tombait déjà ; pas de moyen rapide de couper le son ; sur un grand écran d'ordinateur, la scène et « Jouer » étaient décalés.
 **Livré** :
