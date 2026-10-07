@@ -7,3 +7,10 @@ tests/.cache/
 *.code-workspace
 # Photos réelles de fiches Repères (calibrage de la détection du radar) : jamais dans le repo
 docs/photos/
+# Application Android (TWA) : clé de signature et projet généré par Bubblewrap — JAMAIS dans le dépôt public
+*.keystore
+*.jks
+*.apk
+*.aab
+*.idsig
+store/android/

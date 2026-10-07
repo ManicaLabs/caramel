@@ -61,7 +61,9 @@
      la phrase jusqu'au prochain silence : une réponse dite sans pause après la précédente était perdue) ;
    - prefetch() : tout télécharger et extraire à la première ouverture (demande du parent du 06/10/2026), sans garder Vosk
      en mémoire ; modelReady() ;
-   - journal de diagnostic (js/core/debuglog.js, si un parent l'a activé) : chargement, écoute, santé, textes entendus. */
+   - journal de diagnostic (js/core/debuglog.js, si un parent l'a activé) : chargement, écoute, santé, textes entendus.
+   v2.3 : dans l'appli Android (Google Play, ?app=android), jamais de secours Web Speech (la voix partirait chez Google) :
+   Vosk qui ne démarre pas → onError('unsupported', NO_GOOGLE_MSG). */
 
 import { dlog } from './debuglog.js';
 
@@ -117,6 +119,10 @@ function freshHealth(){
   return { audioAt: Date.now(), chunks: 0, sentChunks: 0, level: 0, floor: 0.01, voicedAt: 0, zeroSince: 0, dropped: 0, held: null,
     catchup: false, reopens: [], ticks: 0, lastPartial: '', maxLag: 0 };
 }
+
+/* v2.3 : appli Android (?app=android, noté par js/main.js) : pas de secours Google (décision du parent du 07/10/2026) */
+const googleOff = () => { try{ return sessionStorage.getItem('caramel-app') === 'android'; }catch(_){ return false; } };
+export const NO_GOOGLE_MSG = 'Le micro de Caramel n\u2019a pas pu démarrer sur ce téléphone 😕';
 
 /* message de showCompat() v11, sans HTML */
 export const COMPAT_MSG = 'Ce navigateur ne peut pas faire de reconnaissance vocale. Essaie avec Chrome à jour 😊';
@@ -735,6 +741,13 @@ async function begin(grammar, my){
       stopVoskEngine();
     }
     if(my !== session){ stopVoskEngine(); engine = null; return { engine: null }; }   /* arrêté pendant getUserMedia */
+  }
+  if(!engine && googleOff()){
+    /* AJOUT 2.3 : appli Android (Google Play) : jamais de secours Google, la voix de l'enfant ne quitte pas le téléphone */
+    running = false; publish('off');
+    dlog('micro', 'secours Google coupé (appli Android) : pas de reconnaissance');
+    fail('unsupported', NO_GOOGLE_MSG);
+    return { engine: null };
   }
   if(!engine){
     if(startWebSpeech()) engine = 'webspeech';

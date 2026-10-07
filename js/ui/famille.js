@@ -7,6 +7,8 @@
         de défi) — effort et engagement seulement, jamais le niveau ; « Bravo aussi à… », « Bravo à tous ! » ;
      « 🎪 Concours de compagnons » : aperçu des compagnons, champion de la semaine, bouton → spectacle.
    Un seul profil : invitation bienveillante à ajouter un frère, une sœur ou un copain.
+   « 👫 Avec un copain » (#/duel, js/ui/duel.js) : le même défi, mais chacun sur SON téléphone — bouton secondaire sous
+   « Lancer un défi » (et sous l'invitation quand il n'y a qu'un enfant).
    Spectacle (#/famille/concours) : rideaux, chaque compagnon défile sur la scène, trois juges lèvent leur note
    (comptes animés), puis podium 🥇🥈🥉 (le gagnant danse), un ruban pour chacun ; le gagnant de la semaine reçoit
    un trophée une seule fois par semaine (profile.trophies, economy.addTrophy). « Passer ⏭ » va droit au podium ;
@@ -181,6 +183,14 @@ function topbar(title, extra) {
     extra || h('span', { class: 'fm-top-gap', 'aria-hidden': 'true' }));
 }
 
+/* « 👫 Avec un copain » : le même défi, chacun sur son téléphone (js/ui/duel.js) */
+function duelButton() {
+  const b = h('button', { type: 'button', class: 'btn white block fm-duel' }, h('span', { 'aria-hidden': 'true' }, '👫'),
+    frTypo('Avec un copain, chacun son téléphone'));
+  b.addEventListener('click', () => { audio.tap(); router.go('duel'); });
+  return b;
+}
+
 /* ---------- écran principal ---------- */
 function mainScreen(root, my, list) {
   const today = dayStr();
@@ -193,6 +203,7 @@ function mainScreen(root, my, list) {
     putPet(pic, p, 120, '', { expr: 'happy', live: true });
     const add = h('button', { type: 'button', class: 'btn big block' }, '➕ Ajouter un enfant');
     add.addEventListener('click', () => { audio.tap(); router.go('onboarding'); });
+    const duo = duelButton();
     const card = h('section', { class: 'card hero fm-invite' },
       pic,
       h('h2', { class: 'fm-invite-title' }, frTypo('C’est encore plus drôle à plusieurs !')),
@@ -202,7 +213,7 @@ function mainScreen(root, my, list) {
         h('li', null, h('span', { 'aria-hidden': 'true' }, '⚔️'), ' Des défis où chacun a des questions à son niveau'),
         h('li', null, h('span', { 'aria-hidden': 'true' }, '🏆'), ' Des classements de la semaine… sur l’effort'),
         h('li', null, h('span', { 'aria-hidden': 'true' }, '🎪'), ' Un grand concours de compagnons')),
-      add);
+      add, duo);
     const screen = h('div', { class: 'screen fm' }, top, card);
     clear(root);
     root.appendChild(screen);
@@ -224,7 +235,7 @@ function mainScreen(root, my, list) {
   const hero = h('section', { class: 'card hero fm-hero', 'aria-labelledby': 'fm-hero-t' },
     h('h2', { class: 'fm-h2', id: 'fm-hero-t' }, h('span', { class: 'fm-h2-ico', 'aria-hidden': 'true' }, '⚔️'), 'Défi en famille'),
     h('p', { class: 'fm-sub' }, frTypo('Tables, calcul éclair, conjugaison… Chacun reçoit des questions à son niveau : tout le monde peut gagner !')),
-    heroPets, go);
+    heroPets, go, duelButton());
 
   /* ----- classements de la semaine ----- */
   const range = F.weekRange(today);

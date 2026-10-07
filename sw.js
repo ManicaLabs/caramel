@@ -9,7 +9,9 @@
      pas par « caramel- » : jamais touché. Ni le modèle ni le moteur ne sont dans le précache (seuls les petits modules
      js/core/piper-*.js et voice-fluid.js le sont, comme tout js/).
    - fetch : GET de même origine hors /models/ (le modèle a son propre cache) ; navigation vers l'appli →
-     index.html du cache, puis réseau ; autres ressources : cache d'abord, puis réseau ;
+     index.html du cache, puis réseau ; (v2.2.4) navigation vers les pages publiques pages/*.html (confidentialité,
+     aide, mentions légales, licences : précachées) → cache d'abord, puis réseau, pour les lire hors ligne ; autres
+     pages (bancs d'essai…) : réseau ; autres ressources : cache d'abord, puis réseau ;
      vosk.js (jsDelivr) gardé dans 'vosk-lib-v1' pour la lecture hors ligne ;
      clips de la voix (audio/voix/*.mp3?v=<empreinte>, ≈ 1,8 Mo, HORS précache) : cache dédié 'caramel-voix-v1',
      rempli à la première écoute (et en tâche de fond par la page, js/core/voice-clips.js) ; hors ligne, un clip
@@ -17,13 +19,16 @@
    - Rappels quotidiens (periodicsync 'caramel-daily', enregistré par js/core/notifs.js) et notificationclick. */
 
 /* ASSETS:START */
-const VERSION = '2.2.4';
+const VERSION = '2.3.0';
 const ASSETS = [
   'index.html',
   'manifest.webmanifest',
   'favicon-32.png',
   'icon-192.png',
   'icon-512.png',
+  'icon-maskable-192.png',
+  'icon-maskable-512.png',
+  'icon-monochrome-512.png',
   'icon.svg',
   'fonts/andika-400.woff2',
   'fonts/andika-700.woff2',
@@ -43,6 +48,7 @@ const ASSETS = [
   'css/ui/balade.css',
   'css/ui/battle.css',
   'css/ui/companion.css',
+  'css/ui/duel.css',
   'css/ui/famille.css',
   'css/ui/game.css',
   'css/ui/home.css',
@@ -75,6 +81,7 @@ const ASSETS = [
   'js/core/audio.js',
   'js/core/axes.js',
   'js/core/debuglog.js',
+  'js/core/duel.js',
   'js/core/economy.js',
   'js/core/family.js',
   'js/core/install.js',
@@ -122,6 +129,7 @@ const ASSETS = [
   'js/ui/companion-life.js',
   'js/ui/companion.js',
   'js/ui/diag.js',
+  'js/ui/duel.js',
   'js/ui/famille.js',
   'js/ui/game-ctx.js',
   'js/ui/game-header.js',
@@ -141,7 +149,8 @@ const ASSETS = [
   'js/ui/radar.js',
   'js/ui/theme-picker.js',
   'js/ui/voice-fluid.js',
-  'js/ui/voice.js'
+  'js/ui/voice.js',
+  'js/ui/wipe.js'
 ];
 /* ASSETS:END */
 
@@ -191,6 +200,12 @@ self.addEventListener('message', e => {
 function isShell(url) {
   const base = new URL(self.registration.scope).pathname;
   return url.pathname === base || url.pathname === base + 'index.html';
+}
+
+/* v2.2.4 : pages publiques de pages/ (précachées : lisibles hors ligne depuis l'espace parents) */
+function isInfoPage(url) {
+  const base = new URL(self.registration.scope).pathname;
+  return url.pathname.startsWith(base + 'pages/') && url.pathname.endsWith('.html');
 }
 
 async function shell(req) {
@@ -265,6 +280,7 @@ self.addEventListener('fetch', e => {
   if (url.pathname.includes('/audio/voix/')) { e.respondWith(voiceClip(e)); return; }
   if (req.mode === 'navigate') {
     if (isShell(url)) e.respondWith(shell(req));
+    else if (isInfoPage(url)) e.respondWith(fromCache(e));
     return;
   }
   e.respondWith(fromCache(e));

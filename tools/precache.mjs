@@ -1,7 +1,8 @@
 /* ============ PRÉCACHE DU SERVICE WORKER ============
    Réécrit, entre les marqueurs « ASSETS:START » et « ASSETS:END » de sw.js, la VERSION (= version de
    package.json) et la liste ASSETS : index.html, manifest.webmanifest, icônes, fonts/*.woff2,
-   css/**\/*.css, js/**\/*.js — jamais models/, tests/, docs/, tools/. Met aussi à jour
+   css/**\/*.css, js/**\/*.js, (v2.2.4) pages publiques pages/*.html|css|js (lisibles hors ligne) — jamais models/,
+   tests/, docs/, tools/, store/ (visuels et captures des stores). Met aussi à jour
    <meta name="caramel-version"> de index.html (version affichable par les écrans).
      node tools/precache.mjs           écrit (à lancer avant chaque push)
      node tools/precache.mjs --check   vérifie seulement : code de sortie 1 si sw.js n'est pas à jour
@@ -40,7 +41,8 @@ export function listAssets(root = ROOT) {
     ...top.filter(f => ICON.test(f)).sort(byPath),
     ...walk(join(root, 'fonts'), '.woff2', false).map(rel).sort(byPath),
     ...walk(join(root, 'css'), '.css', true).map(rel).sort(byPath),
-    ...walk(join(root, 'js'), '.js', true).map(rel).sort(byPath)
+    ...walk(join(root, 'js'), '.js', true).map(rel).sort(byPath),
+    ...['.html', '.css', '.js'].flatMap(ext => walk(join(root, 'pages'), ext, false)).map(rel).sort(byPath)
   ];
 }
 

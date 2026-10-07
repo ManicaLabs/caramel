@@ -1,0 +1,22 @@
+Reconnaissance vocale de Caramel — modèle Vosk « vosk-model-small-fr-0.22 » (depuis la v2.2.4)
+=============================================================================================
+
+Fichier
+  fr-small-0.22.tar.gz   42 232 277 octets, sha256 e6508735e23f7d9a9901d6c91fc08f17d0777cd958ef49457c03f87c1b99046f
+                         archive tar.gz du dossier vosk-model-small-fr-0.22 (un seul dossier en tête : vosk-browser
+                         l'extrait en retirant ce premier niveau), sans aucune modification des fichiers.
+
+Origine
+  https://alphacephei.com/vosk/models — vosk-model-small-fr-0.22.zip (Alpha Cephei Inc.), repaqueté en tar.gz pour
+  vosk-browser 0.0.8 (qui sait extraire les .tar.gz).
+
+Licence
+  Apache License 2.0 (texte complet : LICENSE-Apache-2.0.txt, dans ce dossier). Copyright Alpha Cephei Inc.
+  Caramel l'utilise sans modification ; crédits dans le README et l'espace parents › À propos.
+
+Remplace
+  vosk-model-small-fr-pguyot-0.3 (models/fr.tar.gz jusqu'à la v2.2.3), sous CC BY-NC-SA 4.0 : usage commercial
+  interdit et incompatible avec la publication sur les stores (décision du parent du 07/10/2026).
+
+Mesures (banc « enfant simulé », docs/ARCHITECTURE.md §8.1) : voix d'enfant simulée 13 réponses sur 14 aux tables
+(9 sur 14 avec l'ancien modèle) ; hésitations prises pour un nombre 12/192 (27/192) ; calcul 66 % plus long.

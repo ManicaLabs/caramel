@@ -18,7 +18,15 @@
    proprement (progrès gardés), ses points restent affichés, les autres continuent ; jamais de « dernier ».
    Reprise : l'état du défi est gardé pour l'onglet (sessionStorage 'caramel-battle') : après un rechargement ou un
    retour arrière, « Reprendre le défi » repart du tour suivant (les réponses déjà données sont enregistrées).
-   Tests automatisés : window.__caramelDebug (s'il existe) reçoit { item, game: 'battle', player }. */
+   Tests automatisés : window.__caramelDebug (s'il existe) reçoit { item, game: 'battle', player }.
+   MODE « AVEC UN COPAIN » (#/battle?duel=<code>&n=<jeton>, lancé par js/ui/duel.js) : le même moteur pour UN joueur, l'enfant
+   actif, sur son téléphone ; règle du code (js/core/duel.js : défi, nombre de manches, type de question de chaque
+   manche en « mélange ») ; pas d'écran de passage de main (la question suivante vient tout de suite) ; « Question i sur n »
+   en haut ; manche en mode 'duel' (historique). Fin : bilan en TRÈS GROS (le compagnon, les points, le défi et son
+   code) à montrer au copain pour comparer — sans le prénom de l'enfant (resultCard) ; récompenses de l'économie
+   existante (🍎 des bonnes réponses + 5 🍎 de participation, pas de trophée : l'appli ne sait pas qui a gagné) ;
+   la place d'un QR du résultat est prévue (plus tard). État gardé pour l'onglet (sessionStorage 'caramel-duel', même
+   code et même jeton) : un rechargement reprend la partie, ou remontre le bilan sans redonner les pommes. */
 
 import { h, clear, dayStr, frTypo, loadCSS, fmtNum, deNom, frList } from '../core/util.js';
 import * as store from '../core/store.js';
@@ -30,12 +38,15 @@ import { createManche } from '../core/manche.js';
 import { loadGenerator } from '../content/index.js';
 import { addApples, addTrophy } from '../core/economy.js';
 import * as F from '../core/family.js';
+import * as D from '../core/duel.js';
+import * as voice from './voice.js';
 import { petReady, putPet, petMood, podiumEl, themeIdOf, plural, lifeOf } from './famille.js';
 import * as TL from '../games/tables-logic.js';
 import * as PL from '../games/pommes-logic.js';
 import * as OL from '../games/orchestre-logic.js';
 
 const SS_KEY = 'caramel-battle';               /* défi en cours (cet onglet) */
+const DUEL_KEY = 'caramel-duel';               /* partie « Avec un copain » en cours ou finie (cet onglet) */
 const REDRAW = 2;                              /* questions de réserve par manche (question déjà vue par un autre) */
 const PREFS_KEY = 'caramel-battle-prefs';      /* derniers réglages (cet appareil) */
 const G = globalThis;
@@ -50,10 +61,12 @@ const ready = pl => (fem(pl) ? 'prête' : 'prêt');
 let st = null;
 
 export default {
-  async mount(root) {
-    await Promise.all([loadCSS('css/ui/famille.css'), loadCSS('css/ui/battle.css'), petReady()]);
+  async mount(root, params, query = {}) {
+    const duel = query && typeof query.duel === 'string' ? query.duel : null;
+    await Promise.all([loadCSS('css/ui/famille.css'), loadCSS('css/ui/battle.css'), duel !== null ? loadCSS('css/ui/duel.css') : null, petReady()]);
     if (!root.isConnected) return;
     teardown();
+    if (duel !== null) { mountDuel(root, duel, query.n); return; }
     const list = store.listProfiles();
     if (list.length < 2) { router.go('famille', { replace: true }); return; }
     const wrap = h('div', { class: 'bt' });
@@ -79,6 +92,7 @@ function teardown() {
   }
   try { document.documentElement.classList.remove('bt-swap'); } catch (_) {}
   try { if (G.__caramelDebug) { G.__caramelDebug.item = null; G.__caramelDebug.player = null; } } catch (_) {}
+  if (my.duel) { try { voice.hush(); } catch (_) {} }
 }
 function later(my, fn, ms) {
   const t = setTimeout(() => { my.timers.delete(t); if (st === my && !my.dead) fn(); }, ms);
@@ -251,33 +265,40 @@ function readSaved(list) {
   if (!s.players.some(p => !p.abandoned && p.answered < s.cfg.rounds)) return null;
   return s;
 }
-function saveState(my) {
+function saveState(my, done = false) {
   if (!my.cfg) return;
-  writeJSON('sessionStorage', SS_KEY, {
-    v: 1, d: my.today, cfg: my.cfg, turn: my.turn,
-    players: my.players.map(p => ({ id: p.id, points: p.points, streak: p.streak, answered: p.answered, correct: p.correct, abandoned: p.abandoned }))
+  writeJSON('sessionStorage', my.duel ? DUEL_KEY : SS_KEY, {
+    v: 1, d: my.today, cfg: my.cfg, turn: my.turn, ...(my.duel ? { duel: my.duel.code, n: my.duel.n, done } : {}),
+    players: my.players.map(p => ({ id: p.id, points: p.points, streak: p.streak, answered: p.answered, correct: p.correct, abandoned: p.abandoned,
+      ...(done ? { gained: p.gained } : {}) }))
   });
 }
+/* type de question de la manche `round` pour un joueur : règle du code (« Avec un copain ») ou du Défi en famille */
+const axisAt = (my, round, classe) => (my.rule ? D.duelAxis(my.rule, round, classe) : F.battleAxis(my.cfg.type, round, classe));
 
 /* ============ 2. DÉROULÉ ============ */
 async function startBattle(my, cfg, resume = null) {
   if (my.busy) return;
   my.busy = true;
   const today = dayStr();
+  const solo = !!cfg.duel;                       /* « Avec un copain » : un seul joueur sur cet appareil */
   const profiles = cfg.ids.map(id => store.getProfile(id)).filter(Boolean);
-  if (profiles.length < F.BATTLE.MIN) { my.busy = false; setupScreen(my); return; }
-  writeJSON('localStorage', PREFS_KEY, { ids: profiles.map(p => p.id), type: cfg.type, rounds: cfg.rounds });
+  if (profiles.length < (solo ? 1 : F.BATTLE.MIN)) { my.busy = false; if (solo) router.go('duel', { replace: true }); else setupScreen(my); return; }
+  if (!solo) writeJSON('localStorage', PREFS_KEY, { ids: profiles.map(p => p.id), type: cfg.type, rounds: cfg.rounds });
+  my.rule = solo ? D.duelRule(cfg.duel, today) : null;
   /* générateurs des axes du défi (chargement paresseux, une seule fois) */
-  const waitBox = h('div', { class: 'bt-wait', role: 'status' }, h('span', { class: 'bt-wait-ico', 'aria-hidden': 'true' }, '⚔️'), frTypo('On prépare le défi…'));
+  const axes = solo ? [...new Set(profiles.flatMap(p => D.duelAxes(my.rule, p.classe)))] : F.battleAxes(cfg.type, cfg.rounds, profiles.map(p => p.classe));
+  const waitBox = h('div', { class: 'bt-wait', role: 'status' }, h('span', { class: 'bt-wait-ico', 'aria-hidden': 'true' }, solo ? '👫' : '⚔️'),
+    frTypo(solo ? 'On prépare la partie…' : 'On prépare le défi…'));
   const showWait = later(my, () => { clear(my.wrap); my.wrap.appendChild(h('div', { class: 'screen bt-setup' }, waitBox)); }, 180);
   try {
-    await Promise.all(F.battleAxes(cfg.type, cfg.rounds, profiles.map(p => p.classe)).map(ax => loadGenerator(ax)));
+    await Promise.all(axes.map(ax => loadGenerator(ax)));
   } catch (e) {
     try { console.error('défi : générateurs', e); } catch (_) {}
     my.busy = false;
     if (st !== my) return;
     kit.toast(frTypo('Oups, le défi n’a pas pu se préparer. Vérifie la connexion, puis réessaie.'), 3600);
-    setupScreen(my, { cfg });
+    if (solo) router.back(); else setupScreen(my, { cfg });
     return;
   }
   clearTimeout(showWait);
@@ -285,7 +306,7 @@ async function startBattle(my, cfg, resume = null) {
   if (st !== my || my.dead) return;
   my.busy = false;
   for (const pl of my.players) { try { if (pl.manche && !pl.manche.closed) pl.manche.abort(); } catch (_) {} }
-  my.cfg = { ids: profiles.map(p => p.id), type: cfg.type, rounds: cfg.rounds };
+  my.cfg = { ids: profiles.map(p => p.id), type: cfg.type, rounds: cfg.rounds, ...(solo ? { duel: cfg.duel } : {}) };
   my.today = today;
   my.rewarded = false;
   my.players = profiles.map(p => {
@@ -301,8 +322,8 @@ async function startBattle(my, cfg, resume = null) {
       try {
         /* graine propre à chaque joueur (deux enfants du même niveau n'ont pas la même suite de questions) ;
            count + marge : une question déjà vue par un autre joueur peut être retirée (cf. showQuestion) */
-        pl.manche = createManche({ gameId: 'battle', axis: F.battleAxis(cfg.type, pl.answered + 1, p.classe), count: left + REDRAW,
-          mode: 'battle', profileId: p.id, today, seed: Date.now() + '|' + p.id + '|' + Math.random() });
+        pl.manche = createManche({ gameId: 'battle', axis: axisAt(my, pl.answered + 1, p.classe), count: left + REDRAW,
+          mode: solo ? 'duel' : 'battle', profileId: p.id, today, seed: Date.now() + '|' + p.id + '|' + Math.random() });
       } catch (e) { try { console.error('défi : manche', e); } catch (_) {} pl.abandoned = true; }
     }
     return pl;
@@ -327,7 +348,7 @@ function buildPlay(my) {
     const pts = h('b', { class: 'bt-lane-pts' }, fmtNum(pl.points));
     const fire = h('span', { class: 'bt-lane-fire', 'aria-hidden': 'true' });
     const lane = h('li', { class: 'bt-lane', 'data-theme': pl.theme, 'data-id': pl.id },
-      h('span', { class: 'bt-lane-name' }, pl.name),
+      h('span', { class: 'bt-lane-name' }, my.duel ? D.resultCard(store.getProfile(pl.id)).pet.name : pl.name),
       h('span', { class: 'bt-track', 'aria-hidden': 'true' }, runner),
       h('span', { class: 'bt-lane-score' }, pts, fire));
     pl.ui = { lane, runner, pic, pts, fire };
@@ -382,7 +403,15 @@ function nextTurn(my) {
   if (!nx) { results(my); return; }
   my.turn = nx.t;
   saveState(my);
-  swap(my, () => showIntro(my, nx.pl, nx.round));
+  swap(my, () => (my.duel ? soloTurn(my, nx.pl, nx.round) : showIntro(my, nx.pl, nx.round)));
+}
+/* « Avec un copain » : un seul joueur, pas de passage de main — la question vient tout de suite */
+function soloTurn(my, pl, round) {
+  my.phase = 'intro';
+  dropKeypad(my);
+  my.wrap.setAttribute('data-theme', pl.theme);
+  my.roundEl.textContent = 'Question ' + round + ' sur ' + my.cfg.rounds;
+  showQuestion(my, pl, round);
 }
 
 /* ----- passage de main : « À toi, Léa ! » ----- */
@@ -394,7 +423,7 @@ function showIntro(my, pl, round) {
   for (const p of my.players) p.ui.lane.classList.toggle('is-turn', p === pl);
   const p = store.getProfile(pl.id);
   const ch = F.CHALLENGE_BY_ID[my.cfg.type];
-  const axis = F.battleAxis(my.cfg.type, round, pl.classe);
+  const axis = axisAt(my, round, pl.classe);
   /* nom et icône du type de défi, tels que le choix des réglages les montre (js/core/family.js CHALLENGES) */
   const chIco = id => (F.CHALLENGE_BY_ID[id] && F.CHALLENGE_BY_ID[id].icon) || '';
   const what = { 'ma.faits': 'Tables ' + chIco('tables'), 'ma.procedures': 'Calcul éclair ' + chIco('calcul'), 'fr.conjug': 'Conjugaison ' + chIco('conjug') }[axis] || ch.title;
@@ -426,7 +455,7 @@ function showIntro(my, pl, round) {
 function showQuestion(my, pl, round) {
   if (my.phase !== 'intro') return;
   my.phase = 'question';
-  const axis = F.battleAxis(my.cfg.type, round, pl.classe);
+  const axis = axisAt(my, round, pl.classe);
   let item = null;
   try {
     /* jamais la question qu'un autre joueur vient de voir (il connaîtrait la réponse) */
@@ -443,8 +472,8 @@ function showQuestion(my, pl, round) {
   try { if (G.__caramelDebug) { G.__caramelDebug.item = item; G.__caramelDebug.game = 'battle'; G.__caramelDebug.player = pl.id; } } catch (_) {}
   my.item = item;
   my.locked = false;
-  const whoPts = h('span', null, frTypo(' · ' + plural(pl.points, 'point', 'points')));
-  const who = h('div', { class: 'bt-who' }, h('b', null, pl.name), whoPts);
+  const whoPts = my.duel ? null : h('span', null, frTypo(' · ' + plural(pl.points, 'point', 'points')));
+  const who = my.duel ? null : h('div', { class: 'bt-who' }, h('b', null, pl.name), whoPts);
   my.whoPts = whoPts;
   const card = h('div', { class: 'bt-qcard' });
   const zone = h('div', { class: 'bt-answer' });
@@ -606,7 +635,7 @@ function answer(my, pl, item, { correct, rightText, card, zone, after }) {
   const fbBox = h('div', { class: 'bt-fb' + (correct ? ' is-right' : ' is-learn'), role: 'status', 'aria-live': 'polite' });
   const nx = peekTurn(my, my.turn);
   const next = h('button', { type: 'button', class: 'btn big block bt-next' },
-    nx ? frTypo((nx.pl === pl ? 'Question suivante' : 'Au tour ' + deNom(nx.pl.name)) + ' ➜') : frTypo('Voir les résultats 🏆'));
+    nx ? frTypo((nx.pl === pl ? 'Question suivante' : 'Au tour ' + deNom(nx.pl.name)) + ' ➜') : frTypo(my.duel ? 'Voir mes points 🏆' : 'Voir les résultats 🏆'));
   next.addEventListener('click', () => { audio.tap(); nextTurn(my); });
   const prof = store.getProfile(pl.id);
   const pet = h('span', { class: 'bt-fb-pet', 'aria-hidden': 'true' });
@@ -682,10 +711,11 @@ async function askAbandon(my, pl) {
 }
 /* ----- arrêter le défi (tout le monde) ----- */
 async function askQuit(my) {
-  const ok = await confirmIn(my.wrap.getAttribute('data-theme'), frTypo('Arrêter le défi ? Les progrès de chacun sont gardés.'),
-    { ok: 'Arrêter', cancel: 'Continuer', icon: '⚔️' });
+  const ok = await confirmIn(my.wrap.getAttribute('data-theme'),
+    frTypo(my.duel ? 'Arrêter la partie ? Tes progrès sont gardés.' : 'Arrêter le défi ? Les progrès de chacun sont gardés.'),
+    { ok: 'Arrêter', cancel: 'Continuer', icon: my.duel ? '👫' : '⚔️' });
   if (!ok || st !== my) return;
-  removeKey('sessionStorage', SS_KEY);
+  removeKey('sessionStorage', my.duel ? DUEL_KEY : SS_KEY);
   for (const pl of my.players) { try { if (pl.manche && !pl.manche.closed) pl.summary = pl.manche.abort(); } catch (_) {} }
   router.back();
 }
@@ -701,6 +731,7 @@ function results(my) {
       try { pl.summary = pl.abandoned ? pl.manche.abort() : pl.manche.finish(); } catch (_) {}
     }
   }
+  if (my.duel) { duelResults(my); return; }
   const ranking = F.battleRanking(my.players);
   const rewards = F.battleRewards(my.players, ranking);
   if (!my.rewarded) {
@@ -801,4 +832,97 @@ function showResults(my, ranking) {
     };
     if (pics.length) dance(0);
   }, pod ? 700 : 300);
+}
+
+/* ============ 4. « AVEC UN COPAIN » (#/battle?duel=<code>&n=<jeton>) ============ */
+/* partie de ce code et de ce jeton gardée pour l'onglet (même jour, même enfant) → état, sinon null */
+function readDuel(id, code, n) {
+  const s = readJSON('sessionStorage', DUEL_KEY);
+  if (!s || s.v !== 1 || s.d !== dayStr() || s.duel !== code || String(s.n || '') !== n || !s.cfg || s.cfg.duel !== code) return null;
+  if (!Array.isArray(s.players) || s.players.length !== 1 || !s.players[0] || s.players[0].id !== id) return null;
+  return s;
+}
+function mountDuel(root, code, nonce) {
+  const me = store.getProfile();
+  const d = D.decodeCode(code);
+  if (!me || !me.classe || !d.ok) { router.go(me && me.classe ? 'duel' : 'home', { replace: true }); return; }
+  const wrap = h('div', { class: 'bt du is-duel' });
+  clear(root);
+  root.appendChild(wrap);
+  const n = String(nonce || '');
+  const my = st = { root, wrap, timers: new Set(), players: [], cfg: null, phase: 'setup', dead: false, kp: null, duel: { code: d.code, n } };
+  const saved = readDuel(me.id, d.code, n);
+  if (saved && saved.done) {                    /* rechargement après la fin : le bilan, sans redonner les pommes */
+    const s0 = saved.players[0];
+    my.cfg = saved.cfg;
+    my.today = saved.d;
+    my.rewarded = true;
+    my.players = [{ id: me.id, name: me.name, g: me.g, theme: themeIdOf(me), classe: me.classe, points: Math.max(0, Math.round(Number(s0.points) || 0)),
+      answered: Math.max(0, s0.answered | 0), correct: Math.max(0, s0.correct | 0), gained: Math.max(0, s0.gained | 0), abandoned: false, manche: null }];
+    showDuelResults(my, { replay: true });
+    return;
+  }
+  startBattle(my, { ids: [me.id], type: d.type, rounds: d.rounds, duel: d.code }, saved);
+}
+function duelResults(my) {
+  const pl = my.players[0];
+  if (pl && !my.rewarded) {
+    my.rewarded = true;
+    const rw = D.duelRewards(pl);              /* participation ; jamais de trophée (l'appli ne sait pas qui a gagné) */
+    if (rw.apples) store.mutateProfile(q => { addApples(q, rw.apples, my.today); }, pl.id);
+    const s = pl.summary || {};
+    pl.gained = Math.max(0, (s.apples | 0) + (s.streakBonus | 0)) + rw.apples;
+  }
+  saveState(my, true);
+  swap(my, () => showDuelResults(my));
+}
+/* le bilan à MONTRER : le compagnon et les points en très gros, le défi et son code (les deux écrans doivent avoir le
+   même) ; jamais le prénom (resultCard) ; une place est gardée pour le QR du résultat (plus tard) */
+function showDuelResults(my, { replay = false } = {}) {
+  my.phase = 'results';
+  dropKeypad(my);
+  my.wrap.removeAttribute('data-theme');
+  const pl = my.players[0];
+  const p = pl && store.getProfile(pl.id);
+  if (!pl || !p) { router.back(); return; }
+  const card = D.resultCard(p, { code: my.duel.code, points: pl.points, answered: pl.answered, correct: pl.correct, apples: pl.gained });
+  const d = D.decodeCode(card.code);
+  const ch = F.CHALLENGE_BY_ID[card.type];
+  const pic = h('span', { class: 'du-res-pic', 'aria-hidden': 'true' });
+  putPet(pic, p, 168, '', { expr: 'proud' });
+  const stage = h('div', { class: 'du-res-stage' }, pic, h('span', { class: 'du-res-name' }, card.pet.name));
+  const pts = h('b', { class: 'du-res-pts' }, replay ? fmtNum(card.points) : '0');
+  const score = h('p', { class: 'du-res-score' }, h('span', { class: 'sr-only' }, card.pet.name + ' : '), pts, h('span', { class: 'du-res-unit' }, card.points >= 2 ? 'points' : 'point'));
+  const meta = h('p', { class: 'du-res-meta' },
+    ch ? h('span', { class: 'du-chip' }, frTypo(ch.icon + ' ' + ch.title + ' · ' + card.rounds + ' questions')) : null,
+    h('span', { class: 'du-res-code' }, h('span', { class: 'du-res-code-l' }, 'code'), ' ', d.ok ? D.codeDigits(d.code).join('\u2009') : ''));
+  const extra = h('p', { class: 'du-res-extra' },
+    frTypo('✅ ' + plural(card.correct, 'bonne réponse', 'bonnes réponses')), card.apples ? h('span', { class: 'du-res-apples' }, '🍎\u00a0+' + card.apples) : null);
+  const showText = 'Montre ton écran à ton copain : qui a le plus de points ?';
+  const show = h('p', { class: 'du-res-show' }, h('span', { 'aria-hidden': 'true' }, '👫 '), frTypo(showText));
+  /* QR du résultat (palier suivant) : il viendra ici, fabriqué depuis `card` (resultCard, sans prénom) */
+  const share = h('div', { class: 'du-res-share', hidden: true, 'data-card': JSON.stringify(card) });
+  const again = h('button', { type: 'button', class: 'btn big block du-again' }, frTypo('Encore une partie 👫'));
+  again.addEventListener('click', () => { audio.tap(); removeKey('sessionStorage', DUEL_KEY); router.go('duel', { replace: true }); });
+  const done = h('button', { type: 'button', class: 'btn white block' }, 'Terminé ✓');
+  done.addEventListener('click', () => { audio.tap(); removeKey('sessionStorage', DUEL_KEY); router.back(); });
+  const top = topbar(h('h1', { class: 'topbar-title' }, frTypo('Bravo ! 🎉')), () => { removeKey('sessionStorage', DUEL_KEY); router.back(); });
+  const screen = h('div', { class: 'screen du-results' }, top,
+    h('div', { class: 'du-res' }, stage, score, meta, extra, show, share),
+    h('div', { class: 'du-res-btns' }, again, done));
+  clear(my.wrap);
+  my.wrap.appendChild(screen);
+  my.live = null;
+  if (replay) return;
+  motion.stagger([stage, score, meta, extra, show], el => motion.enter(el, { from: 'bottom', dist: 18, dur: 420 }), 90);
+  later(my, () => {
+    motion.countUp(pts, 0, card.points, 1100, v => fmtNum(Math.round(v)));
+    audio.fanfare();
+    if (card.points > 0) motion.confetti();
+    petMood(pic, 'dance');
+    const lf = lifeOf(pic);
+    if (lf && lf.react) { try { lf.react('celebrate'); } catch (_) {} }
+    voice.speak(frTypo('Bravo ! Tu as ' + plural(card.points, 'point', 'points') + '. Montre ton écran à ton copain !'));
+  }, 420);
+  later(my, () => petMood(pic, 'joy'), 4200);
 }

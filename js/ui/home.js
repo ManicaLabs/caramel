@@ -8,7 +8,8 @@
        🍎 et 🔥, bulle de pensée 🍎 quand il a faim ; sous la scène : 4 soins en icônes (jauges en anneau, ✓ quand c'est
        déjà fait, 🛍️ dorée quand un objet nouveau est à portée de pommes) ;
      - sous le bouton : les pierres de la balade (icônes des jeux ; toucher = la carte du pré #/balade), puis
-       🎲 « Jeux » (feuille de tuiles, sans description) et 📈 « Mes progrès » — ce dernier seulement quand le radar a
+       🎲 « Jeux » (feuille de tuiles, sans description ; en bas, « 👫 Avec un copain » : le même défi sur deux
+       téléphones, js/ui/duel.js) et 📈 « Mes progrès » — ce dernier seulement quand le radar a
        quelque chose à montrer (une partie jouée ou une fiche importée) : divulgation progressive.
    Balade finie : le bouton devient « 🎲 Encore un jeu ? » (couleur secondaire).
    Déplacés dans l'espace parents (js/ui/parents.js) : rappels quotidiens, crédits et liens, version, moteur vocal.
@@ -271,10 +272,12 @@ const HOME = {
       const s = launchStep(cur, { from: '#/home' });
       if (s) my.sheet = s;
     }
-    /* partie libre (hors balade) */
+    /* partie libre (hors balade) ; en bas de la feuille, « 👫 Avec un copain » (chacun sur son téléphone, js/ui/duel.js) */
     function openGames(title) {
       if (sheetOpen()) return;
-      const s = openGamePicker({ title, onPick: id => { ssSet(FROM_KEY, '#/home'); router.go('play/' + id); } });
+      const duel = { id: 'duel', icon: '👫', title: 'Avec un copain', label: 'Avec un copain : le même défi, chacun sur son téléphone',
+        onPick: () => router.go('duel') };
+      const s = openGamePicker({ title, onPick: id => { ssSet(FROM_KEY, '#/home'); router.go('play/' + id); }, extras: [duel] });
       if (s) my.sheet = s;
     }
 

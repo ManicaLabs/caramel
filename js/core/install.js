@@ -32,7 +32,10 @@ const defaultEnv = () => {
   const n = G.navigator || {};
   let mm = null;
   try { if (typeof G.matchMedia === 'function') mm = q => G.matchMedia(q).matches; } catch (_) { mm = null; }
-  return { ua: n.userAgent || '', platform: n.platform || '', maxTouchPoints: n.maxTouchPoints || 0, navStandalone: n.standalone === true, matchMedia: mm };
+  /* v2.3 : l'appli Android (TWA, démarrée sur ?app=android : js/main.js le note pour la session) est installée par définition */
+  let twa = false;
+  try { twa = G.sessionStorage && G.sessionStorage.getItem('caramel-app') === 'android'; } catch (_) { twa = false; }
+  return { ua: n.userAgent || '', platform: n.platform || '', maxTouchPoints: n.maxTouchPoints || 0, navStandalone: n.standalone === true || twa, matchMedia: mm };
 };
 
 /* ---------- agent utilisateur ---------- */

@@ -10,7 +10,7 @@ import { test, assert } from './_t.mjs';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const KEYS = ['window', 'navigator', 'document', 'AudioContext', 'webkitAudioContext', 'Vosk', 'fetch', 'caches',
-  'SpeechRecognition', 'webkitSpeechRecognition'];
+  'SpeechRecognition', 'webkitSpeechRecognition', 'sessionStorage'];
 
 /* ---------- faux navigateur ---------- */
 const F = { recs: [], ctxs: [], srs: [], gum: 0, scriptFails: false, model: null };
@@ -68,6 +68,8 @@ function install() {
   set('fetch', async () => ({ ok: true, headers: { get: () => null }, body: null, blob: async () => new Blob(['modele']) }));
   set('caches', undefined);
   set('SpeechRecognition', FakeSR);
+  const ss = new Map(F.session || []);
+  set('sessionStorage', { getItem: k => (ss.has(k) ? ss.get(k) : null), setItem: (k, v) => ss.set(k, String(v)), removeItem: k => ss.delete(k) });
   F.recs = []; F.ctxs = []; F.srs = []; F.gum = 0;
   if (F.model) { F.model.sent = []; }
   return () => {
@@ -289,3 +291,17 @@ test('Web Speech (secours) : oubli des résultats reçus, même finals ; relance
     assert.ok(texts.length > 0);
   } finally { F.scriptFails = false; }
 }));
+
+test('appli Android (?app=android) : Vosk indisponible → jamais de secours Google, une erreur claire', async () => {
+  F.session = [['caramel-app', 'android']];
+  F.scriptFails = true;
+  try {
+    await withSpeech('android', async ({ S, errors, start }) => {
+      const r = await start();
+      assert.equal(r.engine, null, 'pas de Web Speech');
+      assert.equal(F.srs.length, 0, 'la reconnaissance de Google n’est jamais créée');
+      assert.deepEqual(errors, ['unsupported']);
+      assert.equal(S.isListening(), false);
+    });
+  } finally { F.scriptFails = false; F.session = null; }
+});

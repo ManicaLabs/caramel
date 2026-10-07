@@ -54,8 +54,10 @@ export function currentStep(profile, today = dayStr()) {
 
 /* feuille « Choisis ton jeu » : tuiles (icône + nom court), aucune description ; exclude = jeu(x) à éviter
    (jamais deux fois le même jeu de suite ; jeu remplacé faute de micro) ; onPick(id) appelé une fois la feuille
-   refermée ; onCancel(raison) si l'enfant la referme sans choisir (croix, fond, glissé, Échap) → api de la feuille */
-export function openGamePicker({ title = 'Choisis ton jeu', exclude = null, onPick, onCancel } = {}) {
+   refermée ; onCancel(raison) si l'enfant la referme sans choisir (croix, fond, glissé, Échap) → api de la feuille ;
+   extras = tuiles en plus, sur toute la largeur après les jeux : [{ id, icon, title, label?, onPick() }] (accueil :
+   « 👫 Avec un copain », js/ui/duel.js) */
+export function openGamePicker({ title = 'Choisis ton jeu', exclude = null, onPick, onCancel, extras = null } = {}) {
   const q = store.getProfile();
   if (!q) return null;
   const skip = new Set([].concat(exclude || []).filter(Boolean));
@@ -70,6 +72,18 @@ export function openGamePicker({ title = 'Choisis ton jeu', exclude = null, onPi
     t.addEventListener('click', () => {
       audio.tap();
       const go = () => { if (typeof onPick === 'function') onPick(g.id); };
+      if (s) s.close('action').then(go); else go();
+    });
+    grid.appendChild(t);
+  }
+  for (const x of Array.isArray(extras) ? extras : []) {
+    if (!x || typeof x.onPick !== 'function') continue;
+    const t = h('button', { type: 'button', class: 'bl-pick-tile is-wide', 'data-id': x.id || null, 'aria-label': frTypo(x.label || x.title) },
+      h('span', { class: 'bl-pick-ico', 'aria-hidden': 'true' }, x.icon),
+      h('span', { class: 'bl-pick-t', 'aria-hidden': 'true' }, frTypo(x.title)));
+    t.addEventListener('click', () => {
+      audio.tap();
+      const go = () => { try { x.onPick(); } catch (e) { console.error(e); } };
       if (s) s.close('action').then(go); else go();
     });
     grid.appendChild(t);

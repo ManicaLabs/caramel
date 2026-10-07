@@ -246,8 +246,12 @@ export const CHALLENGE_BY_ID = Object.freeze(Object.fromEntries(CHALLENGES.map(c
 export function battleAxis(challengeId, round, classe) {
   const ch = CHALLENGE_BY_ID[challengeId] || CHALLENGES[0];
   const r = Math.max(1, int(round, 1));
-  const ax = ch.axes[(r - 1) % ch.axes.length];
-  return ax === 'fr.conjug' && gradeIndex(classe) < 1 ? 'ma.faits' : ax;
+  return axisForClasse(ch.axes[(r - 1) % ch.axes.length], classe);
+}
+/* type de question tel que cet enfant peut le recevoir : avant le CE1, la conjugaison devient des tables
+   (aussi pour « Avec un copain », js/core/duel.js) */
+export function axisForClasse(axis, classe) {
+  return axis === 'fr.conjug' && gradeIndex(classe) < 1 ? 'ma.faits' : axis;
 }
 /* axes à charger (loadGenerator) pour un défi et des classes */
 export function battleAxes(challengeId, rounds, classes) {

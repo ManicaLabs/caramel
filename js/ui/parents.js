@@ -57,10 +57,20 @@ import * as voice from './voice.js';
 import { parentsRow as installRow } from './install.js';
 import { parentsRow as fluidRow } from './voice-fluid.js';
 import { diagCard } from './diag.js';
+import * as wipe from './wipe.js';
 
 /* crédits et retours (v11.1, déplacés de l'accueil de l'enfant : un adulte seulement sort vers LinkedIn) */
 const LINKEDIN_PROFILE = 'https://www.linkedin.com/in/cedric-delalande-57bb7860/';
 const FEEDBACK_URL = 'https://www.linkedin.com/posts/cedric-delalande-57bb7860_ia-edtech-aezducation-share-7485434729584902144-3tnJ/';
+/* v2.2.4 : pages publiques (pages/, adresses données aux stores), ouvertes dans la même fenêtre : leur « ← Revenir à
+   Caramel » ramène ici (pages/pages.js), la porte restant ouverte le temps de sa fenêtre de 10 minutes */
+/* v2.3 : liens montrés quand les pages sont complètes (mentions légales de Manica Labs à finir : forme, SIREN, siège,
+   directeur de la publication) ; les pages restent hors du dépôt publié jusque-là */
+export const PAGES_READY = false;
+export const INFO_PAGES = Object.freeze([
+  ['pages/confidentialite.html', 'Confidentialité'], ['pages/aide.html', 'Aide'],
+  ['pages/mentions-legales.html', 'Mentions légales'], ['pages/licences.html', 'Licences et crédits']
+]);
 
 /* ============ RÉGLAGES D'APPAREIL : code parent, essais, dates des sauvegardes ============
    { v: 1, pin: { h, s } | null, fails, strikes, until, later, saved: { [idProfil]: { at: ISO, name } } }
@@ -738,7 +748,7 @@ function renderContent({ entering = false, keepScroll = false, nudge = false, fo
     section('evals', 'Évaluations', evalsCard(p)),
     section('reglages', 'Réglages', settingsCard(p), deviceCard()),
     section('sauvegardes', 'Sauvegardes', backupCard(p)),
-    section('profils', 'Profils', profilesCard()),
+    section('profils', 'Profils', profilesCard(), wipe.parentsCard({ backupFirst: exportAllNow, say })),
     section('apropos', 'À propos', aboutCard(), diagCard())
   ];
   screen.append(...blocks);
@@ -1777,10 +1787,13 @@ function aboutCard() {
   const link = (href, text) => h('a', { href, target: '_blank', rel: 'noopener noreferrer' }, text, h('span', { class: 'sr-only' }, ' (nouvel onglet)'));
   return h('div', { class: 'card pa-card pa-about' },
     h('div', { class: 'pa-about-row' }, h('span', null, 'Version'), h('b', null, 'Caramel ' + v)),
+    PAGES_READY ? h('nav', { class: 'pa-pages', 'aria-label': 'Informations' }, INFO_PAGES.map(([href, text]) => h('a', { href }, text))) : null,
     h('p', { class: 'pa-note' }, frTypo('Pas de compte ni de serveur Caramel : les résultats et les photos restent sur cet appareil.')),
     h('p', { class: 'pa-note' }, frTypo('La voix de l’enfant est reconnue sur l’appareil par le moteur vocal intégré. S’il ne peut pas se charger, Caramel utilise la reconnaissance vocale du navigateur : dans Chrome, la voix passe alors par les serveurs de Google.')),
     h('p', { class: 'pa-note' }, frTypo('Le moteur vocal (environ 48\u00A0Mo) et la voix fluide (environ 45\u00A0Mo) se téléchargent une seule fois, en arrière-plan, dès la première ouverture de Caramel. En données mobiles ou en économie de données, rien ne part sans votre accord : « Télécharger maintenant », sur l’accueil.')),
     h('p', { class: 'pa-note' }, frTypo('Caramel n’établit aucun diagnostic.')),
+    /* v2.2.4 : modèle Vosk Apache 2.0 (l'ancien, CC BY-NC-SA, n'était crédité nulle part) ; détail : pages/licences.html */
+    h('p', { class: 'pa-note pa-credits' }, frTypo('Reconnaissance vocale : Vosk (Alpha Cephei), modèle vosk-model-small-fr-0.22 et vosk-browser, licence Apache 2.0.')),
     h('p', { class: 'pa-note pa-credits' }, frTypo('Voix du compagnon : Piper (Rhasspy, licence MIT), voix siwis — SIWIS French Speech Synthesis Database, CC BY 4.0 ('),
       link('https://datashare.is.ed.ac.uk/handle/10283/2353', 'datashare.is.ed.ac.uk'), frTypo('), rajeunie en voix d’enfant (hauteur et timbre relevés de 5\u00A0demi-tons).')),
     /* v2.2.2 : voix fluide — rien de GPL n'est hébergé par Caramel : espeak-ng vient de jsDelivr (paquet

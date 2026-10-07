@@ -1,0 +1,145 @@
+/* ============ « 👫 AVEC UN COPAIN » (#/duel, et bilan de #/battle?duel=…) ============
+   Une étape par écran (CDC §1 principe 7) : le compagnon qui parle (phrase écrite, 🔊), puis UNE action.
+   Fond, cartes des défis, piste et questions : css/ui/battle.css (le conteneur porte .bt .du). Jetons seulement :
+   tout suit le thème de l'enfant. Mobile d'abord (360-430 px) : le code et le pavé tiennent sans défiler. */
+
+.du-screen { display: flex; flex-direction: column; gap: 14px; }
+.du-top { margin-bottom: 0; }
+
+/* ---------- le compagnon qui parle ---------- */
+.du-speaker { display: flex; align-items: center; gap: 10px; }
+.du-pet { flex: none; line-height: 0; display: grid; place-items: end center; }
+.du-pet svg { overflow: visible; }
+.du-say-box {
+  position: relative; flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 12px 10px 12px 16px;
+  border-radius: var(--r-l); background: var(--card); border: 2px solid var(--pink-200); box-shadow: var(--shadow-1);
+}
+.du-say-box::before {                           /* pointe de la bulle, vers le compagnon */
+  content: ''; position: absolute; left: -9px; top: 50%; width: 14px; height: 14px; margin-top: -7px; transform: rotate(45deg);
+  background: var(--card); border-left: 2px solid var(--pink-200); border-bottom: 2px solid var(--pink-200);
+}
+.du-say { flex: 1; min-width: 0; font-weight: 600; font-size: 1.15rem; line-height: 1.3; color: var(--ink); text-wrap: balance; }
+
+/* ---------- 1. je lance · je rejoins ---------- */
+.du-entry .du-speaker { flex-direction: column; text-align: center; padding-top: 6px; }
+.du-entry .du-say-box { width: 100%; }
+.du-entry .du-say-box::before { left: 50%; top: -9px; margin: 0 0 0 -7px; border-left: 2px solid var(--pink-200); border-bottom: 0; border-top: 2px solid var(--pink-200); }
+.du-choices { display: flex; flex-direction: column; gap: 14px; margin-top: 6px; }
+.du-choice {
+  display: flex; align-items: center; gap: 16px; min-height: 96px; padding: 14px 18px; text-align: left; border-radius: var(--r-l);
+  background: var(--amber-400); color: var(--amber-900); box-shadow: 0 6px 0 var(--amber-500), 0 12px 22px color-mix(in srgb, var(--shade) 22%, transparent);
+  transition: transform var(--dur-1) var(--ease-out), box-shadow var(--dur-1);
+}
+.du-choice.is-guest {
+  background: var(--pink-100); color: var(--pink-800);
+  box-shadow: 0 6px 0 var(--pink-400), 0 12px 22px color-mix(in srgb, var(--shade) 18%, transparent);
+}
+.du-choice:active { transform: translateY(4px); box-shadow: 0 2px 0 var(--amber-500), 0 5px 10px color-mix(in srgb, var(--shade) 20%, transparent); }
+.du-choice.is-guest:active { box-shadow: 0 2px 0 var(--pink-400), 0 5px 10px color-mix(in srgb, var(--shade) 16%, transparent); }
+.du-choice-ico { flex: none; width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center; font-size: 2rem; line-height: 1; background: var(--card); }
+.du-choice-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.du-choice-txt b { font-size: 1.6rem; line-height: 1.1; }
+.du-choice-txt span { font-size: 1.02rem; font-weight: 600; line-height: 1.25; }
+
+/* ---------- 2. quel défi ? ---------- */
+.du-len-row { display: flex; justify-content: center; }
+.du-len button { min-width: 132px; }
+.du-types { gap: 12px; }
+.du-type { min-height: 136px; align-items: center; justify-content: center; text-align: center; gap: 4px; }
+.du-type .bt-type-ico { font-size: 2.6rem; }
+.du-type .bt-type-title { font-size: 1.2rem; }
+
+/* ---------- 3. le code ---------- */
+.du-code-card {
+  display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 16px 10px 18px;
+  border-radius: var(--r-l); background: color-mix(in srgb, var(--card) 72%, transparent); border: 2px solid var(--pink-200);
+}
+.du-chip {
+  display: inline-flex; align-items: center; gap: 4px; padding: 6px 16px; border-radius: var(--r-pill);
+  background: var(--amber-50); border: 2px solid var(--amber-300); color: var(--amber-900); font-weight: 700; font-size: 1.02rem; line-height: 1.25; text-align: center;
+}
+.du-code { display: flex; justify-content: center; gap: clamp(6px, 3vw, 14px); width: 100%; }
+.du-digit {                                     /* les cases rétrécissent avec l'écran (zoom 200 % : jamais de défilement de côté) */
+  flex: 0 1 84px; min-width: 0; aspect-ratio: 84 / 108; border-radius: 18px; display: grid; place-items: center;
+  font-size: clamp(2rem, 15vw, 4.4rem); font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; color: var(--ink);
+  background: var(--card); border: 3px solid var(--amber-400); box-shadow: 0 5px 0 var(--amber-300);
+}
+.du-tip { max-width: 30ch; text-align: center; color: var(--ink-2); font-size: 1rem; line-height: 1.35; text-wrap: balance; }
+.du-go { margin-top: 4px; }
+
+/* saisie (je rejoins) : cases en pointillés, la case à remplir cerclée et qui respire */
+.du-code.is-input .du-digit { border-style: dashed; border-color: var(--ink-3); box-shadow: none; transition: border-color var(--dur-2), background var(--dur-2); }   /* case à remplir : bord contrasté (≥ 3:1) */
+.du-code.is-input .du-digit:not(:empty) { border-style: solid; border-color: var(--amber-400); box-shadow: 0 5px 0 var(--amber-300); }
+.du-code.is-input .du-digit.is-now { border-style: solid; border-color: var(--title); animation: du-now 1.4s var(--ease-out) infinite; }
+@keyframes du-now { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--title) 35%, transparent); } 60% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--title) 0%, transparent); } }
+.du-code.is-right .du-digit { border-color: var(--ok); background: var(--ok-bg); color: var(--ok-ink); box-shadow: 0 5px 0 var(--ok-300); }
+.du-code.is-wrong .du-digit { border-color: var(--soft); background: var(--soft-bg); color: var(--soft-ink); box-shadow: none; }
+.du-join { gap: 10px; }
+.du-join .kit-answer { display: none; }          /* le code s'écrit dans les quatre cases */
+.du-keys { margin-top: auto; }
+
+/* ---------- la partie (#/battle?duel=…) : un seul joueur, la piste ne prend qu'une ligne ; le pavé descend à portée
+   de pouce (JEUX.md §0) et le calcul grandit ---------- */
+.bt.is-duel .bt-answer { margin-top: auto; }
+.bt.is-duel .bt-qcard { padding: 22px 12px; }
+.bt.is-duel .bt-math { font-size: clamp(2rem, 10vw, 3rem); }
+
+/* ---------- bilan (#/battle?duel=…) : à MONTRER, donc en très gros ---------- */
+.du-results { display: flex; flex-direction: column; gap: 10px; }
+.du-res { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.du-res-stage {
+  position: relative; width: 100%; min-height: 176px; display: grid; place-items: end center; padding: 10px 0 34px; border-radius: var(--r-l);
+  background: var(--bg-pattern) 0 0 / 120px auto, linear-gradient(170deg, var(--bg-1) 0%, var(--bg-2) 60%, var(--bg-3) 100%);
+  border: 2px solid var(--pink-200); box-shadow: var(--shadow-1); overflow: hidden;
+}
+.du-res-pic { line-height: 0; }
+.du-res-pic svg { overflow: visible; }
+.du-res-name {
+  position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); max-width: calc(100% - 24px); padding: 3px 14px; border-radius: var(--r-pill);
+  background: var(--card); border: 2px solid var(--pink-200); color: var(--title); font-weight: 700; font-size: 1.05rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.du-res-score { display: flex; align-items: baseline; justify-content: center; flex-wrap: wrap; gap: 0 10px; margin-top: 2px; }
+.du-res-pts { font-size: clamp(4.6rem, 27vw, 7.4rem); font-weight: 700; line-height: .95; color: var(--title); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.du-res-unit { font-size: 1.6rem; font-weight: 700; color: var(--ink-2); }
+.du-res-meta { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px 10px; }
+.du-res-code {
+  display: inline-flex; align-items: baseline; gap: 6px; padding: 4px 12px; border-radius: var(--r-pill); background: var(--card); border: 2px solid var(--pink-200);
+  font-weight: 700; font-size: 1.15rem; color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: .06em;
+}
+.du-res-code-l { font-size: .85rem; font-weight: 600; color: var(--ink-3); letter-spacing: 0; }
+.du-res-extra { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px 12px; color: var(--ink-2); font-weight: 600; }
+.du-res-apples { color: var(--ok-ink); font-weight: 700; white-space: nowrap; }
+.du-res-show {
+  width: 100%; padding: 10px 14px; border-radius: var(--r-m); background: var(--amber-50); border: 2px solid var(--amber-300);
+  color: var(--amber-900); font-weight: 700; font-size: 1.08rem; line-height: 1.3; text-wrap: balance;
+}
+.du-res-share:empty { display: none; }          /* place du QR du résultat (plus tard) */
+.du-res-btns { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+
+/* ---------- survol (souris uniquement) ---------- */
+@media (hover: hover) and (pointer: fine) {
+  .du-choice:hover { filter: brightness(1.04); }
+  .du-type:hover { border-color: var(--pink-400); }
+}
+
+/* ---------- petits écrans ---------- */
+@media (max-height: 700px) {
+  .du-join .du-pet svg { width: 56px; height: auto; }
+  .du-join .du-say { font-size: 1.02rem; }
+  .du-res-stage { min-height: 150px; }
+  .du-res-stage svg { width: 136px; height: auto; }
+}
+@media (max-width: 359px) {
+  .du-choice-txt b { font-size: 1.35rem; }
+  .du-types { grid-template-columns: 1fr 1fr; }
+}
+
+/* ---------- grand écran ---------- */
+@media (min-width: 900px) {
+  .du-screen, .du-results { max-width: 620px; }
+}
+
+/* ---------- mouvement réduit ---------- */
+@media (prefers-reduced-motion: reduce) { .du-code.is-input .du-digit.is-now { animation: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--title) 25%, transparent); } }
+html.motion-soft .du-code.is-input .du-digit.is-now { animation: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--title) 25%, transparent); }

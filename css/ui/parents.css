@@ -340,6 +340,15 @@
 .pa-about-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 6px 0; border-bottom: 2px dashed var(--pink-100); color: var(--ink-2); }
 .pa-about-row b { color: var(--ink); }
 .pa-about .pa-note { margin-top: 10px; }
+/* v2.2.4 : pages publiques (confidentialité, aide, mentions légales, licences), liens discrets sous la version */
+.pa-pages { display: flex; flex-wrap: wrap; gap: 0 18px; padding: 2px 0 4px; border-bottom: 2px dashed var(--pink-100); }
+.pa-pages a { display: inline-block; padding: 12px 0; font-size: .93rem; }   /* cible tactile de 48 px de haut */
+/* v2.2.4 : « Effacer toutes les données de cet appareil » (js/ui/wipe.js), sous la liste des profils */
+.pa-wipe .pa-note { margin-bottom: 10px; }
+.pa-wipe-sheet { display: grid; gap: 10px; }
+.pa-wipe-sheet .btn { justify-self: start; }
+.pa-wipe-list { padding-left: 1.3em; color: var(--ink-2); line-height: 1.45; }
+.pa-wipe-list li + li { margin-top: 4px; }
 .pa-ok { color: var(--ok-ink) !important; }
 .pa-ko { color: var(--soft-ink) !important; }
 /* « État de cet appareil » (js/ui/diag.js, v2.2.2) : une ligne par fait, en mots ; ✓ / ✗ en plus de la couleur */

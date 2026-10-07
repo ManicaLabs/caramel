@@ -8,6 +8,8 @@
    5. route initiale (contrat §8.3) puis routeur.
    0. (v2.2.2) dès le chargement du module : l'invitation du navigateur à installer Caramel (beforeinstallprompt, Chrome
       Android) est gardée pour le vrai bouton « Installer », et l'installation notée (appinstalled) — js/core/install.js.
+   0 bis. (v2.2.4) après « Effacer toutes les données de cet appareil » (drapeau de session 'caramel-wipe') : fin du
+      ménage avant store.init (js/ui/wipe.js : finishWipe).
    6. (v2.2.2) voix fluide (js/core/voice-fluid.js) : le moteur démarre en tâche de fond s'il est en cache ; chaque
       changement d'écran lui est signalé (aucun téléchargement pendant un jeu ; après une séance, téléchargement
       automatique s'il est permis).
@@ -17,6 +19,9 @@ import * as router from './router.js';
 import { watch as watchInstall } from './core/install.js';
 
 window.__caramelBooted = true;          /* pour le chien de garde de index.html : le JS moderne tourne */
+/* v2.3 (décision du parent du 07/10/2026) : l'appli Android (TWA Google Play) démarre sur ?app=android ; noté pour la session :
+   pas de secours de reconnaissance Google (js/core/speech.js), pas d'invitation à installer (js/core/install.js) */
+try { if (new URLSearchParams(location.search).get('app') === 'android') sessionStorage.setItem('caramel-app', 'android'); } catch (_) {}
 /* l'invitation à installer arrive tôt, parfois avant la fin du démarrage : gardée tout de suite (js/ui/install.js) */
 try { watchInstall(window); } catch (e) { console.error('Installation', e); }
 
@@ -34,7 +39,9 @@ const ROUTES = {
   'import': () => import('./ui/import-eval.js'),
   'famille': () => import('./ui/famille.js'),                  /* En famille : classements de la semaine, concours */
   'famille/:part': () => import('./ui/famille.js'),            /* #/famille/concours : spectacle du concours */
-  'battle': () => import('./ui/battle.js')                     /* défi en famille, à tour de rôle sur un appareil */
+  'battle': () => import('./ui/battle.js'),                    /* défi en famille, à tour de rôle sur un appareil ;
+                                                                  ?duel=<code> : la partie « Avec un copain » */
+  'duel': () => import('./ui/duel.js')                         /* « 👫 Avec un copain » : code de partie (je lance, je rejoins) */
 };
 
 const load = path => import(path).catch(e => { console.error('Module indisponible : ' + path, e); return null; });
@@ -94,9 +101,9 @@ function initialRoute(store, hash = location.hash) {
 let pendingUpdate = null;                 /* geste à faire pour basculer sur la nouvelle version */
 let bar = null;
 
-/* jamais pendant un jeu, un défi, l'arrivée d'un enfant ni la saisie d'une fiche : le bandeau, inséré en haut de la page,
-   décalerait l'écran sous le doigt (l'espace parents le garde : c'est l'adulte qui accepte la mise à jour) */
-const BUSY_ROUTES = ['play', 'battle', 'onboarding', 'welcome', 'import'];
+/* jamais pendant un jeu, un défi (code d'une partie avec un copain compris), l'arrivée d'un enfant ni la saisie d'une fiche :
+   le bandeau, inséré en haut de la page, décalerait l'écran sous le doigt (l'espace parents le garde : c'est l'adulte qui accepte la mise à jour) */
+const BUSY_ROUTES = ['play', 'battle', 'duel', 'onboarding', 'welcome', 'import'];
 function renderBar() {
   const route = router.current();
   const show = !!pendingUpdate && !(route && BUSY_ROUTES.includes(route.name));
@@ -167,6 +174,14 @@ function registerSW() {
 
 /* ---------- démarrage ---------- */
 async function boot() {
+  /* 0 bis. (v2.2.4) « Effacer toutes les données de cet appareil » (espace parents, js/ui/wipe.js) : le ménage se finit
+     ici, après le rechargement, avant que quoi que ce soit ne relise les données ou ne rouvre la base du micro */
+  try {
+    if (globalThis.sessionStorage.getItem('caramel-wipe')) {
+      const wipe = await load('./ui/wipe.js');
+      if (wipe) await wipe.finishWipe();
+    }
+  } catch (e) { console.error('Effacement', e); }
   const [store, audio, motion, tts, themes] = await Promise.all([
     load('./core/store.js'), load('./core/audio.js'), load('./core/motion.js'), load('./core/tts.js'), load('./ui/theme-picker.js')
   ]);
