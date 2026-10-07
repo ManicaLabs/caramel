@@ -49,9 +49,12 @@ export const MANIFEST = 'js/content/voice-manifest.js';
    devenue la règle pour TOUS les enfants (décision du parent, 04/10/2026) : la visite guidée des CM1-CM2 est enregistrée
    (≈ 45 Ko) ; puis à 1,7 Mo pour l'invitation « 📲 Mets Caramel sur l'écran d'accueil » côté enfant (feuille, bannière,
    marche à suivre de l'iPhone et de l'iPad : ≈ 115 Ko ; « tout texte dit a son clip quand c'est possible ») ; puis à
-   1,9 Mo pour la voix d'enfant (05/10/2026 : coupure relevée de 7 à 9,3 kHz, ≈ +12 %) ; hors précache, téléchargé
-   phrase par phrase */
-export const BUDGET = 1.9 * 1024 * 1024;
+   1,9 Mo pour la voix d'enfant (05/10/2026 : coupure relevée de 7 à 9,3 kHz, ≈ +12 %) ; puis à 4,3 Mo en 2.4 : les
+   questions de « 🌱 Pas encore appris » (61 familles, ≈ 750 Ko), les questions et indices sans nombre des « Missions du
+   ranch » (162 phrases, ≈ 1,5 Mo) et le déménagement — des phrases longues (≈ 10 Ko chacune), JAMAIS téléchargées
+   d'avance (commonIds ne les compte pas) : chacune n'est chargée que la première fois qu'elle est dite. Hors précache,
+   téléchargé phrase par phrase */
+export const BUDGET = 4.3 * 1024 * 1024;
 const RATE = 22050;
 const ENC = Object.freeze(['-q:a', '9', '-cutoff', String(Math.round(7000 * YOUTH))]);   /* LAME V9, passe-bas 9,3 kHz */
 /* réglages Piper de l'échantillon validé par le parent (voix/1-siwis.mp3), voix d'enfant comprise (PARAMS.youth) */

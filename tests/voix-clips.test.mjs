@@ -12,7 +12,7 @@ import { fillTemplate, defaultProfile } from '../js/core/profiles.js';
 import * as store from '../js/core/store.js';
 import { frTypo, fmtNum } from '../js/core/util.js';
 import { CHEERS } from '../js/ui/kit.js';
-import { MOUNTS, FOODS } from '../js/content/companion-data.js';
+import { MOUNTS, foodsOf, foodLine } from '../js/content/companion-data.js';
 import { micTrouble } from '../js/ui/game-ctx.js';
 import * as TL from '../js/games/tables-logic.js';
 import * as PL from '../js/games/pommes-logic.js';
@@ -36,7 +36,7 @@ const ok = (t, p) => {
   return r;
 };
 
-test('inventaire ↔ manifeste ↔ fichiers : chaque phrase a son clip à jour, rien d’orphelin, ≤ BUDGET (1,9 Mo)', () => {
+test('inventaire ↔ manifeste ↔ fichiers : chaque phrase a son clip à jour, rien d’orphelin, ≤ BUDGET (4,3 Mo)', () => {
   const ids = V.LINES.map(e => e.id);
   assert.equal(new Set(ids).size, ids.length, 'identifiants uniques');
   for (const id of ids) assert.match(id, /^[a-z0-9][a-z0-9.-]*$/, 'nom de fichier sûr : ' + id);
@@ -73,10 +73,10 @@ test('ce que Piper lit : français des clips (prononciation, emoji muets, ni pr�
   /* « plus » des calculs : [plys] (espeak lit « plus » [ply]) */
   assert.equal(V.synthText(V.LINE_BY_ID['m.plus']), 'plusse');
   /* … et partout où « plus » ajoute : « combien plus 7 », « 2 plus combien », « Une de plus » [plys] ; « un peu plus
-     tard » garde [ply] */
+     tard », « il n’a plus faim », « choisis plus petit », « le plus-que-parfait » (v2.4) gardent [ply] */
   for (const e of V.LINES) {
     if (!/\bplus\b/.test(e.text)) continue;
-    if (/plus tard/.test(e.text)) assert.match(V.synthText(e), /plus tard/, e.id);
+    if (/plus tard|n’a plus|plus petit|plus-que-parfait/.test(e.text)) assert.match(V.synthText(e), /\bplus( tard| faim| petit|-que-parfait)/, e.id);
     else assert.doesNotMatch(V.synthText(e), /\bplus\b/, e.id + ' : « plusse »');
   }
   assert.equal(V.synthText(V.LINE_BY_ID['m.combien-plus']), 'combien plusse');
@@ -147,11 +147,13 @@ test('couverture : 1re partie, visite, bilans, course, encouragements, soins et 
     const q = profile({ companion: { type, name: 'Noisette' } });
     const say = s => frTypo(fillTemplate(s, q));
     const fem = M.g === 'f';
-    for (const f of FOODS) ok(say('{N} croque ' + f.e + ' avec appétit. Miam !'), q);
+    /* v2.4 : les aliments de SON espèce (« Miam, du poisson ! » = « Miam, » + l'aliment), refus doux */
+    for (const f of foodsOf(type)) assert.deepEqual(ok(frTypo(foodLine(f)), q).clips.map(c => c.id), ['soin.miam', 'soin.' + (f.id === 'pomme' ? 'poire' : f.id)]);
+    for (const s of ['{N} n’a plus faim 😊', 'C’est trop pour {N} : choisis plus petit 😊', '{N} est déjà en pleine forme ! 🚶']) assert.equal(ok(say(s), q).clips.length, 1, s);
     ok(say('{N} est déjà ' + (fem ? 'toute belle' : 'tout beau') + ' ✨ Reviens un peu plus tard !'), q);
     const coat = M.kind === 'dolphin' ? 'quelle peau toute douce !' : M.kind === 'dragon' ? 'quelles belles écailles !' : 'quel beau poil !';
     ok(say('{N} adore le brossage, ' + coat + ' ✨'), q);
-    for (const s of ['{N} a déjà eu sa promenade du jour 🚶 À demain !', '{N} part en promenade, quel bonheur ! 🚶', '{N} est en promenade… attends son retour ! 🚶',
+    for (const s of ['{N} part en promenade, quel bonheur ! 🚶', '{N} est en promenade… attends son retour ! 🚶',
       'C’est à toi ! {N} est trop chic ! ✨', '{N} est trop chic ! ✨']) ok(say(s), q);
     ok(frTypo('Et en ' + M.noun + ' ? ' + M.em), q);
     ok(frTypo('C’est à toi ! ' + M.em), q);
@@ -436,7 +438,7 @@ test('« 📲 Mets Caramel sur l’écran d’accueil » côté enfant : titre, 
   } finally { cleanup(); }
 });
 
-test('lecture à voix haute pour tous (v2.2.2) : CM2 et ancien « automatique » → activée ; Non → ni voix ni 🔊 ; sons coupés → 🔊 seul', async () => {
+test('lecture à voix haute pour tous (v2.2.2) : CM2 et ancien « automatique » → activée ; Non → ni voix ni 🔁 ; sons coupés (🔇, v2.4) → ni l’un ni l’autre', async () => {
   const voice = await import('../js/ui/voice.js');
   fakeAudio();
   fakeTts();
@@ -445,15 +447,15 @@ test('lecture à voix haute pour tous (v2.2.2) : CM2 et ancien « automatique »
     assert.equal(voice.readAloud(cm2), true, 'CM2, réglage absent');
     assert.equal(voice.readAloud({ classe: 'CM1', settings: { readAloud: 'auto' } }), true, 'ancien automatique (CP-CE1)');
     assert.equal(voice.voiceOn(cm2), true, 'lecture automatique');
-    assert.equal(voice.listenOn(cm2), true, '🔊 montré');
+    assert.equal(voice.listenOn(cm2), true, '🔁 montré');
     const no = { classe: 'CP', settings: { readAloud: 'off' } };
     assert.equal(voice.readAloud(no), false);
     assert.equal(voice.voiceOn(no), false, 'Non : rien n’est lu');
-    assert.equal(voice.listenOn(no), false, 'Non : 🔊 caché');
+    assert.equal(voice.listenOn(no), false, 'Non : 🔁 caché');
     assert.equal(voice.listenOn({ classe: 'CE2', settings: { readAloud: false } }), false, 'ancien booléen faux');
     const mute = { classe: 'CM2', settings: { sound: false } };
     assert.equal(voice.voiceOn(mute), false, 'sons coupés : rien n’est lu tout seul');
-    assert.equal(voice.listenOn(mute), true, 'sons coupés : 🔊 reste (un toucher est un geste explicite)');
+    assert.equal(voice.listenOn(mute), false, 'sons coupés : 🔁 s’en va (🔇 en haut de l’écran : silence, décision du parent du 07/10/2026)');
     assert.equal(voice.readAloud(null), false, 'aucun profil');
     const n = voice.stats();
     assert.equal(await voice.speak('Trouvé du premier coup, bravo\u202F!', { force: true }), true);

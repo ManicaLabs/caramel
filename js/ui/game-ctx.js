@@ -26,7 +26,18 @@
    - micro impossible (D1-01, D4-04) : ctx.mic.trouble(code) → phrase courte pour l'enfant (tutoiement) et marche à
      suivre pour l'adulte (vouvoiement, adaptée à l'appli installée) ; ctx.mic.help(code, { onRetry }) ouvre la feuille
      de l'adulte. ctx.changeGame() : la coquille remplace l'étape de balade par un autre jeu (partie libre : choix d'un
-     autre jeu) ; ctx.nextStep() : balade, étape suivante (ou accueil quand la balade est finie). */
+     autre jeu) ; ctx.nextStep() : balade, étape suivante (ou accueil quand la balade est finie).
+   - temps de jeu du jour (v2.4, js/core/playtime.js) : ctx.timeUp dit si la limite du jour est atteinte (le jeu ne
+     propose alors plus de nouvelle partie : la course remplace Revanche / Suite / Histoires par « Accueil 🏠 ») ;
+     ctx.again() refuse une nouvelle manche dans ce cas (→ false, la coquille ramène à l'accueil : onRest).
+   - « 🌱 Pas encore appris » (v2.5, js/content/calendar.js) : ctx.later(item, { onSkip }) → pastille à poser sous
+     l'indice APRÈS UNE PREMIÈRE ERREUR, ou null quand elle n'est pas proposée (CP, défi, copain, notion d'une année
+     passée, déjà utilisée dans la partie, 3 notions en attente, 2 reports de suite, famille déjà réussie…). Toucher →
+     feuille avec le compagnon : « Tu n’as pas encore appris la table de 8 en classe ? » [Je réessaie 💪] [🌱 Oui, pas
+     encore]. Oui → manche.postpone(item) : la famille revient le mois prochain, l'item n'est pas rapporté (θ, radar,
+     médailles, 🍎 inchangés) et ne compte pas (le suivant le remplace) ; onSkip({ line, done }) : le jeu verrouille
+     l'item, montre line (« D’accord ! On le garde pour le mois prochain. », dite par le compagnon) et passe à l'item
+     suivant quand la promesse done est résolue (phrase dite, ou 1,2 s au moins). */
 import { h, frTypo } from '../core/util.js';
 import * as motion from '../core/motion.js';
 import * as audio from '../core/audio.js';
@@ -40,6 +51,13 @@ import { mountSVG, mountAnchors } from './mount-svg.js';
 import { stageOf } from './companion.js';
 import * as voice from './voice.js';
 import * as preload from '../core/preload.js';
+import { restLine } from './play-limit.js';
+
+/* « Pas encore appris » : phrases (voix du compagnon ; clips à enregistrer, cf. rapport progression-impl) */
+export const LATER_LABEL = 'Pas encore appris';
+export const laterAsk = label => frTypo('Tu n’as pas encore appris ' + label + ' en classe ?');
+export const LATER_OK = frTypo('D’accord ! On le garde pour le mois prochain.');
+const LATER_MIN_MS = 1200, LATER_MAX_MS = 6000;
 
 /* compagnon d'un profil → { type, worn, stage, name } (espèce inconnue → poney ; un seul objet par emplacement :
    mountSVG s'en charge) */
@@ -116,8 +134,10 @@ function micEnv() {
 }
 
 /* makeManche() → nouvelle manche ; onEnd(summary, extra) ; onQuit(summary|null) ; onLeave(summary|null) ;
-   onChangeGame() : changer de jeu (micro impossible) ; onNextStep() : balade, étape suivante */
-export function buildCtx({ game, makeManche, manche: first, mode = 'libre', header, onEnd, onQuit, onLeave, onChangeGame, onNextStep }) {
+   onChangeGame() : changer de jeu (micro impossible) ; onNextStep() : balade, étape suivante ;
+   canStart() → false quand le temps de jeu du jour est atteint (v2.4 ; absent : toujours vrai) ; onRest() : la
+   coquille ramène à l'accueil */
+export function buildCtx({ game, makeManche, manche: first, mode = 'libre', header, onEnd, onQuit, onLeave, onChangeGame, onNextStep, canStart, onRest }) {
   let manche = first || makeManche();
   let states = [], current = null, jokerHandler = null, autoProgress = true, ended = false, lastSummary = null;
   const refresh = () => {
@@ -155,6 +175,10 @@ export function buildCtx({ game, makeManche, manche: first, mode = 'libre', head
     get rng() { return manche.rng; },
     get manche() { return manche; },
     get ended() { return ended; },
+    /* temps de jeu du jour atteint (v2.4) : plus de nouvelle partie à proposer */
+    get timeUp() { try { return typeof canStart === 'function' && !canStart(); } catch (_) { return false; } },
+    /* la phrase douce qui va avec : « Noisette se repose 💤 À demain ! » */
+    restLine() { return restLine(getProfile()); },
     motion, audio, tts, speech: speechCtx, kit,
 
     nextItem(axis, opts) {
@@ -192,6 +216,46 @@ export function buildCtx({ game, makeManche, manche: first, mode = 'libre', head
       const shown = jokerHandler(current);
       if (shown !== false) { manche.useHint(current); if (header) header.setHints(manche.hintsLeft); }
     },
+    /* « 🌱 Pas encore appris » : pastille (ou null) ; onSkip({ line, done, fam, until }) quand l'enfant confirme */
+    later(item, { onSkip } = {}) {
+      if (ended || !item || typeof manche.canLater !== 'function') return null;
+      let chk = null;
+      try { chk = manche.canLater(item); } catch (_) { chk = null; }
+      if (!chk || !chk.ok) return null;
+      const btn = h('button', { type: 'button', class: 'kit-later', 'data-later': '' },
+        h('span', { class: 'kit-later-ico', 'aria-hidden': 'true' }, '🌱'), h('span', null, LATER_LABEL));
+      let open = false;
+      btn.addEventListener('click', () => {
+        if (open || ended || manche.laterUsed) return;
+        open = true;
+        try { audio.tap(); } catch (_) {}
+        voice.hush();
+        const ask = laterAsk(chk.label);
+        const pet = h('div', { class: 'kit-later-pet', 'aria-hidden': 'true', html: ctx.petSVG(72, '') });
+        kit.sheet({
+          label: ask,
+          content: h('div', { class: 'kit-confirm kit-later-sheet' }, pet, h('p', { class: 'kit-confirm-text' }, ask)),
+          actions: [
+            { label: ['Je réessaie', h('span', { 'aria-hidden': 'true' }, ' 💪')], kind: 'white', onClick: () => { voice.hush(); } },
+            { label: [h('span', { 'aria-hidden': 'true' }, '🌱 '), 'Oui, pas encore'], onClick: () => {
+              const res = manche.postpone(item);
+              btn.remove();
+              if (!res || !res.ok) return;
+              if (item === current) current = null;
+              refresh();
+              const said = Promise.resolve(ctx.voice.say(LATER_OK)).catch(() => false);
+              const wait = ms => new Promise(r => setTimeout(r, ms));
+              /* la phrase dite (au moins 1,2 s à l'écran), jamais plus de 6 s d'attente (voix muette ou bloquée) */
+              const done = Promise.race([Promise.all([said, wait(LATER_MIN_MS)]), wait(LATER_MAX_MS)]).then(() => true);
+              if (typeof onSkip === 'function') { try { onSkip({ line: LATER_OK, done, fam: res.fam, until: res.until, label: res.label }); } catch (e) { try { console.error(e); } catch (_) {} } }
+            } }
+          ],
+          onClose: () => { open = false; }
+        });
+        ctx.voice.say(ask);
+      });
+      return btn;
+    },
     /* pastilles gérées à la main (course, sprint) : désactive l'automatique */
     progress(i, n, st) { autoProgress = false; if (header) header.setProgress(i, n, st || []); },
     setTitle(t) { if (header) header.setTitle(t); },
@@ -200,11 +264,11 @@ export function buildCtx({ game, makeManche, manche: first, mode = 'libre', head
     voice: {
       get on() { return voice.voiceOn(getProfile()); },
       /* → Promise<boolean> : true quand la phrase a été dite jusqu'au bout ; quiet : la phrase est seulement confiée à
-         🔊 (le micro est demandé : le compagnon se tait) */
+         🔁 (le micro est demandé : le compagnon se tait) */
       say(text, { quiet = false } = {}) {
         const q = getProfile();
         const on = voice.voiceOn(q);
-        if (header && header.setLine) header.setLine(text, voice.listenOn(q));
+        if (header && header.setLine) header.setLine(text, voice.readAloud(q));   /* 🔁 : l'en-tête suit aussi 🔊 / 🔇 */
         return on && !quiet ? voice.speak(text) : Promise.resolve(false);
       },
       hush() { voice.hush(); },
@@ -252,12 +316,15 @@ export function buildCtx({ game, makeManche, manche: first, mode = 'libre', head
       lastSummary = manche.finish(extra);
       return onEnd ? onEnd(lastSummary, extra || {}) : lastSummary;
     },
-    /* nouvelle manche, même jeu, même mode (le jeu reste monté) */
+    /* nouvelle manche, même jeu, même mode (le jeu reste monté) → true ; temps de jeu du jour atteint (v2.4) → false,
+       rien ne recommence et la coquille ramène à l'accueil */
     again() {
+      if (ctx.timeUp) { voice.hush(); if (onRest) onRest(); return false; }
       if (!ended) manche.abort();
       manche = makeManche();
       states = []; current = null; ended = false; lastSummary = null; autoProgress = true;
       resetHeader();
+      return true;
     },
     /* sortir sans bilan (après end({ stay:true }) en général) */
     leave() {

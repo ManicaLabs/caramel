@@ -183,6 +183,10 @@
 .cc-act-txt { font-size: .75rem; line-height: 1.1; white-space: nowrap; letter-spacing: -.01em; }
 @media (max-width: 400px) { .cc { padding-left: 10px; padding-right: 10px; } }
 @media (max-width: 370px) { .cc-act-txt { font-size: .68rem; letter-spacing: -.02em; } }
+/* brossage, promenade (v2.4) : « gratuit » (le premier du jour) ou le prix */
+.cc-act-price { font-size: .66rem; line-height: 1.1; font-weight: 700; color: var(--ink-2); white-space: nowrap; }
+.cc-act-price[hidden] { display: none; }
+.cc-act-price.is-free { color: var(--ok-ink); }
 /* petit téléphone (Android 360 × 740 à 812) : carte plus compacte pour que « C'est parti ! » de la balade reste visible
    sans défiler (constat D1-05, aggravé par la carte redessinée de la 2.1). La scène ET le compagnon rapetissent
    ensemble : une scène de 124 px avec le compagnon à 138 px lui coupait la tête (oreilles, corne, couronne), surtout au
@@ -228,6 +232,12 @@
 .cc-item.cant .cc-item-price { color: var(--ink-3); }
 .cc-item.worn { border-color: var(--amber-500); background: var(--amber-100); }
 .cc-item.worn .cc-item-price { color: var(--amber-900); }
+/* garde-manger (v2.4) : il n'a plus faim, ou l'aliment est trop gros pour sa faim → icône pâlie, « plus tard » (le texte
+   garde son contraste ; le toucher explique pourquoi, sans rien dépenser) */
+.cc-item.full .cc-item-ico { opacity: .4; filter: grayscale(.7); }
+.cc-item.full .cc-item-price { color: var(--ink-3); font-weight: 600; }
+.cc-note { margin: -2px 2px 10px; font-weight: 600; color: var(--ink); text-align: center; }
+.cc-note[hidden] { display: none; }
 .cc-mount-pic { display: grid; place-items: center; height: 50px; line-height: 0; }
 .cc-mount-pic svg { overflow: visible; }
 
@@ -393,6 +403,15 @@ html:has(.cc.is-hero.has-panel) { scroll-padding-top: calc(clamp(170px, 30dvh, 2
 }
 .cc.is-hero .cc-act.is-tempt-new { animation: cc-tempt 1.1s var(--ease-out) 2; }
 @keyframes cc-tempt { 0%, 100% { transform: scale(1); } 40% { transform: scale(1.12); } }
+/* 🧽 🚶 (v2.4) : étiquette sous l'anneau, « gratuit » (vert) pour le premier soin du jour, puis le prix ; masquée quand
+   le soin ne servirait à rien (✓) — texte au contraste plein (≥ 4,5:1 : encre et vert foncé sur blanc) */
+.cc.is-hero .cc-act-price {
+  position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%); z-index: 1;
+  padding: 1px 6px; border-radius: var(--r-pill); background: var(--card); border: 1.5px solid var(--pink-200);
+  font-size: .68rem; line-height: 1.25; color: var(--ink); box-shadow: 0 1px 3px color-mix(in srgb, var(--ink) 16%, transparent);
+}
+.cc.is-hero .cc-act-price.is-free { border-color: var(--ok); background: var(--ok-50); color: var(--ok-ink); }
+.cc.is-hero .cc-actions { padding-bottom: 10px; }
 /* boutique : deux rayons (un seul visible) et, pendant un essayage, UN bouton « Acheter » sous le rayon, collé en bas
    de l'écran tant que le rayon défile (zone du pouce ; la scène, elle, reste collée en haut) */
 .cc-rayons { display: flex; gap: 8px; margin: 0 0 10px; }

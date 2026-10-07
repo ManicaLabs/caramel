@@ -36,6 +36,10 @@
   font-size: .9rem; font-weight: 700; line-height: 1; background: var(--title); color: var(--card); border: 2px solid var(--card); box-shadow: var(--shadow-1);
 }
 .bt-pick.is-on .bt-pick-check { display: grid; }
+/* v2.4 — temps de jeu du jour atteint : grisé, compagnon aux yeux fermés, « 💤 À demain » (ne peut pas être choisi) */
+.bt-pick.is-rest { filter: grayscale(.8); opacity: .62; border-style: dashed; box-shadow: none; }
+.bt-pick.is-rest:active { transform: none; }
+.bt-pick-zz { font-size: .85rem; font-weight: 600; color: var(--ink-2); line-height: 1.15; }
 .bt-types { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .bt-type {
   min-width: 0; min-height: 84px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; text-align: left;
@@ -203,6 +207,13 @@
 .bt-res-btns { display: flex; flex-direction: column; gap: 10px; }
 .bt-res-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .bt-res-pair .btn { padding-left: 12px; padding-right: 12px; }
+.bt-res-pair.is-one { grid-template-columns: 1fr; }
+/* v2.4 — temps de jeu du jour : la phrase douce (« Le compagnon de Léa se repose 💤 À demain ! ») */
+.bt-rest {
+  margin: 0; padding: 8px 14px; border-radius: var(--r-m); text-align: center;
+  background: color-mix(in srgb, var(--violet) 14%, var(--card)); color: var(--ink-2); font-weight: 600; line-height: 1.35;
+}
+.bt-need.is-rest { color: var(--ink-2); font-weight: 600; }
 
 /* ---------- transitions de tour (transition de vue) : l'arène reste en place, le reste glisse ---------- */
 html.bt-swap::view-transition-old(root) { animation: 200ms ease-in both bt-out; }

@@ -2,8 +2,9 @@
    Pensé d'abord pour un CP : le compagnon en grand (scène héros de js/ui/companion.js : vivant, câlin au toucher) et
    UN très grand bouton « Jouer ▶ » qui lance directement le jeu de l'étape en cours de la balade du jour (la suite
    s'enchaîne depuis le bilan : js/ui/game-shell.js). Tout le reste est secondaire et discret :
-     - en-tête : avatar = « Qui joue ? », « Bonjour {P} ! », 🎨 « Mon univers » (CDC §10.5 : le thème se choisit sur
-       l'accueil), 🔒 « Espace parents » (discret, toujours au même endroit ; la porte et son code sont dans parents.js) ;
+     - en-tête : avatar = « Qui joue ? », « Bonjour {P} ! », 🔊 / 🔇 couper le son (v2.4, js/ui/sound-toggle.js),
+       🎨 « Mon univers » (CDC §10.5 : le thème se choisit sur l'accueil), 🔒 « Espace parents » (discret, toujours au
+       même endroit ; la porte et son code sont dans parents.js) ;
      - sur la scène : plaque « 🌱 Caramel » (stade ; la toucher = « Mon compagnon » : son stade en clair, les prénoms),
        🍎 et 🔥, bulle de pensée 🍎 quand il a faim ; sous la scène : 4 soins en icônes (jauges en anneau, ✓ quand c'est
        déjà fait, 🛍️ dorée quand un objet nouveau est à portée de pommes) ;
@@ -30,6 +31,11 @@
    kidCard de js/ui/profiles.js), « ➕ Ajouter » et, dès deux enfants, « 🏆 En famille ». Toucher un autre enfant =
    bascule immédiate : store.setActive + sessionStorage 'caramel-picked'
    (main.js réapplique son thème, son et animations), puis l'accueil est remonté pour lui dans une transition de vue.
+   v2.4 — temps de jeu du jour (retour du parent du 07/10/2026 ; js/core/playtime.js, js/ui/play-limit.js) : juste avant
+   la limite, une petite ligne « ⏳ Encore 5 minutes de jeu aujourd'hui » au-dessus du bouton ; limite atteinte, le
+   bouton se repose (grisé, « À demain ! 💤 », 🌙 le soir) et dit gentiment pourquoi au toucher (« Tu as bien joué
+   aujourd'hui ! {N} fait la sieste 💤 On rejoue demain. »), « 🎲 Jeux » s'efface ; l'écran porte .is-rest et
+   data-rest="sieste" | "nuit" (le compagnon endormi sur la scène : js/ui/companion.js).
    Lecture : store.getProfile() ; écriture : store.mutateProfile uniquement (plan du jour, classe).
    Les blocs se mettent à jour en place à chaque changement du store (aucune reconstruction de l'écran). */
 
@@ -52,6 +58,8 @@ import * as voice from './voice.js';
 import * as inst from './install.js';
 import * as preload from '../core/preload.js';
 import { preloadBar, cssReady as preloadCSS } from './preload.js';
+import { playNow, timeUp, restLine, restNotice, restKind, nearLine, REST_TEXT } from './play-limit.js';
+import { soundButton } from './sound-toggle.js';
 
 const FROM_KEY = 'caramel-play-from';
 const ssGet = k => { try { return sessionStorage.getItem(k); } catch (_) { return null; } };
@@ -112,7 +120,8 @@ const HOME = {
     const lockBtn = h('button', { type: 'button', class: 'hm-icon-btn hm-lock-btn', 'aria-label': 'Espace parents' },
       h('span', { 'aria-hidden': 'true' }, '🔒'));
     lockBtn.addEventListener('click', () => { if (my.switching || sheetOpen()) return; audio.tap(); router.go('parents'); });
-    const head = h('header', { class: 'hm-head' }, avaWrap, hello, themeBtn, lockBtn);
+    const soundBtn = soundButton({ cls: 'hm-icon-btn hm-sound-btn' });      /* 🔊 / 🔇 (v2.4) : couper le son, d'un toucher */
+    const head = h('header', { class: 'hm-head' }, avaWrap, hello, soundBtn, themeBtn, lockBtn);
 
     /* ----- bandeau « Je passe en … ! » ----- */
     const nextBox = h('div', { class: 'hm-next-slot' });
@@ -137,7 +146,10 @@ const HOME = {
     const pebs = h('span', { class: 'hm-pebs', 'aria-hidden': 'true' });
     const path = h('button', { type: 'button', class: 'hm-path' }, pebs);
     path.addEventListener('click', () => { audio.tap(); router.go('balade'); });
-    const play = h('section', { class: 'hm-play', 'aria-label': 'Ma balade du jour' }, go, path);
+    /* v2.4 : « Encore 5 minutes de jeu aujourd'hui » juste avant la limite du jour (petit, doux, au-dessus du bouton) */
+    const near = h('p', { class: 'hm-near', hidden: true },
+      h('span', { class: 'hm-near-ico', 'aria-hidden': 'true' }, '⏳'), h('span', { class: 'hm-near-t' }));
+    const play = h('section', { class: 'hm-play', 'aria-label': 'Ma balade du jour' }, near, go, path);
 
     /* ----- secondaire : jeux libres, progrès ----- */
     const gamesBtn = h('button', { type: 'button', class: 'hm-alt-btn hm-games-btn' },
@@ -235,11 +247,31 @@ const HOME = {
       const doneN = blocks.filter(b => b.done).length;
       path.setAttribute('aria-label', done ? 'Ma balade du jour est finie : voir le chemin'
         : 'Ma balade du jour, étape ' + (cur + 1) + ' sur ' + N + (doneN ? ' (' + doneN + ' faite' + (doneN > 1 ? 's' : '') + ')' : '') + ' : voir le chemin');
-      go.classList.toggle('is-done', done || !N);
-      gamesBtn.hidden = done || !N;                     /* le gros bouton fait déjà « encore un jeu ? » */
+      /* v2.4 — temps de jeu du jour (js/core/playtime.js) : atteint → le bouton se repose (« À demain ! 💤 », grisé, il
+         dit pourquoi au toucher) et 🎲 Jeux s'efface ; presque atteint → « Encore 5 minutes de jeu aujourd'hui » */
+      const ps = playNow(q, today);
+      const rest = ps.over;
+      const nearTxt = rest ? '' : nearLine(ps);
+      near.lastChild.textContent = nearTxt;
+      near.hidden = !nearTxt;
+      /* le compagnon de la scène s'endort ou se réveille aussitôt (js/ui/companion.js, napCheck : même sieste / nuit) */
+      if (my.card && typeof my.card.napCheck === 'function' && rest !== screen.classList.contains('is-rest')) {
+        try { my.card.napCheck(); } catch (_) {}
+      }
+      const kind = rest ? (my.card && my.card.nap) || restKind() : '';
+      screen.classList.toggle('is-rest', rest);
+      if (rest) screen.setAttribute('data-rest', kind); else screen.removeAttribute('data-rest');
+      go.classList.toggle('is-rest', rest);
+      if (rest) go.setAttribute('aria-disabled', 'true'); else go.removeAttribute('aria-disabled');
+      go.classList.toggle('is-done', !rest && (done || !N));
+      gamesBtn.hidden = rest || done || !N;             /* le gros bouton fait déjà « encore un jeu ? » */
       progressBtn.hidden = !hasRadar(q);                /* enfant tout neuf : rien à voir encore, « Jouer ▶ » suffit */
       alt.hidden = gamesBtn.hidden && progressBtn.hidden;
-      if (done || !N) {
+      if (rest) {
+        goTxt.textContent = frTypo(REST_TEXT.button);
+        goIco.textContent = kind === 'nuit' ? '🌙' : '💤';
+        go.setAttribute('aria-label', restLine(q));
+      } else if (done || !N) {
         goTxt.textContent = frTypo('Encore un jeu ?');
         goIco.textContent = '🎲';
         go.setAttribute('aria-label', frTypo(done ? 'Balade finie, bravo ! Encore un jeu ?' : 'Choisir un jeu'));
@@ -265,8 +297,10 @@ const HOME = {
     /* une feuille est-elle ouverte ? (les feuilles des autres modules ne préviennent pas de leur fermeture) */
     const sheetOpen = () => !!(my.sheet && my.sheet.el && my.sheet.el.isConnected);
     function onGo() {
-      audio.tap();
       const q = store.getProfile(); if (!q || sheetOpen()) return;
+      /* temps de jeu du jour atteint : rien ne démarre, le compagnon dit gentiment pourquoi (v2.4) */
+      if (timeUp(q, today)) { renderPlay(); restNotice(q, { el: go, kind: 'why' }); return; }
+      audio.tap();
       const cur = currentStep(q, today);
       if (cur < 0) { openGames(frTypo('Encore un jeu ?')); return; }
       const s = launchStep(cur, { from: '#/home' });
@@ -386,7 +420,7 @@ const HOME = {
        changé en 2.2). UNE chose à la fois : le compagnon (bonjour), « Jouer ▶ », les soins. Grand lecteur (CM1-CM2) :
        deux étapes, sans « coucou ». Jamais pendant le bandeau de mise à jour (main.js), une feuille, un panneau du
        compagnon, ni la bascule « Qui joue ? ». La voix dit chaque étape (lecture à voix haute activée : tous les enfants
-       par défaut depuis la 2.2.2, CM1-CM2 compris, avec la voix enregistrée), le texte reste ; 🔊 la relit. */
+       par défaut depuis la 2.2.2, CM1-CM2 compris, avec la voix enregistrée), le texte reste ; 🔁 la relit. */
     const barShown = () => { const b = document.querySelector('.update-bar'); return !!(b && !b.hidden); };
     const busy = () => my !== st || my.switching || sheetOpen() || barShown() || document.documentElement.classList.contains('kit-lock')
       || !!petBox.querySelector('.cc.has-panel') || document.visibilityState === 'hidden';
@@ -416,9 +450,9 @@ const HOME = {
       const who = h('span', { class: 'hm-tour-who' });
       setAvatar(who, petSVG(q, 60, 'happy', '', { view: 'portrait' }));
       const listen = voice.listenOn(q) ? voice.listenButton(() => said, { label: 'Écouter encore' }) : null;
-      /* appli ouverte directement sur l'accueil : le navigateur refuse la voix avant le premier geste. 🔊 se signale
+      /* appli ouverte directement sur l'accueil : le navigateur refuse la voix avant le premier geste. 🔁 se signale
          doucement ; la phrase est dite au premier toucher. Si ce toucher passe à l'étape suivante, celle-ci est dite,
-         précédée du bonjour s'il n'a pas pu l'être ; si c'est 🔊, il la dit lui-même */
+         précédée du bonjour s'il n'a pas pu l'être ; si c'est 🔁, il la dit lui-même */
       const calm = () => { waiting = ''; waitingGreet = false; if (listen) listen.classList.remove('is-call'); };
       const onGesture = ev => {
         if (!waiting || voice.needsGesture()) return;

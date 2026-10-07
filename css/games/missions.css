@@ -1,0 +1,223 @@
+/* ============ LES MISSIONS DU RANCH (js/games/missions.js) ============
+   La carte de mission : un papier clair cerné de bois (palette FIXE des décors --n-* : elle ne change pas avec le thème,
+   le texte garde son contraste), le compagnon et l'étiquette « Mission n » en tête, l'énoncé en police de lecture
+   (Andika), les nombres mis en valeur, la question à part. Sous la carte : la ligne 👂 (hauteur fixe : rien ne bouge
+   quand le micro s'allume), la bulle d'aide, puis les 6 choix ou le pavé (la case réponse est dans la carte, avec son
+   unité). Schéma en barres en SVG (aplats, contour brun chaud #4a2c1a, JEUX.md §0).
+   Mobile d'abord (360-430 px) : rien ne défile hors de la carte ; grand écran : la carte à gauche, la réponse à droite.
+   Mouvement réduit : les barres apparaissent sans pousser. */
+
+.mi {
+  --mi-gap: 8px; --mi-help-h: 74px; --mi-key: clamp(48px, 6dvh, 56px);
+  --mi-paper: #fffdf6; --mi-paper-2: #fff6e2; --mi-line: var(--n-wood); --mi-outline: var(--n-outline);
+  --mi-fs: clamp(1.08rem, 4.3vw, 1.28rem);
+  flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--mi-gap);
+}
+.mi.is-read { --mi-fs: clamp(1.3rem, 5.6vw, 1.68rem); }
+
+/* ---------- carte de mission ---------- */
+.mi-card {
+  position: relative; flex: 1 1 auto; min-height: 150px; display: flex; flex-direction: column; overflow: hidden;
+  background: linear-gradient(180deg, var(--mi-paper) 0%, var(--mi-paper-2) 100%);
+  border: 3px solid var(--mi-line); border-radius: var(--r-l); box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--mi-outline) 35%, transparent), var(--shadow-1);
+  color: var(--n-ink);
+}
+.mi-head { flex: none; display: flex; align-items: center; gap: 10px; padding: 6px 10px 2px 8px; }
+.mi-pet { flex: none; width: 64px; height: 54px; display: grid; place-items: end center; }
+.mi-pet svg { display: block; overflow: visible; }
+.mi-title {
+  margin: 0; padding: 4px 14px; border-radius: var(--r-pill); font-weight: 700; font-size: 1.05rem; letter-spacing: .01em;
+  background: var(--n-amber-100); color: var(--n-amber-900); border: 2px solid var(--n-amber-300); white-space: nowrap;
+}
+.mi-draw {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 48px; padding: 4px 14px;
+  border-radius: var(--r-pill); background: var(--card); border: 2px solid var(--n-amber-300); color: var(--n-amber-900);
+  font-weight: 600; font-size: 1rem; box-shadow: 0 3px 0 var(--n-amber-200);
+  transition: transform 90ms var(--ease-out), box-shadow 90ms, background var(--dur-2);
+}
+.mi-draw:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--n-amber-200); }
+.mi-draw.is-on { background: var(--n-amber-100); }
+.mi-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 16px 12px; scroll-padding: 12px; }
+.mi-say {
+  margin: 4px 0 10px; padding: 8px 12px; border-radius: 14px; background: var(--card); border: 2px solid var(--n-pink-200);
+  font-family: var(--font-read); font-size: 1.05rem; line-height: 1.4; color: var(--n-ink-2);
+}
+.mi-text p {
+  margin: 0 0 .3em; font-family: var(--font-read); font-size: var(--mi-fs); line-height: 1.45; text-wrap: pretty;
+  border-radius: 10px; transition: background-color var(--dur-2);
+}
+.mi-text .mi-s.is-saying { background: color-mix(in srgb, var(--n-amber-100) 80%, transparent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--n-amber-100) 80%, transparent); }
+.mi-n {
+  font-family: var(--font-ui); font-weight: 700; color: var(--n-amber-900); background: var(--n-amber-100);
+  border-radius: 8px; padding: 0 .22em; white-space: nowrap; font-variant-numeric: tabular-nums;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+}
+.mi-text .mi-q {
+  margin-top: .45em; padding: .3em .6em; font-weight: 700; border-left: 6px solid var(--n-amber-400);
+  background: color-mix(in srgb, var(--n-amber-50) 70%, var(--card));
+}
+.mi-text .mi-q.is-saying { background: var(--n-amber-100); }
+.mi-text .mi-q .mi-n { background: var(--card); }
+
+/* ---------- schéma en barres ---------- */
+.mi-schema { margin-top: 10px; padding-top: 10px; border-top: 2px dashed color-mix(in srgb, var(--mi-line) 80%, transparent); }
+.mi-svg { display: block; max-width: 100%; height: auto; overflow: visible; margin: 0 auto; }
+.mi-svg text { font-family: var(--font-ui); }
+.mi-seg rect { stroke: var(--mi-outline); stroke-width: 2; }
+.mi-seg.tone-a rect { fill: var(--n-amber-200); }
+.mi-seg.tone-b rect { fill: var(--n-sky-1); }
+.mi-seg.tone-c rect { fill: var(--n-pink-200); }
+.mi-seg text { font-weight: 700; font-size: 15px; fill: var(--n-ink); }
+.mi-seg.is-q rect { fill: var(--card); stroke: var(--n-amber-500); stroke-width: 2.5; stroke-dasharray: 7 4; }
+.mi-seg.is-q text { fill: var(--n-amber-900); font-size: 19px; }
+.mi-seg.is-q.is-soft text { opacity: .55; }
+.mi-seg.is-same rect { fill: color-mix(in srgb, var(--card) 60%, transparent); stroke: var(--n-ink-4); stroke-dasharray: 5 4; }
+.mi-seg.is-found rect { fill: #bbf7d0; stroke: #16a34a; stroke-dasharray: none; }
+.mi-seg.is-found text { fill: #14532d; }
+.mi-seg.is-dots rect { fill: none; stroke: none; }
+.mi-seg.is-dots text { fill: var(--n-ink-3); }
+.mi-sub { font-size: 11.5px; font-weight: 600; fill: var(--n-ink-3); }
+.mi-lab { font-size: 13px; font-weight: 700; fill: var(--n-ink-2); }
+.mi-lab.is-q { fill: var(--n-amber-900); font-size: 17px; }
+.mi-lab.is-found { fill: #14532d; }
+.mi-brace { fill: none; stroke: var(--n-ink-3); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.mi-brace.is-q { stroke: var(--n-amber-500); }
+.mi-brace.is-found { stroke: #16a34a; }
+.mi-tot { font-size: 15px; font-weight: 700; fill: var(--n-ink); }
+.mi-tot.is-q { fill: var(--n-amber-900); font-size: 19px; }
+.mi-tot.is-found { fill: #14532d; }
+.mi-tot.is-q.is-soft { opacity: .5; font-size: 16px; }
+.mi-brace.is-q.is-soft { stroke: var(--n-ink-4); stroke-dasharray: 4 4; }
+.mi-cell { fill: var(--n-amber-100); stroke: var(--n-amber-400); stroke-width: 1.5; }
+.mi-svg.is-drawing .mi-seg { animation: mi-grow 420ms var(--ease-out) both; animation-delay: var(--mi-d, 0ms); transform-box: fill-box; transform-origin: left center; }
+@keyframes mi-grow { from { transform: scaleX(.05); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* ---------- case réponse (pavé) : dans la carte, avec son unité ---------- */
+.mi-ansline {
+  flex: none; display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
+  padding: 8px 12px 10px; border-top: 2px solid color-mix(in srgb, var(--mi-line) 55%, transparent);
+  background: color-mix(in srgb, var(--n-amber-50) 70%, var(--card));
+}
+.mi-ansline .mi-box { min-width: 132px; min-height: 52px; font-size: 1.7rem; padding: 4px 18px; }
+.mi-box.mi-revealed { background: var(--ok-50); border-color: var(--ok-300); color: var(--ok-ink); }
+.mi-unit { font-family: var(--font-read); font-weight: 700; font-size: 1.15rem; color: var(--n-ink-2); }
+
+/* tampon de la mission réussie */
+.mi-stamp {
+  position: absolute; z-index: 3; top: 10px; right: 10px; display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px; border-radius: 14px; transform: rotate(-7deg);
+  background: var(--ok-bg); color: var(--ok-ink); border: 3px solid var(--ok); box-shadow: var(--shadow-2); font-size: 1.05rem;
+}
+
+/* ---------- rangée d'outils (📊 Dessin, 🎤 des choix, ligne 👂) : hauteur fixe, rien ne bouge quand le micro s'allume ---------- */
+.mi .mi-voice { flex: none; height: 52px; margin: 0; justify-content: center; }
+.mi .mi-voice .va-mic { width: 50px; height: 50px; min-height: 50px; }
+.mi .mi-voice .va-ear { margin: 0; font-size: .98rem; min-width: 0; }
+/* réponse : la tête de la carte (compagnon, « Mission n ») laisse la place à l'énoncé ; la question reste visible en bas */
+.mi.is-answer .mi-head { display: none; }
+.mi.is-answer .mi-body { padding-top: 10px; }
+.mi.is-answer .mi-text .mi-q { position: sticky; bottom: 0; z-index: 1; margin-bottom: 0; box-shadow: 0 -6px 10px -6px color-mix(in srgb, var(--mi-paper-2) 90%, transparent); }
+
+/* ---------- bulle d'aide ---------- */
+.mi-help { flex: none; position: relative; z-index: 4; height: var(--mi-help-h); }
+.mi-help-in { position: absolute; left: 0; right: 0; bottom: 0; min-height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; gap: 6px; }
+.mi-help .kit-bubble-body { font-family: var(--font-read); line-height: 1.38; font-size: 1.04rem; }
+.mi-idle { margin: 0 0 6px; text-align: center; font-family: var(--font-read); font-size: 1.05rem; color: var(--ink-2); }
+.mi-later { display: flex; justify-content: center; }
+
+/* ---------- réponses ---------- */
+.mi-pad { flex: none; position: relative; z-index: 5; }
+.mi-pad .kit-keys .key { min-height: var(--mi-key); }
+.mi-choices { gap: 10px; max-width: 460px; margin: 0 auto; }
+.mi-choices .choice { min-height: 64px; font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; padding: 6px 4px; }
+.mi-choices .choice.mi-step { background: var(--amber-50); border-style: dashed; border-color: var(--amber-400); color: var(--amber-900); }
+.mi-readwrap, .mi-nextwrap { padding-top: 2px; }
+.mi-pad.is-next > :not(.mi-nextwrap) { visibility: hidden; }
+.mi-pad.is-next > .mi-nextwrap { position: absolute; left: 0; right: 0; bottom: 0; }
+
+/* réponse : la carte garde la hauteur de son texte, la réponse reste en bas, à portée de pouce ; entre les deux, le
+   compagnon attend sur l'herbe (il disparaît quand la place manque) */
+.mi.is-answer .mi-card { flex: 0 1 auto; }
+.mi-stage { display: none; }
+.mi.is-answer .mi-stage { display: flex; flex: 1 1 0; min-height: 0; position: relative; overflow: hidden; align-items: flex-end; justify-content: center; }
+.mi.is-answer .mi-pet { display: none; }
+.mi-meadow {
+  position: absolute; left: 50%; bottom: 0; width: min(78%, 300px); height: 30px; transform: translateX(-50%);
+  border-radius: 50% 50% 14px 14px / 70% 70% 14px 14px; background: linear-gradient(180deg, var(--n-grass-1), var(--n-grass-2)); opacity: .85;
+}
+.mi-stage-pet { position: relative; height: min(124px, 100%); display: flex; align-items: flex-end; padding-bottom: 6px; }
+.mi-stage-pet svg { display: block; height: 100%; width: auto; max-height: 118px; overflow: visible; }
+.mi.is-learning .mi-stage { display: none; }
+.mi-nw { white-space: nowrap; }
+
+/* lecture : la carte prend la place ; ni ligne 👂 ni bulle */
+.mi.is-read .mi-voice, .mi.is-read .mi-help { display: none; }
+
+/* ---------- explication en quatre phases ---------- */
+.mi.is-learning .mi-help, .mi.is-learning .mi-voice { display: none; }   /* micro en pause pendant l'explication */
+.mi.is-learning .mi-card { flex: 0 1 auto; max-height: 44%; }
+.mi.is-learning .mi-pad { flex: 1 1 auto; min-height: 0; display: flex; }
+.mi.is-learning .mi-pad > :not(.mi-learn) { display: none; }
+.mi-learn { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.mi-learn-head { margin: 0; text-align: center; font-weight: 700; color: var(--soft-ink); font-size: 1.05rem; }
+.mi-steps {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 0; padding: 8px 12px; list-style: none;
+  background: var(--orange-50); border: 2px solid var(--orange-300); border-radius: var(--r-m);
+}
+.mi-step-row { display: grid; grid-template-columns: 30px 1fr; gap: 8px; align-items: start; padding: 6px 0; }
+.mi-step-row + .mi-step-row { border-top: 1px dashed color-mix(in srgb, var(--orange-300) 70%, transparent); }
+.mi-step-ico { font-size: 1.3rem; line-height: 1.3; text-align: center; }
+.mi-step-txt { display: flex; flex-direction: column; gap: 1px; font-family: var(--font-read); font-size: 1.02rem; line-height: 1.36; color: var(--soft-ink); white-space: pre-line; }
+.mi-step-txt b { font-family: var(--font-ui); font-size: .95rem; }
+.mi-step-row.is-calculer .mi-step-txt span { font-family: var(--font-ui); font-weight: 700; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.mi-step-row.is-repondre .mi-step-txt span { font-weight: 700; }
+
+/* ---------- petits écrans ---------- */
+@media (max-width: 380px) {
+  .mi { --mi-gap: 6px; --mi-help-h: 66px; }
+  .mi-body { padding: 2px 12px 10px; }
+  .mi-pet { width: 54px; height: 46px; }
+  .mi-pet svg { width: 54px; height: auto; }
+  .mi-title { font-size: .98rem; padding: 3px 10px; }
+  .mi-draw { padding: 4px 10px; }
+  .mi-choices .choice { min-height: 58px; font-size: 1.45rem; }
+  .mi-help .kit-bubble-body { font-size: .97rem; }
+}
+@media (min-height: 780px) {
+  .mi { --mi-help-h: 100px; }                    /* place pour un indice de quatre lignes sans couvrir la rangée d'outils */
+}
+@media (max-height: 700px) {
+  /* petit écran : pas de ligne d'aide au repos ; une bulle (indice, étape) se pose au-dessus des réponses, sur la
+     rangée d'outils — l'énoncé garde la place */
+  .mi { --mi-help-h: 0px; --mi-key: 48px; --mi-gap: 6px; }
+  .mi-idle { display: none; }
+  .mi.is-answer { --mi-fs: clamp(1.02rem, 4.1vw, 1.16rem); }
+  .mi-pad .kit-keypad { gap: 6px; }
+  .mi-pad .keypad { gap: 6px; }
+  .mi-ansline { padding: 5px 10px 6px; }
+  .mi-ansline .mi-box { min-height: 46px; font-size: 1.5rem; }
+  .mi.is-learning .mi-card { max-height: 36%; }
+}
+
+/* ---------- grand écran : la carte à gauche, la réponse à droite ---------- */
+@media (min-width: 760px) and (min-height: 520px) {
+  .mi {
+    display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(320px, 1fr); grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas: 'card voice' 'card help' 'card pad'; column-gap: 18px; row-gap: 8px; align-content: stretch;
+  }
+  .mi-card { grid-area: card; }
+  .mi .mi-voice { grid-area: voice; }
+  .mi-help { grid-area: help; height: auto; min-height: 96px; }
+  .mi-help-in { position: static; min-height: 96px; }
+  .mi-pad { grid-area: pad; align-self: end; }
+  .mi.is-read .mi-pad { grid-area: pad; }
+  .mi.is-learning .mi-card { max-height: none; }
+  .mi.is-answer .mi-stage { display: none; }
+  .mi.is-answer .mi-pet { display: grid; }
+}
+
+/* ---------- mouvement réduit ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .mi-svg.is-drawing .mi-seg { animation: none; }
+}
+html.motion-soft .mi-svg.is-drawing .mi-seg { animation: none; }

@@ -74,10 +74,13 @@
    data   = { strategy: kind, decimals (nombre de décimales de la réponse),
               ardoise: ['57', '56'] (résultats intermédiaires de la stratégie, comme sur l'ardoise) }
    opts   : avoid (Set de clés, jusqu'à 40 tirages), kind (imposé ; s'il n'existe pas encore à ce niveau,
-            l'item est pris au premier niveau où il existe, et item.A le dit). */
+            l'item est pris au premier niveau où il existe, et item.A le dit).
+   item.notion (calendrier, js/content/calendar.js, v2.5) : 'ma.procedures:<kind>.<classe>', la procédure et l'année
+            de son niveau réel (« + 19, + 29 » : 'ma.procedures:plus9.ce1'), jamais avant l'année d'arrivée. */
 
 import { fmtNum, frTypo } from '../../core/util.js';
 import { makeRng } from '../../core/rng.js';
+import { procNotion } from '../calendar.js';
 
 export const axis = 'ma.procedures';
 
@@ -1133,6 +1136,7 @@ function makeItem(kind, ops, A, rng) {
   const item = {
     axis, kind, key: `${axis}:${kind}:${ops}`,
     A: r2(clamp(A, lo, lo + SPAN)),
+    notion: procNotion(kind, lo),                              /* calendrier : procédure × année de son niveau réel */
     prompt: core.prompt,
     answer: core.answer,
     hint: T(core.hint),

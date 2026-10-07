@@ -55,8 +55,8 @@ test('gabarits radar', () => {
   assert.ok(!ce2.official && ce2.axes.length >= 8);
 });
 test('registre des jeux', () => {
-  assert.equal(GAMES.length, 6);
-  assert.equal(gamesFor('CP').length, 4);
+  assert.equal(GAMES.length, 7);                      /* v2.5 : + les Missions du ranch */
+  assert.equal(gamesFor('CP').length, 5);
   assert.equal(mancheSize('tables', 20), 12);
 });
 import { ficheTemplate, ficheToAxes, CLASS_AXES, axesFor } from '../js/core/axes.js';

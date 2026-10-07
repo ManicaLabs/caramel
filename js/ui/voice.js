@@ -2,8 +2,9 @@
    Lecture à voix haute des consignes, des indices et des phrases du compagnon.
    Réglage des parents settings.readAloud (espace parents › « Lire les consignes à voix haute ») : 'on' = Oui (défaut,
    pour TOUS les enfants depuis la 2.2.2 : l'ancien 'auto' des CP-CE1 et un réglage absent valent Oui) · 'off' = Non
-   (anciens booléens acceptés). 🔊 est visible dès que la lecture est activée (sons coupés compris : un toucher de 🔊 est
-   un geste explicite) ; Non le cache partout.
+   (anciens booléens acceptés). 🔁 « Écouter encore » (🔊 jusqu'à la 2.3 : l'enceinte est devenue le bouton du son,
+   js/ui/sound-toggle.js, décision du parent du 07/10/2026) est visible quand la lecture est activée et les sons aussi
+   (sons coupés : 🔇 en haut de l'écran, rien n'est lu, 🔁 disparaît) ; Non le cache partout.
    Le texte reste TOUJOURS affiché (CDC §16). Rien n'est lu : sons coupés, avant le premier geste de la page (le
    navigateur refuserait), ni pendant que le micro écoute (le moteur vocal n'entend que l'enfant : js/core/speech.js
    n'est que LU, jamais modifié). La voix se tait quand la page passe en arrière-plan.
@@ -30,7 +31,7 @@
      readAloud(profil) → booléen (réglage résolu pour ce profil : tout sauf Non)
      voiceOn(profil) → booléen : readAloud ET sons activés ET une voix possible (clips ou voix française du téléphone) —
        la lecture AUTOMATIQUE
-     listenOn(profil) → booléen : readAloud ET une voix possible — 🔊 « Écouter encore » est montré
+     listenOn(profil) → booléen : readAloud ET sons activés ET une voix possible — 🔁 « Écouter encore » est montré
      stats() → { rec, fluid, tts, partial, health } : phrases dites pendant la séance par la voix enregistrée, par la voix
        fluide, par la voix du téléphone, en lecture partielle (diagnostic de l'espace parents)
      prepare(...textes), prepareNext(...textes) : calcule à l'avance (voix fluide prête, lecture automatique active ;
@@ -46,7 +47,7 @@
      test(texte?, { profile }) → Promise<{ ok, reason, diag, rec, tts }> : essai explicite pour l'espace parents — la voix
        enregistrée puis celle du téléphone (rec / tts : { ok, reason } ; diag : tts.diagnose()) ; profile : l'enfant
        nommé dans le texte (défaut : l'enfant actif)
-     listenButton(get, { label }) → bouton 🔊 rond de 48 px qui relit get() ; classe is-speaking pendant la lecture */
+     listenButton(get, { label }) → bouton 🔁 rond de 48 px qui relit get() ; classe is-speaking pendant la lecture */
 
 import { h, frTypo } from '../core/util.js';
 import * as tts from '../core/tts.js';
@@ -70,9 +71,10 @@ const canSpeak = () => clips.supported() || tts.ttsAvailable();
 export function voiceOn(profile = getProfile()) {
   try { return readAloud(profile) && soundOn(profile) && !audio.isMuted() && canSpeak(); } catch (_) { return false; }
 }
-/* 🔊 montré : la lecture est activée et une voix est possible (sons coupés : 🔊 lit quand même, c'est un geste) */
+/* 🔁 montré : la lecture est activée, les sons aussi, et une voix est possible (v2.4 : sons coupés, le 🔇 du haut de
+   l'écran dit « silence » ; avant, 🔊 lisait quand même) */
 export function listenOn(profile = getProfile()) {
-  try { return readAloud(profile) && canSpeak(); } catch (_) { return false; }
+  try { return readAloud(profile) && soundOn(profile) && canSpeak(); } catch (_) { return false; }
 }
 
 /* la page a-t-elle déjà reçu un geste ? (sans geste, Chrome et Safari refusent la synthèse vocale) */
@@ -334,7 +336,7 @@ const toast = msg => { try { kit.toast(msg); } catch (_) {} };
 export function listenButton(get, { label = 'Écouter' } = {}) {
   try { kit.ensureStyles(); } catch (_) {}
   const b = h('button', { type: 'button', class: 'vx-listen', 'aria-label': label },
-    h('span', { class: 'vx-wave', 'aria-hidden': 'true' }), h('span', { class: 'vx-ico', 'aria-hidden': 'true' }, '🔊'));
+    h('span', { class: 'vx-wave', 'aria-hidden': 'true' }), h('span', { class: 'vx-ico', 'aria-hidden': 'true' }, '🔁'));
   b.addEventListener('click', () => {
     const text = typeof get === 'function' ? get() : '';
     if (!text) return;

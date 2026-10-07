@@ -470,6 +470,7 @@ function createAtelier(root, ctx) {
   function nextItem() {
     if (!alive) return;
     settle();
+    dropLater();
     const opts = {};
     const sm = ctx.settings && ctx.settings.subMethod;
     if (sm === 'compensation' || sm === 'cassage') opts.subMethod = sm;
@@ -565,6 +566,7 @@ function createAtelier(root, ctx) {
       setNote((heard || K.cheer('retry', ctx.rng)) + ' ' + (step.hint || ''), 'hint');
       setAsk(step.prompt);
       fitTalk(step.hint || '');
+      offerLater();
       if (!reduced()) M.squash(ava, { amount: 0.6 });
       ctx.announce(note.textContent);
       say(note.textContent + ' ' + step.prompt);
@@ -618,9 +620,51 @@ function createAtelier(root, ctx) {
     }
   }
 
+  /* ---------- « 🌱 Pas encore appris » (v2.5, ctx.later) ----------
+     après la première erreur de l'opération, la pastille se pose en haut de la feuille (à la place du crayon) ;
+     confirmé → l'opération n'est pas rapportée, le compagnon le dit, la feuille glisse et la suivante arrive (elle
+     remplace celle-ci dans la partie) */
+  let laterChip = null;
+  function offerLater() {
+    if (laterChip || !item || finished) return;
+    const it = item;
+    const chip = safe(() => ctx.later && ctx.later(it, { onSkip: s => skipItem(it, s) }));
+    if (!chip) return;
+    laterChip = chip;
+    chip.classList.add('op-later');
+    head.append(chip);
+    head.classList.add('has-later');
+  }
+  function dropLater() {
+    if (laterChip) { laterChip.remove(); laterChip = null; }
+    head.classList.remove('has-later');
+  }
+  function skipItem(it, s) {
+    if (!alive || ended || item !== it || finished) return;
+    finished = true;                                        /* plus aucun chiffre n'est pris */
+    va.pause(true);
+    for (const b of Object.values(keys)) b.disabled = true;
+    dropLater();
+    clearWrong();
+    setNote(s.line, 'say');
+    setAsk('');
+    fitTalk('');
+    ctx.announce(s.line);
+    s.done.then(() => {
+      if (!alive || ended || item !== it) return;
+      finished = false;
+      if (reduced()) { nextItem(); return; }
+      const a = animate(paper, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateX(-26px) rotate(-.8deg)' }],
+        { duration: 200, easing: 'ease-in', fill: 'forwards' });
+      if (a) a.addEventListener('finish', () => { if (alive) { safe(() => a.cancel()); nextItem(); } }, { once: true });
+      else nextItem();
+    });
+  }
+
   /* ---------- fin d'une opération ---------- */
   function complete() {
     finished = true;
+    dropLater();
     va.pause(true);                                         /* explication, « Opération suivante » : le micro attend */
     const out = run.outcome(performance.now() - t0);
     itemsDone++;

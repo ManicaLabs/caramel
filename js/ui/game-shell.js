@@ -16,7 +16,12 @@
    6. micro impossible (course) : ctx.changeGame() — en balade, l'étape prend un autre jeu (session.swapBlock) qui se
       lance aussitôt ; en partie libre, feuille de choix d'un autre jeu (D1-01). ctx.nextStep() : après les résultats
       de la course, étape suivante (ou accueil si la balade est finie).
-   Lien périmé en mode balade (bloc déjà fait, plan d'un autre jour) → la partie se joue en mode libre. */
+   Lien périmé en mode balade (bloc déjà fait, plan d'un autre jour) → la partie se joue en mode libre.
+   v2.4 — temps de jeu du jour (js/core/playtime.js, js/ui/play-limit.js) : la limite se vérifie quand un jeu va
+   DÉMARRER (une partie commencée se finit toujours). Limite atteinte : un lien direct ou un rechargement de #/play
+   ramène à l'accueil (« {N} se repose 💤 À demain ! ») ; au bilan, « Rejouer », « Étape suivante » et « Encore un
+   jeu ? » laissent la place à « Accueil 🏠 » sous la même phrase (dite après la phrase du bilan) ; les relances
+   internes (replay, goStep, changeGame, pickMore, ctx.again de la course, ctx.nextStep) ramènent à l'accueil. */
 
 import { h, clear, dayStr, frTypo, loadCSS, fmtNum } from '../core/util.js';
 import * as store from '../core/store.js';
@@ -34,6 +39,7 @@ import { createHeader } from './game-header.js';
 import { mountReady, avatarOf, setAvatar } from './companion.js';
 import { stepInfo, launchStep, openGamePicker } from './balade.js';
 import * as voice from './voice.js';
+import { timeUp, restLine, restNotice } from './play-limit.js';
 
 const FROM_KEY = 'caramel-play-from';       /* écran d'où le jeu a été lancé ('#/home', '#/balade') */
 const WAIT_SHOW_MS = 160;                   /* l'écran d'attente n'apparaît que si le chargement traîne */
@@ -82,6 +88,8 @@ export default {
     if (!p.classe) { router.go('welcome', { replace: true }); return; }
     const game = GAME_BY_ID[id];
     if (!game || !gamesFor(p.classe).some(g => g.id === id)) { router.go('home', { replace: true }); return; }
+    /* temps de jeu du jour atteint (v2.4) : aucun nouveau jeu (lien direct, rechargement, relance) → l'accueil */
+    if (timeUp(p, today)) { restNotice(p); router.go('home', { replace: true }); return; }
 
     /* mode et bloc de balade (vérifiés : un lien périmé devient une partie libre) */
     let mode = query && query.mode === 'balade' ? 'balade' : 'libre';
@@ -151,7 +159,10 @@ export default {
         onQuit: () => { if (!my.leaving && st === my) exit(); },
         onLeave: () => { if (!my.leaving && st === my) exit(); },
         onChangeGame: () => changeGame(),
-        onNextStep: () => nextStep()
+        onNextStep: () => nextStep(),
+        /* ctx.again() (Revanche, Suite, Histoires de la course) : pas de nouvelle partie une fois le temps atteint */
+        canStart: () => !timeUp(store.getProfile() || p, today),
+        onRest: () => { if (!my.leaving && st === my) restHome(); }
       });
     } catch (e) { fail(e); return; }
     my.ctx = ctx;
@@ -293,10 +304,18 @@ export default {
       }
       for (const b of bonuses) { b.el.style.opacity = '0'; lines.appendChild(b.el); }
 
-      /* UN bouton principal ; en balade, « Accueil » reste possible mais discret */
+      /* UN bouton principal ; en balade, « Accueil » reste possible mais discret.
+         v2.4 : temps de jeu du jour atteint → plus de relance (Rejouer, Étape suivante, Encore un jeu ?) : « Accueil 🏠 »,
+         où le compagnon se repose, sous la phrase « {N} se repose 💤 À demain ! » */
+      const rest = timeUp(q, today);
+      const restTxt = rest ? restLine(q) : '';
       const acts = [];
       let actions = [];
-      if (mode === 'balade' && next >= 0) {
+      if (rest) {
+        const home = h('button', { type: 'button', class: 'btn play block gs-next is-home' }, h('span', null, 'Accueil'), h('span', { class: 'btn-play-ico', 'aria-hidden': 'true' }, '🏠'));
+        home.addEventListener('click', () => { audio.tap(); closeThen(() => exitTo('home')); });
+        acts.push(h('p', { class: 'gs-rest' }, restTxt), home);
+      } else if (mode === 'balade' && next >= 0) {
         const nx = h('button', { type: 'button', class: 'btn play block gs-next' },
           h('span', null, frTypo('Étape suivante')), h('span', { class: 'btn-play-ico', 'aria-hidden': 'true' }, '▶'));
         const info = stepInfo(q, plan, next);
@@ -324,8 +343,9 @@ export default {
       audio.fanfare();
       /* lecture à voix haute activée : le compagnon dit la phrase du bilan (après la fanfare) ; voix fluide (v2.2.2) :
          calculée pendant la fanfare */
-      voice.prepareNext(praiseTxt);
-      later(() => { if (st === my && voice.voiceOn(q)) voice.speak(praiseTxt); }, 900);
+      const spoken = rest ? praiseTxt + ' ' + restTxt : praiseTxt;
+      voice.prepareNext(spoken);
+      later(() => { if (st === my && voice.voiceOn(q)) voice.speak(spoken); }, 900);
       if (s.dayDone) motion.confetti();
 
       /* chorégraphie : le compagnon avance sur le sentier, « 🍎 +N » compte les pommes, puis chaque bonus s'y ajoute */
@@ -413,6 +433,7 @@ export default {
        choix, sans la course ; refermée sans choisir → on reste ici) ; partie libre → feuille de choix d'un autre jeu */
     function changeGame() {
       if (my.leaving || st !== my) return;
+      if (timeUp(store.getProfile() || p, today)) { restHome(); return; }
       if (mode === 'balade' && blockIdx !== null) {
         try { store.mutateProfile(q => { swapBlock(q, blockIdx, today, id); }); } catch (e) { console.error('Changer de jeu', e); }
         const q = store.getProfile();
@@ -428,10 +449,11 @@ export default {
       const q = store.getProfile();
       const plan = mode === 'balade' && q && q.today && q.today.d === today && Array.isArray(q.today.blocks) ? q.today : null;
       const next = plan && !plan.done ? plan.blocks.findIndex(b => !b.done) : -1;
-      if (next >= 0) goStep(next); else exitTo('home');
+      if (next >= 0 && !timeUp(q, today)) goStep(next); else exitTo('home');
     }
     /* balade finie : encore un jeu (partie libre) */
     function pickMore() {
+      if (timeUp(store.getProfile() || p, today)) { restHome(); return; }
       const s2 = openGamePicker({ title: 'Encore un jeu ?', onPick: id => router.go('play/' + id, { replace: true }), onCancel: backHome });
       if (s2) my.sheet = s2;
     }
@@ -443,7 +465,13 @@ export default {
     }
     /* « Rejouer » : l'écran est remonté (nouvelle manche, nouveau jeu tout propre) */
     function replay() {
+      if (timeUp(store.getProfile() || p, today)) { restHome(); return; }
       router.go('play/' + id, { replace: true });
+    }
+    /* temps de jeu du jour atteint pendant une relance : la phrase douce, puis l'accueil (le compagnon s'y repose) */
+    function restHome() {
+      restNotice(store.getProfile() || p);
+      exitTo('home');
     }
     /* retour d'où l'on vient (accueil, ou carte du pré si le jeu a été lancé depuis elle) ; toMap : en balade, la
        carte du pré (fin de la course, qui a déjà montré ses résultats) */

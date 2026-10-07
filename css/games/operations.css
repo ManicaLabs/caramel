@@ -297,3 +297,7 @@
 }
 html.motion-soft .op-c.is-target::before { animation: none; }
 html.motion-soft .op-band { transition: opacity var(--dur-1) ease-out; }
+
+/* « 🌱 Pas encore appris » (v2.5) : après la première erreur, en haut de la feuille, à la place du crayon */
+.op-head.has-later .op-pencil { display: none; }
+.op-head .op-later { margin-top: 0; flex: none; min-height: 40px; padding: 4px 12px 4px 9px; font-size: .9rem; }

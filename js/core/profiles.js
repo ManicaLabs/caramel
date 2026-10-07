@@ -11,6 +11,7 @@ import { badgeOf } from './economy.js';
 import { thetaFromMclm } from './levels.js';
 import { MOUNTS, SHOP, PET } from '../content/companion-data.js';
 import { normalizeTheme, DEFAULT_THEME } from './themes.js';
+import { normDailyMin, DAILY_DEFAULT } from './playtime.js';
 
 export const DEFAULT_HERO = 'Léa';            /* héros par défaut de la v11 (defaultSave) */
 export const DEFAULT_MOUNT_NAME = 'Caramel';
@@ -20,7 +21,11 @@ export const SESSION_MINUTES = Object.freeze([10, 15, 20]);
    2.2.2), 'off' = non (choisi par un parent, toujours gardé) ; l'ancien 'auto' (CP-CE1, jusqu'à la 2.2.1), un réglage
    absent ou inconnu → 'on' ; anciens booléens acceptés (true → 'on', false → 'off') */
 export const READ_ALOUD_MODES = Object.freeze(['on', 'off']);
-export const DEFAULT_SETTINGS = Object.freeze({ sessionMin: 15, timers: false, sound: true, motion: 'full', theme: DEFAULT_THEME, readAloud: 'on' });
+/* dailyMin (v2.4) : minutes de jeu par jour (js/core/playtime.js ; 0 = sans limite), 60 par défaut, réglables par un parent.
+   rythme (v2.5, js/content/calendar.js) : 'ecole' = au rythme de la classe (défaut, pour TOUS les profils, existants
+   compris : décision du parent du 07/10/2026) | 'avance' = un peu en avance | 'libre' = selon ses réussites (comme avant) */
+export const RYTHMES = Object.freeze(['ecole', 'avance', 'libre']);
+export const DEFAULT_SETTINGS = Object.freeze({ sessionMin: 15, timers: false, sound: true, motion: 'full', theme: DEFAULT_THEME, readAloud: 'on', dailyMin: DAILY_DEFAULT, rythme: 'ecole' });
 /* plafonds des tableaux (contrat §2) ; freezes = gels de série cumulables au plus */
 export const CAPS = Object.freeze({ history: 500, mclm: 300, snapshots: 104, freezes: 3 });
 const NAME_MAX = 14;
@@ -139,10 +144,55 @@ export function normalizeProfile(p, today) {
   };
   if (has(src, 'trophies')) out.trophies = normTrophies(src.trophies);   /* facultatif (v2.1, « En famille ») */
   if (has(src, 'seen')) out.seen = normSeen(src.seen);                   /* facultatif (v2.2.1, « déjà vu ») */
+  if (has(src, 'playBonus')) out.playBonus = normPlayBonus(src.playBonus); /* facultatif (v2.4) : minutes accordées en plus aujourd'hui */
+  if (has(src, 'cal')) out.cal = normCal(src.cal);                       /* facultatif (v2.5) : reports « Pas encore appris », réglages du parent */
   /* médailles gagnées (v2.1) : jamais retirées ; un profil d'avant la 2.1 (champ absent) garde celles que la v2.0
      lui montrait (legacyMedals), même si la nouvelle règle ne les donnerait plus (CDC §1 : aucune perte) */
   out.medals = has(src, 'medals') ? normMedals(src.medals) : legacyMedals(out);
   return withExtras(out, src);
+}
+
+/* ---------- temps de jeu et soins du jour (v2.4) ----------
+   playBonus = { d, min } : minutes de jeu accordées en plus par un parent pour le jour d (js/core/playtime.js).
+   companion.pet.care = { d, brush, walk } : brossages et promenades du jour d (le 1er de chaque est gratuit). */
+function normPlayBonus(v) {
+  const b = isObj(v) ? v : {};
+  return { d: isDay(b.d) ? b.d : '', min: clamp(int(b.min, 0), 0, 600) };
+}
+function normCare(v) {
+  const c = isObj(v) ? v : {};
+  return { d: isDay(c.d) ? c.d : '', brush: clamp(int(c.brush, 0), 0, 99), walk: clamp(int(c.walk, 0), 0, 99) };
+}
+
+/* ---------- calendrier des notions (v2.5, js/content/calendar.js) ----------
+   cal = { later: { <famille>: { d, until, n, ex, ax } }, parent: { <famille>: { s: 'vu' | 'pasvu', d } } }
+   Familles '<axe>:<nom>' (y compris celles déclarées par un générateur : pas de liste fermée ici), dates valides,
+   n entier 1-9, ex ≤ 80 caractères, 30 entrées au plus par liste (les plus récentes). */
+const CAL_FAM_RE = /^[a-z]{2}\.[a-z_]+:[A-Za-z0-9_.-]{1,40}$/;
+const CAL_MAX = 30;
+function newest(entries) {
+  return entries.sort((a, b) => (a[1].d < b[1].d ? 1 : a[1].d > b[1].d ? -1 : 0)).slice(0, CAL_MAX);
+}
+function normCal(v) {
+  const c = isObj(v) ? v : {};
+  const later = [], parent = [];
+  if (isObj(c.later)) {
+    for (const [k, e] of Object.entries(c.later)) {
+      if (!CAL_FAM_RE.test(k) || BAD_KEYS.has(k) || !isObj(e) || !isDay(e.d) || !isDay(e.until)) continue;
+      const o = { d: e.d, until: e.until, n: clamp(int(e.n, 1), 1, 9) };
+      if (typeof e.ex === 'string' && e.ex) o.ex = e.ex.replace(/[\u0000-\u001f\u007f]/g, ' ').slice(0, 80);
+      if (typeof e.ax === 'string' && AXIS_RE.test(e.ax)) o.ax = e.ax;
+      later.push([k, o]);
+    }
+  }
+  if (isObj(c.parent)) {
+    for (const [k, e] of Object.entries(c.parent)) {
+      if (!CAL_FAM_RE.test(k) || BAD_KEYS.has(k) || !isObj(e) || (e.s !== 'vu' && e.s !== 'pasvu')) continue;
+      parent.push([k, { s: e.s, d: isDay(e.d) ? e.d : '' }]);
+    }
+  }
+  const { later: _l, parent: _p, ...rest } = c;
+  return withExtras({ later: Object.fromEntries(newest(later)), parent: Object.fromEntries(newest(parent)) }, rest);
 }
 
 /* ---------- « déjà vu » (v2.2.1) ----------
@@ -243,7 +293,9 @@ function normCompanion(c) {
       faim: gauge(pet.faim), forme: gauge(pet.forme), joie: gauge(pet.joie),
       last: Math.max(0, num(pet.last, 0)),
       brushLast: Math.max(0, num(pet.brushLast, 0)),
-      walkDay: isDay(pet.walkDay) ? pet.walkDay : ''
+      walkDay: isDay(pet.walkDay) ? pet.walkDay : '',
+      /* v2.4 : soins du jour (brossage et promenade : le 1er gratuit, les suivants en pommes) — facultatif */
+      ...(has(pet, 'care') ? { care: normCare(pet.care) } : {})
     }, pet),
     stage: clamp(int(c.stage, 1), 1, 3),
     minutes: Math.max(0, num(c.minutes, 0))
@@ -389,7 +441,9 @@ function normSettings(s) {
     sound: typeof s.sound === 'boolean' ? s.sound : DEFAULT_SETTINGS.sound,
     motion: s.motion === 'soft' ? 'soft' : 'full',
     theme: normalizeTheme(s.theme),
-    readAloud: normReadAloud(s.readAloud)
+    readAloud: normReadAloud(s.readAloud),
+    dailyMin: normDailyMin(s.dailyMin),
+    rythme: RYTHMES.includes(s.rythme) ? s.rythme : DEFAULT_SETTINGS.rythme
   }, s);
 }
 
@@ -486,6 +540,7 @@ export function setClasse(profile, classe, today) {
   profile.classe = cl;
   if (changed || !isDay(profile.classeSince)) profile.classeSince = d;
   if (changed) profile.today = null;          /* plan de balade calculé pour l'ancienne classe */
+  if (changed && has(profile, 'cal')) delete profile.cal;   /* v2.5 : reports et réglages par notion valent pour une année */
   const mclm = isObj(profile.legacy) ? num(profile.legacy.mclm, NaN) : NaN;
   if (Number.isFinite(mclm) && mclm > 0 && !fluenceObserved(profile)) {
     if (!isObj(profile.skills)) profile.skills = {};

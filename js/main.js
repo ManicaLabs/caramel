@@ -10,6 +10,9 @@
       Android) est gardée pour le vrai bouton « Installer », et l'installation notée (appinstalled) — js/core/install.js.
    0 bis. (v2.2.4) après « Effacer toutes les données de cet appareil » (drapeau de session 'caramel-wipe') : fin du
       ménage avant store.init (js/ui/wipe.js : finishWipe).
+   1 ter. (v2.4) déménagement vers caramel.manica.fr (js/core/move.js) : après store.init, les progrès qui arrivent de
+      l'ancienne adresse sont rangés (ou l'adulte choisit) ; sur l'ancienne adresse, déménagement allumé, tous les écrans
+      mènent à « Caramel déménage ! » (js/ui/move.js), sauf l'espace parents.
    6. (v2.2.2) voix fluide (js/core/voice-fluid.js) : le moteur démarre en tâche de fond s'il est en cache ; chaque
       changement d'écran lui est signalé (aucun téléchargement pendant un jeu ; après une séance, téléchargement
       automatique s'il est permis).
@@ -41,7 +44,8 @@ const ROUTES = {
   'famille/:part': () => import('./ui/famille.js'),            /* #/famille/concours : spectacle du concours */
   'battle': () => import('./ui/battle.js'),                    /* défi en famille, à tour de rôle sur un appareil ;
                                                                   ?duel=<code> : la partie « Avec un copain » */
-  'duel': () => import('./ui/duel.js')                         /* « 👫 Avec un copain » : code de partie (je lance, je rejoins) */
+  'duel': () => import('./ui/duel.js'),                        /* « 👫 Avec un copain » : code de partie (je lance, je rejoins) */
+  'demenagement': () => import('./ui/move.js')                 /* v2.4 : « Caramel déménage ! 🏡 » (ancienne adresse seulement) */
 };
 
 const load = path => import(path).catch(e => { console.error('Module indisponible : ' + path, e); return null; });
@@ -188,6 +192,13 @@ async function boot() {
   if (store) {
     try { store.init(); } catch (e) { console.error('store.init', e); }
   }
+  /* 1 ter. (v2.4) déménagement vers caramel.manica.fr (js/core/move.js) : des progrès arrivent de l'ancienne adresse
+     (« #demenagement=… », effacé de l'adresse aussitôt) — avant le choix du premier écran */
+  const mv = await load('./core/move.js');
+  let arrival = null;
+  if (mv && store) {
+    try { const backup = await load('./ui/backup.js'); if (backup) arrival = await mv.arrive(store, backup); } catch (e) { console.error('Déménagement', e); }
+  }
   applySettings(store, audio, motion, themes);
   try { if (store && store.subscribe) store.subscribe(() => applySettings(store, audio, motion, themes)); } catch (_) {}
   unlockOnGesture(audio, tts);
@@ -206,8 +217,18 @@ async function boot() {
   const vt = motion && typeof motion.viewTransition === 'function' ? fn => motion.viewTransition(fn) : null;
   const kit = await load('./ui/kit.js');
   const beforeSwap = () => { try { if (kit && kit.closeAllSheets) kit.closeAllSheets('nav'); } catch (_) {} };
-  await router.start(ROUTES, { fallback: 'home', transition: vt, initial: initialRoute(store), beforeSwap });
+  /* ancienne adresse, déménagement allumé : tous les écrans mènent à « Caramel déménage ! », sauf l'espace parents
+     (sauvegarde) ; « Plus tard » rend l'appli comme avant pour la séance */
+  const moving = () => { try { return !!(mv && mv.wanted()); } catch (_) { return false; } };
+  const MOVE_FREE = ['demenagement', 'parents'];
+  const initial = moving() && !MOVE_FREE.includes(String(location.hash || '').replace(/^#\/?/, '').split(/[/?]/)[0]) ? 'demenagement' : initialRoute(store);
+  await router.start(ROUTES, { fallback: 'home', transition: vt, initial, beforeSwap });
+  router.onChange(() => {
+    const r = router.current();
+    if (moving() && r && !MOVE_FREE.includes(r.name)) router.go('demenagement', { replace: true });
+  });
   document.documentElement.classList.add('booted');
+  if (arrival) welcomeMove(arrival, kit);
   const fluid = await load('./core/voice-fluid.js');
   if (fluid) {
     try {
@@ -215,6 +236,20 @@ async function boot() {
       fluid.onRoute(router.current());
       router.onChange(() => fluid.onRoute(router.current()));
     } catch (e) { console.error('Voix fluide', e); }
+  }
+}
+
+/* nouvelle adresse : les progrès sont arrivés (ou pas) — une phrase, ou le choix de l'adulte s'il y en avait déjà ici */
+async function welcomeMove(a, kit) {
+  const { frTypo } = await import('./core/util.js');
+  const toast = t => { try { if (kit) kit.toast(frTypo(t), 5000); } catch (_) {} };
+  if (a.status === 'arrived') toast('Tes progrès sont arrivés ✓ Bienvenue dans ta nouvelle maison 🏡');
+  else if (a.status === 'broken') toast('Les progrès ne sont pas arrivés. Un adulte peut faire une sauvegarde sur l’ancienne adresse (🔒 Espace parents).');
+  else if (a.status === 'choose' && kit && kit.confirmSheet) {
+    const list = n => n.length ? n.join(', ') : '—';
+    const ok = await kit.confirmSheet(frTypo('Des progrès arrivent de l’ancienne adresse (' + list(a.there) + '). Ici, il y en a déjà (' +
+      list(a.here) + '). Lesquels garder sur cet appareil ?'), { ok: 'Ceux qui arrivent', cancel: 'Ceux d’ici', icon: '🏡' });
+    if (ok && a.take()) { try { history.replaceState(null, '', location.pathname + location.search + '#/'); } catch (_) {} location.reload(); }
   }
 }
 

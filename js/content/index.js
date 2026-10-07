@@ -10,6 +10,7 @@ const LOADERS = {
   'ma.faits': () => import('./maths/faits.js'),
   'ma.procedures': () => import('./maths/procedures.js'),
   'ma.operations': () => import('./maths/operations.js'),
+  'ma.problemes': () => import('./maths/problemes.js'),
   'fr.conjug': () => import('./fr/conjug.js'),
   'fr.fluence': () => import('./stories/index.js')
 };

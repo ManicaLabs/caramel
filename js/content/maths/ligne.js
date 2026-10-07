@@ -12,8 +12,9 @@
    | A           | palier          | contenu                                                                     |
    |-------------|-----------------|-----------------------------------------------------------------------------|
    | 0 – 0,35    | cp-20           | demi-droite de 1 en 1, nombres ≤ 20 (livret CP P1), portions de 10 (ou 0-20) |
-   | 0,35 – 0,65 | cp-59           | de 1 en 1, ≤ 59 (BO : « au plus tard en P2 »), portions ne partant pas de 0  |
-   | 0,65 – 1    | cp-100          | de 1 en 1, ≤ 100 (BO P3), deux étiquettes seulement                          |
+   | 0,35 – 0,45 | cp-59           | de 1 en 1, ≤ 59 (BO : « au plus tard en P2 »), portions ne partant pas de 0  |
+   | 0,45 – 1    | cp-100          | de 1 en 1, ≤ 100 (BO : « au plus tard en P3 » ; v2.5, était 0,65), deux       |
+   |             |                 | étiquettes seulement dès 0,65                                               |
    | 1 – 1,2     | ce1-500         | pas de 1, 10 ou 100, ≤ 500 (centaine dès P1)                                |
    | 1,2 – 2     | ce1-1000        | pas de 1, 10, 100, ≤ 1 000 ; dès 1,4 : déduire le pas de deux étiquettes     |
    |             |                 | voisines (242 et 243, 470 et 480 : BO) ; dès 1,5 : placer « à l'estime »     |
@@ -44,6 +45,9 @@
    opts : avoid (Set de clés), kind ('entier' | 'decimal' | 'fraction' : imposé ; s'il n'existe pas
           encore à ce niveau, l'item est pris au premier niveau où il existe et item.A le dit),
           mode ('lire' | 'placer' : imposé).
+   item.notion (calendrier, js/content/calendar.js, v2.5) : d'après la ligne affichée — entiers par taille (≤ 20, 59,
+          100, 500, 1 000, 5 000, 10 000, 999 999, au-delà), fractions (< 1 en quarts, dixièmes, huitièmes ; autres
+          dénominateurs ; > 1), décimaux (dixièmes, centièmes, millièmes et pas de 0,5).
 
    ---------- item.data (pour le jeu) ----------
    {
@@ -90,8 +94,8 @@ const KIND_FROM = { entier: 0, fraction: 2.6, decimal: 3.2 };
 /* ---------- paliers ---------- */
 export const PALIERS = [
   { id: 'cp-20', from: 0, to: 0.35, intMax: 20, dec: 0, kinds: { entier: 1 } },
-  { id: 'cp-59', from: 0.35, to: 0.65, intMax: 59, dec: 0, kinds: { entier: 1 } },
-  { id: 'cp-100', from: 0.65, to: 1, intMax: 100, dec: 0, kinds: { entier: 1 } },
+  { id: 'cp-59', from: 0.35, to: 0.45, intMax: 59, dec: 0, kinds: { entier: 1 } },
+  { id: 'cp-100', from: 0.45, to: 1, intMax: 100, dec: 0, kinds: { entier: 1 } },
   { id: 'ce1-500', from: 1, to: 1.2, intMax: 500, dec: 0, kinds: { entier: 1 } },
   { id: 'ce1-1000', from: 1.2, to: 2, intMax: 1000, dec: 0, kinds: { entier: 1 } },
   { id: 'ce2-5000', from: 2, to: 2.2, intMax: 5000, dec: 0, kinds: { entier: 1 } },
@@ -652,6 +656,24 @@ function fracChoices(rng, spec, A) {
   return rng.shuffle([[num, den], ...out]).map(([n, d]) => ({ label: fracText(n, d), value: n / d, num: n, den: d }));
 }
 
+/* ========== NOTION (calendrier) ========== */
+const decimalsOfNum = x => { const s = String(Math.round(Math.abs(x) * 1e6) / 1e6); const i = s.indexOf('.'); return i < 0 ? 0 : s.length - i - 1; };
+function lineNotion(data) {
+  if (data.fmt === 'frac') {
+    return `${axis}:` + (data.num > data.den ? 'frac.sup1' : [4, 8, 10].includes(data.den) ? 'frac' : 'frac2');
+  }
+  if (data.fmt === 'dec') {
+    if (data.variant === 'demi' || data.variant === 'irregulier') return `${axis}:dec3`;
+    const planes = [data, data.zoom].filter(Boolean);
+    const d = Math.max(decimalsOfNum(data.value), ...planes.map(p => decimalsOfNum(p.minor)));
+    return `${axis}:` + (d >= 3 ? 'dec3' : d === 2 ? 'dec2' : 'dec1');
+  }
+  const top = Math.max(Number(data.max) || 0, Number(data.value) || 0);
+  const n = top <= 20 ? 'n20' : top <= 59 ? 'n59' : top <= 100 ? 'n100' : top <= 500 ? 'n500' : top <= 1000 ? 'n1000'
+    : top <= 5000 ? 'n5000' : top <= 10000 ? 'n10000' : top <= 999999 ? 'n999999' : 'n1e9';
+  return `${axis}:${n}`;
+}
+
 /* ========== ASSEMBLAGE DE L'ITEM ========== */
 function itemFromLine(spec, A, mode, rng) {
   const plane = spec.zoom || spec, v = spec.valueU;
@@ -665,7 +687,7 @@ function itemFromLine(spec, A, mode, rng) {
   const data = { mode, variant: spec.variant, ...planeData(spec), value: val(v), fmt: spec.kind === 'decimal' ? 'dec' : 'int',
     text, snap, tolerance, zoom: spec.zoom ? planeData(spec.zoom) : null };
   const item = {
-    axis, kind: spec.kind, key: `${axis}:${mode}:${keyNum(spec.minU)}-${keyNum(spec.maxU)}:${keyNum(v)}`, A: r3(A),
+    axis, kind: spec.kind, key: `${axis}:${mode}:${keyNum(spec.minU)}-${keyNum(spec.maxU)}:${keyNum(v)}`, A: r3(A), notion: lineNotion(data),
     prompt: mode === 'lire' ? frTypo('Quel nombre se cache sous le drapeau ?') : `Place ${text} sur la clôture.`,
     answer: val(v),
     hint: frTypo(mode === 'lire' ? hintRead(spec) : hintPlace(spec)),
@@ -682,7 +704,7 @@ function itemFromFraction(spec, A, mode, rng) {
     labels: labels.map(i => ({ v: i, text: String(i) })), value: num / den, fmt: 'frac', num, den, text,
     snap: true, tolerance: r6(1 / den / 2), zoom: null };
   const item = {
-    axis, kind: 'fraction', key: `${axis}:${mode}:${startI}-${startI + m}:${text}`, A: r3(A),
+    axis, kind: 'fraction', key: `${axis}:${mode}:${startI}-${startI + m}:${text}`, A: r3(A), notion: lineNotion(data),
     prompt: mode === 'lire' ? frTypo('Quelle fraction se cache sous le drapeau ?') : `Place ${text} sur la clôture.`,
     answer: num / den,
     hint: frTypo(fracHint(spec, mode)),

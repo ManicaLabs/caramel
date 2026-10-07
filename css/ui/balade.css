@@ -80,6 +80,24 @@
 /* tuile en plus, sur toute la largeur (« 👫 Avec un copain ») : icône et nom côte à côte, bordure pointillée */
 .bl-pick-tile.is-wide { grid-column: 1 / -1; min-height: 72px; flex-direction: row; gap: 12px; border: 3px dashed var(--pink-400); background: var(--card); }
 
+/* ---------- temps de jeu du jour atteint (v2.4, js/ui/play-limit.js) ----------
+   tuiles grisées (rien ne démarre : toucher = la phrase), petite phrase au-dessus ; le gros bouton « À demain ! 💤 »
+   (accueil, carte du pré, bilan) : calme et lisible, jamais « en panne » (texte au contraste plein) */
+.bl-rest {
+  margin: 0 0 12px; padding: 10px 14px; border-radius: var(--r-m); text-align: center;
+  background: color-mix(in srgb, var(--violet) 14%, var(--card)); color: var(--ink-2); font-weight: 600; line-height: 1.35;
+}
+.bl-cta .bl-rest { margin: 2px 0 0; width: 100%; }
+.bl-pick-tile.is-rest { position: relative; filter: grayscale(.85); opacity: .6; box-shadow: none; }
+.bl-pick-tile.is-rest:active { transform: none; }
+.bl-pick-zz { position: absolute; top: 6px; right: 8px; font-size: 1.1rem; line-height: 1; }
+.btn.play.is-rest {
+  background: color-mix(in srgb, var(--ink-5) 20%, var(--card)); color: var(--ink-2); filter: none; opacity: 1;
+  box-shadow: 0 6px 0 color-mix(in srgb, var(--ink-5) 55%, var(--card)), var(--shadow-1);
+}
+.btn.play.is-rest:active { transform: translateY(4px); box-shadow: 0 2px 0 color-mix(in srgb, var(--ink-5) 55%, var(--card)), var(--shadow-1); }
+.btn.play.is-rest .btn-play-ico { padding-left: 0; color: var(--ink-2); }
+
 @media (hover: hover) and (pointer: fine) {
   .bl-hit.is-now:hover { background: color-mix(in srgb, var(--card) 22%, transparent); }
   .bl-pick-tile:hover { box-shadow: var(--shadow-2); }

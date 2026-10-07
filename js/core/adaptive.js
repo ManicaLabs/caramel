@@ -79,8 +79,10 @@ export function applyResult(profile, axis, b, r, today = dayStr()) {
 
 /* Fluence : MCLM corrigé de la facilité du texte (−5 % par niveau sous l'attendu, au plus −20 %),
    θ observé = thetaFromMclm ; θ ← θ + w(obs − θ), w = 1 la première fois puis max(0,3 ; 1/(n+1)).
-   MCLM absent ou nul (micro muet, course vide) → aucune mise à jour, obs = null. */
-export function applyFluence(profile, { mclm, textA, classe, today = dayStr() } = {}) {
+   MCLM absent ou nul (micro muet, course vide) → aucune mise à jour, obs = null.
+   refDay (v2.5, facultatif) : jour de référence de l'attendu (calendar.levelDay : le 1er septembre pendant l'été qui
+   suit un passage de classe), sinon today. */
+export function applyFluence(profile, { mclm, textA, classe, today = dayStr(), refDay } = {}) {
   if (!isNum(mclm) || mclm <= 0) {
     const t = skillOf(profile, 'fr.fluence').t;
     return { before: t, after: t, obs: null };
@@ -88,8 +90,9 @@ export function applyFluence(profile, { mclm, textA, classe, today = dayStr() } 
   const s = ensureSkill(profile, 'fr.fluence');
   const cl = classe || profile.classe;
   const before = s.t;
-  const ease = isNum(textA) ? clamp(1 - 0.05 * Math.max(0, expectedLevel(cl, today) - textA), 0.8, 1) : 1;
-  const obs = thetaFromMclm(mclm * ease, cl, today);
+  const ref = typeof refDay === 'string' && refDay ? refDay : today;
+  const ease = isNum(textA) ? clamp(1 - 0.05 * Math.max(0, expectedLevel(cl, ref) - textA), 0.8, 1) : 1;
+  const obs = thetaFromMclm(mclm * ease, cl, ref);
   const w = s.n === 0 ? 1 : Math.max(0.3, 1 / (s.n + 1));
   const after = r4(clamp(before + w * (obs - before), T_MIN, T_MAX));
   s.t = after; s.n += 1; s.last = today;

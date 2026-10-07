@@ -37,7 +37,14 @@
    allumé pour l'enfant actif s'il l'était dans un autre jeu de la séance, éteint pour les autres) ; écran de passage
    de main : micro en pause (rien n'est tapé), fermé si le joueur suivant répond au doigt, ouvert d'avance s'il parle ;
    la grammaire change d'une question à l'autre (nombres / mots des choix) sans rouvrir le micro. « Avec un copain » :
-   le micro reste allumé d'une question à l'autre (séance). Retour, bilan, départ : micro en pause puis fermé. */
+   le micro reste allumé d'une question à l'autre (séance). Retour, bilan, départ : micro en pause puis fermé.
+   TEMPS DE JEU DU JOUR (v2.4, js/core/playtime.js, js/ui/play-limit.js) : la limite se vérifie quand un défi va
+   DÉMARRER (un défi commencé se finit, « Reprendre » compris). Réglages : un enfant au bout de son temps de jeu est
+   grisé (compagnon aux yeux fermés, 💤, « À demain »), il ne peut pas être choisi (toucher = « {N} se repose 💤 À
+   demain ! ») ; moins de deux enfants éveillés → « C'est parti » reste grisé avec la phrase. Lien direct #/battle sans
+   défi à reprendre et sans deux joueurs éveillés → l'accueil. Revanche : sans ceux qui se reposent ; moins de deux
+   joueurs → « Accueil 🏠 » à la place. « Avec un copain » : l'enfant actif au bout de son temps → l'accueil ; au bilan,
+   « Encore une partie 👫 » devient « Accueil 🏠 ». */
 
 import { h, clear, dayStr, frTypo, loadCSS, fmtNum, deNom, frList } from '../core/util.js';
 import * as store from '../core/store.js';
@@ -60,6 +67,7 @@ import * as preload from '../core/preload.js';
 import { micTrouble } from './game-ctx.js';
 import { createVoiceAnswer, SESSION_KEY as MIC_KEY } from './voice-answer.js';
 import * as BV from '../core/battle-voice.js';
+import { timeUp, awake, restLine, restingPets, familyRest, restNotice } from './play-limit.js';
 
 const SS_KEY = 'caramel-battle';               /* défi en cours (cet onglet) */
 const DUEL_KEY = 'caramel-duel';               /* partie « Avec un copain » en cours ou finie (cet onglet) */
@@ -85,6 +93,12 @@ export default {
     if (duel !== null) { mountDuel(root, duel, query.n); return; }
     const list = store.listProfiles();
     if (list.length < 2) { router.go('famille', { replace: true }); return; }
+    /* temps de jeu du jour (v2.4) : moins de deux enfants éveillés et aucun défi commencé à reprendre → l'accueil */
+    if (awake(list).length < F.BATTLE.MIN && !readSaved(list)) {
+      restToast(familyRest(list, dayStr(), F.BATTLE.MIN));
+      router.go('home', { replace: true });
+      return;
+    }
     const wrap = h('div', { class: 'bt' });
     clear(root);
     root.appendChild(wrap);
@@ -306,6 +320,14 @@ function swap(my, fn) {
   }
   fn();
 }
+/* temps de jeu du jour (v2.4) : la phrase douce, écrite et dite (rien ne démarre) */
+function restToast(text, el = null) {
+  if (!text) return;
+  try { audio.soft(); } catch (_) {}
+  if (el) motion.shake(el, { dist: 3, dur: 300 });
+  kit.toast(text, 3600);
+  try { if (voice.voiceOn()) voice.speak(text); } catch (_) {}
+}
 function topbar(title, onBack, extra) {
   const back = h('button', { type: 'button', class: 'back', 'aria-label': 'Retour' }, '←');
   back.addEventListener('click', () => { audio.tap(); onBack(); });
@@ -320,8 +342,13 @@ function setupScreen(my, { entering = false, cfg = null } = {}) {
   dropVoice(my);
   const list = store.listProfiles();
   const prefs = cfg || readJSON('localStorage', PREFS_KEY) || {};
-  let chosen = (Array.isArray(prefs.ids) ? prefs.ids : []).filter(id => list.some(p => p.id === id)).slice(0, F.BATTLE.MAX);
-  if (chosen.length < F.BATTLE.MIN) chosen = list.slice(0, F.BATTLE.MAX).map(p => p.id);
+  /* temps de jeu du jour (v2.4) : un enfant au bout de son temps ne peut pas être choisi */
+  const today = dayStr();
+  const resting = new Set(list.filter(p => timeUp(p, today)).map(p => p.id));
+  const up = list.filter(p => !resting.has(p.id));
+  let chosen = (Array.isArray(prefs.ids) ? prefs.ids : []).filter(id => up.some(p => p.id === id)).slice(0, F.BATTLE.MAX);
+  if (chosen.length < F.BATTLE.MIN) chosen = up.slice(0, F.BATTLE.MAX).map(p => p.id);
+  const restTxt = up.length < F.BATTLE.MIN ? familyRest(list, today, F.BATTLE.MIN) : '';
   let type = F.CHALLENGE_BY_ID[prefs.type] ? prefs.type : 'tables';
   let rounds = F.BATTLE.ROUNDS.includes(prefs.rounds) ? prefs.rounds : F.BATTLE.ROUNDS[0];
 
@@ -329,7 +356,19 @@ function setupScreen(my, { entering = false, cfg = null } = {}) {
   const picks = h('div', { class: 'bt-picks', role: 'group', 'aria-label': 'Participants' });
   const pickBtns = list.map(p => {
     const pic = h('span', { class: 'bt-pick-pic', 'aria-hidden': 'true' });
-    putPet(pic, p, 70, '', { expr: 'happy' });
+    const zz = resting.has(p.id);
+    putPet(pic, p, 70, '', { expr: zz ? 'sleepy' : 'happy' });
+    if (zz) {
+      /* au bout de son temps de jeu : grisé, compagnon aux yeux fermés, « 💤 À demain » ; toucher = la phrase */
+      const line = restLine(p);
+      const b = h('button', { type: 'button', class: 'bt-pick is-rest', 'data-theme': themeIdOf(p), 'data-id': p.id, 'aria-disabled': 'true',
+        'aria-label': p.name + ' : ' + line },
+      h('span', { class: 'bt-pick-stage' }, pic), h('span', { class: 'bt-pick-name' }, p.name),
+      h('span', { class: 'bt-pick-zz', 'aria-hidden': 'true' }, frTypo('💤 À demain')));
+      b.addEventListener('click', () => restToast(line, b));
+      picks.appendChild(b);
+      return b;
+    }
     const b = h('button', { type: 'button', class: 'bt-pick', 'data-theme': themeIdOf(p), 'data-id': p.id, 'aria-pressed': 'false' },
       h('span', { class: 'bt-pick-stage' }, pic), h('span', { class: 'bt-pick-name' }, p.name),
       h('span', { class: 'bt-pick-check', 'aria-hidden': 'true' }, '✓'));
@@ -421,6 +460,7 @@ function setupScreen(my, { entering = false, cfg = null } = {}) {
 
   function refresh() {
     pickBtns.forEach(b => {
+      if (b.classList.contains('is-rest')) return;
       const on = chosen.includes(b.dataset.id);
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
       b.classList.toggle('is-on', on);
@@ -437,7 +477,8 @@ function setupScreen(my, { entering = false, cfg = null } = {}) {
     });
     const n = chosen.length;
     go.disabled = n < F.BATTLE.MIN;
-    need.textContent = n < F.BATTLE.MIN ? frTypo('Choisis au moins deux joueurs.') : frTypo(plural(n, 'joueur', 'joueurs') + ' · ' + plural(rounds, 'manche', 'manches'));
+    need.textContent = restTxt || (n < F.BATTLE.MIN ? frTypo('Choisis au moins deux joueurs.') : frTypo(plural(n, 'joueur', 'joueurs') + ' · ' + plural(rounds, 'manche', 'manches')));
+    need.classList.toggle('is-rest', !!restTxt);
   }
   refresh();
   if (entering) motion.stagger(screen.querySelectorAll('.bt-sec, .bt-tip, .bt-rules, .bt-go'), el => motion.enter(el, { from: 'bottom', dist: 14, dur: 400 }), 60);
@@ -472,7 +513,16 @@ async function startBattle(my, cfg, resume = null) {
   my.busy = true;
   const today = dayStr();
   const solo = !!cfg.duel;                       /* « Avec un copain » : un seul joueur sur cet appareil */
-  const profiles = cfg.ids.map(id => store.getProfile(id)).filter(Boolean);
+  /* temps de jeu du jour (v2.4) : un nouveau défi part sans ceux qui se reposent ; un défi commencé (reprise) se finit */
+  const all = cfg.ids.map(id => store.getProfile(id)).filter(Boolean);
+  const profiles = resume ? all : all.filter(p => !timeUp(p, today));
+  if (!resume && profiles.length < all.length && profiles.length < (solo ? 1 : F.BATTLE.MIN)) {
+    my.busy = false;
+    if (solo) { restNotice(all[0]); router.go('home', { replace: true }); return; }
+    restToast(familyRest(store.listProfiles(), today, F.BATTLE.MIN));
+    setupScreen(my);
+    return;
+  }
   if (profiles.length < (solo ? 1 : F.BATTLE.MIN)) { my.busy = false; if (solo) router.go('duel', { replace: true }); else setupScreen(my); return; }
   if (!solo) writeJSON('localStorage', PREFS_KEY, { ids: profiles.map(p => p.id), type: cfg.type, rounds: cfg.rounds });
   my.rule = solo ? D.duelRule(cfg.duel, today) : null;
@@ -996,14 +1046,28 @@ function showResults(my, ranking) {
         pl.gained ? h('span', { class: 'bt-res-apples' }, '🍎\u00a0+' + pl.gained) : null)));
     motion.countUp(pts, 0, pl.points, 900);
   }
-  const again = h('button', { type: 'button', class: 'btn big block' }, 'Revanche 🔄');
-  again.addEventListener('click', () => {
-    audio.tap();
-    const ids = F.rotate(my.cfg.ids, 1);
-    startBattle(my, { ids, type: my.cfg.type, rounds: my.cfg.rounds });
-  });
+  /* temps de jeu du jour (v2.4) : la revanche se joue sans ceux qui se reposent ; moins de deux joueurs éveillés →
+     « Accueil 🏠 » à la place (et « Autre défi » seulement s'il reste deux enfants éveillés sur l'appareil) */
+  const today = dayStr();
+  const sleepers = my.players.map(pl => byId.get(pl.id)).filter(p => p && timeUp(p, today));
+  const canAgain = my.players.length - sleepers.length >= F.BATTLE.MIN;
+  const canOther = awake(store.listProfiles(), today).length >= F.BATTLE.MIN;
+  const restNote = sleepers.length ? h('p', { class: 'bt-rest' }, restingPets(sleepers) + frTypo(canAgain ? '' : ' À demain !')) : null;
+  let again;
+  if (canAgain) {
+    again = h('button', { type: 'button', class: 'btn big block' }, 'Revanche 🔄');
+    again.addEventListener('click', () => {
+      audio.tap();
+      const ids = F.rotate(my.cfg.ids, 1);
+      startBattle(my, { ids, type: my.cfg.type, rounds: my.cfg.rounds });
+    });
+  } else {
+    again = h('button', { type: 'button', class: 'btn big block' }, 'Accueil 🏠');
+    again.addEventListener('click', () => { audio.tap(); router.go('home', { replace: true }); });
+  }
   const other = h('button', { type: 'button', class: 'btn white' }, 'Autre défi ⚙️');
   other.addEventListener('click', () => { audio.tap(); setupScreen(my, { cfg: my.cfg }); });
+  if (!canOther) other.hidden = true;
   const done = h('button', { type: 'button', class: 'btn white' }, 'Terminé ✓');
   done.addEventListener('click', () => { audio.tap(); router.back(); });
   const top = topbar(h('h2', { class: 'topbar-title' }, 'Résultats du défi'), () => router.back());
@@ -1013,7 +1077,8 @@ function showResults(my, ranking) {
       h('div', { class: 'bt-res-a' }, title, head, pod),
       h('div', { class: 'bt-res-b' }, rows,
         h('p', { class: 'bt-res-note' }, frTypo('🍎 5 pommes pour chaque participant, 10 de plus pour le gagnant — et chaque réponse a fait progresser son joueur.')),
-        h('div', { class: 'bt-res-btns' }, again, h('div', { class: 'bt-res-pair' }, other, done)))));
+        restNote,
+        h('div', { class: 'bt-res-btns' }, again, h('div', { class: 'bt-res-pair' + (canOther ? '' : ' is-one') }, canOther ? other : null, done)))));
   clear(my.wrap);
   my.wrap.appendChild(screen);
   my.live = null;
@@ -1059,6 +1124,8 @@ function mountDuel(root, code, nonce) {
   const n = String(nonce || '');
   const my = st = { root, wrap, timers: new Set(), players: [], cfg: null, phase: 'setup', dead: false, kp: null, duel: { code: d.code, n }, micFirst: me.id };
   const saved = readDuel(me.id, d.code, n);
+  /* temps de jeu du jour atteint (v2.4) : une nouvelle partie ne démarre pas (une partie commencée se reprend) */
+  if (!saved && timeUp(me)) { restNotice(me); router.go('home', { replace: true }); return; }
   if (saved && saved.done) {                    /* rechargement après la fin : le bilan, sans redonner les pommes */
     const s0 = saved.players[0];
     my.cfg = saved.cfg;
@@ -1110,14 +1177,22 @@ function showDuelResults(my, { replay = false } = {}) {
   const show = h('p', { class: 'du-res-show' }, h('span', { 'aria-hidden': 'true' }, '👫 '), frTypo(showText));
   /* QR du résultat (palier suivant) : il viendra ici, fabriqué depuis `card` (resultCard, sans prénom) */
   const share = h('div', { class: 'du-res-share', hidden: true, 'data-card': JSON.stringify(card) });
-  const again = h('button', { type: 'button', class: 'btn big block du-again' }, frTypo('Encore une partie 👫'));
-  again.addEventListener('click', () => { audio.tap(); removeKey('sessionStorage', DUEL_KEY); router.go('duel', { replace: true }); });
+  /* temps de jeu du jour atteint (v2.4) : pas d'autre partie aujourd'hui, l'accueil où le compagnon se repose */
+  const rest = timeUp(p);
+  const again = rest
+    ? h('button', { type: 'button', class: 'btn big block du-again' }, frTypo('Accueil 🏠'))
+    : h('button', { type: 'button', class: 'btn big block du-again' }, frTypo('Encore une partie 👫'));
+  again.addEventListener('click', () => {
+    audio.tap();
+    removeKey('sessionStorage', DUEL_KEY);
+    router.go(rest ? 'home' : 'duel', { replace: true });
+  });
   const done = h('button', { type: 'button', class: 'btn white block' }, 'Terminé ✓');
   done.addEventListener('click', () => { audio.tap(); removeKey('sessionStorage', DUEL_KEY); router.back(); });
   const top = topbar(h('h1', { class: 'topbar-title' }, frTypo('Bravo ! 🎉')), () => { removeKey('sessionStorage', DUEL_KEY); router.back(); });
   const screen = h('div', { class: 'screen du-results' }, top,
     h('div', { class: 'du-res' }, stage, score, meta, extra, show, share),
-    h('div', { class: 'du-res-btns' }, again, done));
+    h('div', { class: 'du-res-btns' }, rest ? h('p', { class: 'bt-rest' }, restLine(p)) : null, again, done));
   clear(my.wrap);
   my.wrap.appendChild(screen);
   my.live = null;

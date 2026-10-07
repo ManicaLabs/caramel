@@ -15,7 +15,8 @@ export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 export const START = '/* ASSETS:START */';
 export const END = '/* ASSETS:END */';
 const ICON = /^(icon|favicon|apple-touch-icon)[\w.-]*\.(png|svg|ico|webp)$/;
-const PRECACHE_BUDGET = 3 * 1024 * 1024;       /* CDC §14 : v2.2.2 ≈ 2,5 Mo non minifié (≈ 0,9 Mo compressé) ; alerte au-delà de 3 Mo */
+const PRECACHE_BUDGET = 3.5 * 1024 * 1024;     /* CDC §14 : v2.2.2 ≈ 2,5 Mo non minifié (≈ 0,9 Mo compressé) ; v2.4 ≈ 3,25 Mo
+                                                   (≈ 1,2 Mo compressé : 7e jeu « Missions du ranch », calendrier des notions) ; alerte au-delà de 3,5 Mo */
 
 const byPath = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
@@ -93,7 +94,7 @@ function main() {
   if (r.index !== null && r.nextIndex !== r.index) writeFileSync(r.indexPath, r.nextIndex);
   console.log((stale.length ? '✓ mis à jour (' + stale.join(', ') + ')' : '✓ déjà à jour') + ' : ' +
     r.assets.length + ' fichiers précachés, ' + size + ' (hors modèle), version ' + r.version);
-  if (r.bytes > PRECACHE_BUDGET) console.log('⚠ précache au-delà de 3 Mo (CDC §14 : budget hors modèle)');
+  if (r.bytes > PRECACHE_BUDGET) console.log('⚠ précache au-delà de 3,5 Mo (CDC §14 : budget hors modèle)');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

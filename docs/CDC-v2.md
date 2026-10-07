@@ -192,6 +192,8 @@ Ordre de priorité :
 - 4 réussites de suite → b + 0,3.
 - Jamais 3 erreurs d'affilée sans aide.
 
+- v2.4 — **au rythme de la classe** : le niveau demandé (jamais θ) est plafonné à ce qui est vu en classe à la date, selon le calendrier des notions (`js/content/calendar.js`) et le rythme choisi par le parent ; « 🌱 Pas encore appris » repousse une notion au mois suivant (journal v2.4, ARCHITECTURE §5.7 ter).
+
 ### 7.4 « Ma balade du jour » (≈ 15 min, réglable 10/15/20)
 Quatre blocs :
 1. échauffement facile sur un point fort ;
@@ -431,6 +433,16 @@ docs/CDC-v2.md
 5. Avant le push : précache, check, `node tools/voix.mjs --check`, version, mise à jour de ce CDC (§18).
 
 ## 18. Journal de livraison
+
+### v2.4 (07/10/2026) — un temps de jeu raisonnable, des soins qui ont du sens, au rythme de la classe
+**Retours du parent et d'autres familles** (07/10/2026) : un enfant a joué 3 heures d'affilée ; on pouvait nourrir le compagnon à l'infini ; tous les animaux mangeaient la même chose ; en octobre, le programme de toute l'année tombait déjà ; pas de moyen rapide de couper le son ; sur un grand écran d'ordinateur, la scène et « Jouer » étaient décalés.
+**Livré** :
+- **temps de jeu du jour** (`docs/ARCHITECTURE.md` §5.7 bis) : 1 h par défaut, réglable par enfant (30 min à 2 h, ou sans limite) avec « Encore 15 minutes aujourd'hui » ; passé la limite, les jeux sont grisés, le gros bouton dit « À demain ! 💤 » et le compagnon fait la sieste (la nuit le soir) ; jamais punitif : une partie commencée se finit, les soins restent possibles ;
+- **au fil de l'année** (ARCHITECTURE §5.7 ter) : Caramel ne propose une notion qu'environ deux semaines après le début de la période où elle est vue en classe (calendrier des programmes 2024-2025 : passé simple en novembre au CM2, table de 8 en mars au CE1…) ; la rentrée commence par deux semaines de révisions, rien de la classe suivante n'arrive pendant l'été. Le parent choisit, par enfant, « Au rythme de la classe » (défaut), « Un peu en avance » ou « Selon ses réussites » (comportement d'avant), et peut indiquer pour chaque notion de l'année « Déjà vu en classe » ou « Pas encore vu ». Après une première erreur, l'enfant (CE1 → CM2) peut dire « 🌱 Pas encore appris » : la notion revient le mois suivant — une fois par partie, trois notions en attente au plus, deux reports de suite au plus, jamais en défi ni avec un copain, sans effet sur ses progrès ; le parent voit ces reports et peut les remettre. Les plus à l'aise peuvent trouver les questions un peu plus faciles qu'avant : « Un peu en avance » ou « Selon ses réussites » rendent l'ancien comportement ;
+- poids : précache ≈ 3,25 Mo non minifié (≈ 1,2 Mo compressé ; alerte relevée à 3,5 Mo) ; voix enregistrée 4,2 Mo, jamais téléchargée d'avance pour les nouvelles phrases (chacune la première fois qu'elle est dite) ;
+- **déménagement préparé (éteint)** vers caramel.manica.fr (ARCHITECTURE §8.16) : sur l'ancienne adresse, « Caramel déménage ! 🏡 » et UN bouton qui emporte les progrès (dans l'adresse, jamais envoyés à un serveur ; rien n'est effacé) ; la nouvelle adresse les range. Allumé quand le domaine sera en place et vérifié ;
+- **🔊 / 🔇 toujours à portée** (ARCHITECTURE §8.6 ter) : en haut de l'accueil et de chaque jeu, un toucher coupe ou remet le son (le réglage « Sons » de l'enfant) ; « Écouter encore » devient 🔁 et le joker 💡 un rond ; accueil réaligné sur les grands écrans d'ordinateur ;
+- **soins** (§5.2 bis) : on ne nourrit plus un compagnon rassasié (ni avec un aliment beaucoup trop gros) ; brossage et promenade : le premier du jour gratuit, les suivants 5 et 10 🍎 ; trois aliments par espèce (le dragon mange du piment, du pop-corn et de la pizza, le chat des croquettes, du poisson et des sushis…).
 
 ### v2.3.1 (07/10/2026) — le micro dans tous les jeux
 **Retour du parent** (07/10/2026, journal du mode diagnostic joint : 10 réponses sur 10 aux tables, moteur sans retard) : « le micro ça va mieux. Par contre il faudrait pouvoir utiliser le micro sur les autres jeux, pas seulement les tables ».

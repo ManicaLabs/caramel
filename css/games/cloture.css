@@ -245,3 +245,6 @@ html.motion-soft .cl-mount-flip { transition: none; }
 .cl-head > .kit-bubble.is-tight .kit-bubble-body { font-size: .93rem; line-height: 1.32; padding: 8px 12px; }
 .cl-head > .kit-bubble.is-tighter .kit-bubble-body { font-size: .86rem; line-height: 1.26; padding: 6px 10px; }
 .cl-head > .kit-bubble.is-tight .kit-bubble-ava { width: 36px; height: 36px; font-size: 1.2rem; }
+
+/* « 🌱 Pas encore appris » (v2.5) : la bulle posée sur l'herbe ne capte pas les touches, sauf la pastille */
+.cl-float .kit-later { pointer-events: auto; }

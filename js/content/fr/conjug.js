@@ -10,7 +10,7 @@
    synthèse « research/francais.md » §A, §C, §D) :
      A < 1     CP (remédiation) : être et avoir au présent, sujets pronoms.
                « Apprendre à conjuguer être et avoir au présent de l'indicatif » (cycle 2, CP).
-     1 → 2     CE1 : présent (être, avoir, 1er groupe) ; imparfait dès 1,3 ; futur dès 1,6 ;
+     1 → 2     CE1 : présent (être, avoir, 1er groupe) ; imparfait dès 1,4 (P3, v2.5 : était 1,3) ; futur dès 1,6 ;
                passé composé avec avoir dès 1,8 (« au présent, à l'imparfait, au futur PUIS au passé
                composé […] être et avoir et les verbes du premier groupe ») ; sujets collés au verbe
                (pronom, prénom, GN court), pluriel en -nt ; radical et terminaison du 1er groupe.
@@ -29,9 +29,10 @@
                « Léa et Tom sont partis », masculin et féminin mêlés, 3,8) ;
                verbes de la même famille (apprendre, comprendre, devenir, revenir) dès 3,2 (présent),
                puis 3,45, 3,7 et 3,95 pour l'imparfait, le futur et le passé composé.
-     4 → 5,6   CM2 : + passé simple (il/ils dès 4,0, je 4,5, tu 4,6, nous 4,8, vous 4,9 — progression
+     4 → 5,6   CM2 : + passé simple (il/ils dès 4,2, je 4,5, tu 4,6, nous 4,8, vous 4,9 — progression
                conseillée de francais.md §A.1 ; + 0,1 hors verbes en -er, être et avoir) et
-               plus-que-parfait (4,3) ; sujet inversé (lieu en tête 4,2, dialogue 4,3, question 4,4) ;
+               plus-que-parfait (4,4) — v2.5, décisions du parent du 07/10/2026 : passé simple (il, ils) en P2,
+               plus-que-parfait en P3 (étaient 4,0 et 4,3) ; sujet inversé (lieu en tête 4,2, dialogue 4,3, question 4,4) ;
                pronom complément avant le verbe (« Ces poules, la fermière les appelle », 4,4) ;
                participe passé avec avoir et COD pronom placé avant (« Ces fleurs, je les ai
                ramassées », 4,5) et piège du COD placé après (4,7) ; « Ton frère et toi » (4,9) ;
@@ -72,10 +73,14 @@
    composés) pour forme, terminaison, accord, sujet et participe avec être ;
    'fr.conjug:temps|<verbe>|<temps>|<personne>' pour temps ;
    'fr.conjug:cod|<verbe>|<temps>|<ms|fs|mp|fp|apres>' pour le participe avec avoir.
-   leitner = true pour être, avoir et les verbes du 3e groupe. */
+   leitner = true pour être, avoir et les verbes du 3e groupe.
+   CALENDRIER (js/content/calendar.js, v2.5) : item.notion = la notion la plus récente (temps × classe de verbe :
+   'fr.conjug:futur.irr' ; variation du radical ; accord du participe ; construction du sujet ; « reconnaître le
+   temps »), item.notions = toutes ; notionOfKey(clé Leitner) → notion principale de la clé. */
 
 import { frTypo, capFirst, clamp } from '../../core/util.js';
 import { A_MAX } from '../../core/levels.js';
+import { notion as calNotion } from '../calendar.js';
 import {
   conjugate, formOf, simpleForm, groupOf, auxOf, isEtreVerb, isPlainForm, plainForm, stemEnding, endingsFor,
   paradigm, participle, agree, pastParticiple, startsWithVowel, variantOf, hasVerb,
@@ -89,9 +94,9 @@ const NNBSP = '\u202f';
 /* ---------- Niveaux d'introduction (échelle A) ---------- */
 export const LEVELS = {
   kind: { forme: 0, sujet: 0, accord: 1, terminaison: 1, temps: 1.8, participe: 3.5 },
-  tense: { present: 0, imparfait: 1.3, futur: 1.6, passe_compose: 1.8, passe_simple: 4.0, plus_que_parfait: 4.3 },
-  /* passé simple : il/elle et ils/elles, puis je/tu, puis nous/vous (francais.md §A.1, progression conseillée) */
-  psPerson: { '3s': 4.0, '3p': 4.0, '1s': 4.5, '2s': 4.6, '1p': 4.8, '2p': 4.9 },
+  tense: { present: 0, imparfait: 1.4, futur: 1.6, passe_compose: 1.8, passe_simple: 4.2, plus_que_parfait: 4.4 },
+  /* passé simple : il/elle et ils/elles (P2), puis je/tu, puis nous/vous (francais.md §A.1, progression conseillée) */
+  psPerson: { '3s': 4.2, '3p': 4.2, '1s': 4.5, '2s': 4.6, '1p': 4.8, '2p': 4.9 },
   verb: { aux: 0, g1: 1, g1var: 3, irr: 2, g2: 3, derived: 3.2, compound: 3 },
   /* arrivée d'une classe de verbes à chaque temps, dans l'ordre du programme (présent, puis imparfait,
      puis futur, puis passé composé) : les irréguliers au fil du CE2, le 2e groupe et les dérivés au CM1 */
@@ -1524,7 +1529,52 @@ function baseData(spec, sentence, extra = {}) {
   }, extra);
 }
 function itemBase(spec) {
-  return { axis, kind: spec.kind, key: keyOf(spec), A: Math.round(clamp(spec.L, 0, A_MAX) * 100) / 100, leitner: isLeitnerVerb(spec.verb) };
+  const notions = specNotions(spec);
+  return { axis, kind: spec.kind, key: keyOf(spec), A: Math.round(clamp(spec.L, 0, A_MAX) * 100) / 100, leitner: isLeitnerVerb(spec.verb),
+    notion: notions[0], notions };
+}
+
+/* ============ NOTIONS (calendrier) ============ */
+const STRUCT_NOTION = { name: 'sujet.ce1', gn: 'sujet.ce1', pre: 'sujet.ce2', pluriel: 'sujet.ce2', cdn: 'sujet.cm1', multi: 'sujet.cm1',
+  inv: 'sujet.cm2', dial: 'sujet.cm2', q: 'sujet.cm2', qcdn: 'sujet.cm2', codpron: 'sujet.cm2', multi2: 'sujet.cm2', invcdn: 'sujet.cm2' };
+/* temps × classe de verbe : être et avoir au présent (CP), 1er groupe et auxiliaires (CE1), irréguliers (CE2),
+   2e groupe et verbes de la même famille (CM1), passé simple (il, ils ; autres personnes) et plus-que-parfait (CM2) */
+function tenseNotion(verb, tense, person) {
+  if (tense === 'passe_simple') return person === '3s' || person === '3p' ? 'passe_simple' : 'passe_simple.pers';
+  if (tense === 'plus_que_parfait') return 'plus_que_parfait';
+  const c = CLASS_OF[verb];
+  if (c === 'aux' && tense === 'present') return 'present.cp';
+  if (c === 'irr') return tense + '.irr';
+  if (c === 'g2' || c === 'derived') return tense + '.g2';
+  return tense;
+}
+const notionLevel = id => { const n = calNotion(id); return n ? n.level : 0; };
+/* notions d'une spec, la plus récente en premier (à égalité : le temps, puis l'ordre ci-dessous) */
+function specNotions(spec) {
+  const out = [tenseNotion(spec.verb, spec.tense, spec.person)];
+  if (CLASS_OF[spec.verb] === 'g1var' && !isPlainForm(spec.verb, spec.tense, spec.person)) out.push('radical');
+  if (spec.struct === 'cod' || spec.mode === 'cod' || spec.mode === 'apres') out.push('participe.cod');
+  else if (spec.kind === 'participe' || (isEtreVerb(spec.verb) && isCompound(spec.tense)
+    && (etreLevel(spec.verb, spec.tense, spec.person, spec.g) >= LEVELS.etreFull - 1e-9 || (spec.subj && spec.subj.mixed)))) out.push('participe.etre');
+  if (STRUCT_NOTION[spec.struct]) out.push(STRUCT_NOTION[spec.struct]);
+  if (spec.kind === 'temps') out.push('temps');
+  const ids = uniq(out).map(n => KEY + n);
+  return ids.map((id, i) => [id, i]).sort((x, y) => notionLevel(y[0]) - notionLevel(x[0]) || x[1] - y[1]).map(x => x[0]);
+}
+/* notion principale d'une clé Leitner : 'fr.conjug:prendre|futur|3p' → 'fr.conjug:futur.irr' */
+export function notionOfKey(key) {
+  if (typeof key !== 'string' || !key.startsWith(KEY)) return null;
+  const parts = key.slice(KEY.length).split('|');
+  if (parts[0] === 'cod') {
+    const [, verb, tense] = parts;
+    if (!CLASS_OF[verb] || !TENSES.includes(tense)) return null;
+    return specNotions({ kind: 'participe', verb, tense, person: '3s', g: 'm', struct: 'cod', mode: 'cod' })[0];
+  }
+  let kind = 'forme';
+  if (parts[0] === 'temps') { kind = 'temps'; parts.shift(); }
+  const [verb, tense, person, gk] = parts;
+  if (!CLASS_OF[verb] || !TENSES.includes(tense) || !PERSONS.includes(person)) return null;
+  return specNotions({ kind, verb, tense, person, g: gk === 'f' ? 'f' : 'm', struct: 'pron' })[0];
 }
 /* réservoirs de distracteurs communs : autres personnes (homophones d'abord), genre, fautes typiques */
 function formPools(verb, tense, person, g, answer, A) {

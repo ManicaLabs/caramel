@@ -3,10 +3,13 @@
    crépuscule, nuit étoilée avec la lune —, soleil, nuages qui dérivent, colline, pommier, clôture, herbe fleurie,
    flaque, ou lac pour le dauphin, touche de saison : feuilles qui tombent en automne, flocons en hiver, pétales au
    printemps, lucioles les soirs d'été) où le compagnon VIT grâce au moteur js/ui/companion-life.js.
-   Les soins gardent EXACTEMENT les règles v11 (port de c5bd8d1:index.html « JAUGES & HUMEUR », « ACTIONS »,
-   « PANNEAUX » : prix, jauges faim / forme / joie qui baissent doucement — plancher 15, jamais de « mort » —,
-   brossage toutes les 4 h, promenade une fois par jour, boutique un objet par emplacement, montures, réglages,
-   mêmes sons) mais deviennent de petites scènes :
+   Les soins reprennent les règles v11 (port de c5bd8d1:index.html « JAUGES & HUMEUR », « ACTIONS », « PANNEAUX » :
+   jauges faim / forme / joie qui baissent doucement — plancher 15, jamais de « mort » —, boutique un objet par
+   emplacement, montures, réglages, mêmes sons), revues en v2.4 (retours du parent du 07/10/2026, règles pures dans
+   js/core/care.js) : on ne nourrit plus un compagnon rassasié (faim ≥ 90 : garde-manger grisé, « {N} n'a plus faim ») ni
+   avec un aliment trop gros pour sa faim (« plus tard ») ; chaque espèce a ses trois aliments (DIET) ; brossage et
+   promenade : le premier du jour est gratuit, les suivants coûtent 5 et 10 🍎 (refusés sans rien coûter quand la jauge
+   est déjà pleine) — à la place du délai de 4 h et de la promenade unique. Ils deviennent de petites scènes :
      nourrir   la nourriture vole du garde-manger jusqu'à sa bouche, il mâche (miettes), ravi ;
      brosser   une brosse passe sur son dos, paillettes, il ferme les yeux de plaisir ;
      promener  il traverse la scène (marche ou nage) et revient ;
@@ -15,6 +18,11 @@
    Stades (CDC §10.3) : petit → junior → champion selon companion.minutes (60 et 300 min d'apprentissage) ; libellé et
    petite jauge sous la scène ; célébration d'évolution une seule fois (mémorisée dans companion.stage).
    La nuit (22 h - 7 h), il dort ; on le réveille en le touchant (surpris puis content).
+   Temps de jeu du jour fini (v2.4, js/core/playtime.js playState(profil, jour).over) : il s'endort — la sieste s'il
+   fait jour, la nuit sinon (napOrNight + phase du ciel) ; la première fois du jour, il bâille et s'endort sous les yeux
+   de l'enfant, ensuite la scène le montre endormi. Un toucher le réveille ≈ 45 s, les soins restent possibles (il se
+   réveille d'abord), puis il se rendort. La scène le vérifie seule (store, chaque minute) : limite atteinte au retour
+   d'un jeu, minutes accordées par un parent, minuit.
    Toute écriture passe par store.mutateProfile (profil.companion, profil.wallet.apples, profil.name / g).
 
    API :
@@ -24,12 +32,17 @@
      stageOf(profile) → 1 | 2 | 3 ;
      setAvatar(el, html, { live = true }?) → pose le SVG et lui donne une vie LÉGÈRE (regard, clignements, joie au
        toucher : companion-life.js liven) ; la vie d'un SVG remplacé est arrêtée ;
-     renderCompanionCard(container, { hero, hud }?) → { destroy(), dance(), greet(), openPanel(clé), el }
+     renderCompanionCard(container, { hero, hud }?) → { destroy(), dance(), greet(), openPanel(clé), napCheck(), nap, el }
+       napCheck() → null | 'sieste' | 'nuit' : revérifie tout de suite le temps de jeu du jour (il s'endort ou se
+       réveille) ; nap : l'état courant ;
        hero (accueil « un seul gros bouton ») : grande scène ; plaque « 🌱 Caramel » avec l'anneau du stade (un bouton :
        « Mon compagnon » = son stade en clair, les prénoms) ; humeur en légende sur le ciel (elle s'efface seule) ;
-       jauges portées par les icônes de soin (anneau : 🥕 ventre, 🧽 joie, 🚶 forme ; ✓ quand le brossage ou la
-       promenade est déjà fait) ; barre de 4 icônes sous la scène : 🥕 🧽 🚶 🛍️ (🎨 est dans l'en-tête de l'accueil) ;
-       besoin visible sans lire : bulle de pensée 🍎 au-dessus de lui quand il a faim (la toucher = le garde-manger) ;
+       jauges portées par les icônes de soin (anneau : 🥕 ventre, 🧽 joie, 🚶 forme) ; sous 🧽 et 🚶, une étiquette
+       « gratuit » (le premier du jour) ou le prix ; ✓ quand le soin ne servirait à rien (il n'a plus faim, jauge
+       pleine) ; barre de 4 icônes sous la scène : 🥕 🧽 🚶 🛍️ (🎨 est dans l'en-tête de l'accueil) ;
+       besoin visible sans lire : bulle de pensée au-dessus de lui quand il a faim (la toucher = le garde-manger) ;
+       v2.4 : 🥕, la bulle et le titre du garde-manger montrent l'aliment de tous les jours de SON espèce (🥕 🍓 🥣 🦐
+       🍊 🍗 🌶️) ;
        🛍️ cerclée d'or quand un objet nouveau est à portée de pommes ;
        boutique en deux rayons (👒 Habits / 🐾 Animaux, un seul visible) ; cabine d'essayage : toucher un objet qu'on
        n'a pas encore le fait ESSAYER (le compagnon le porte), « Acheter » (ou toucher encore l'objet) l'achète ;
@@ -42,9 +55,11 @@ import { h, clear, dayStr, frTypo, loadCSS, accorde } from '../core/util.js';
 import * as store from '../core/store.js';
 import * as audio from '../core/audio.js';
 import * as motion from '../core/motion.js';
-import { MOUNTS, FOODS, SHOP, PET } from '../content/companion-data.js';
+import { MOUNTS, SHOP, PET, FOOD_BY_ID, foodsOf, foodLine } from '../content/companion-data.js';
 import { fillTemplate, sanitizeName, DEFAULT_HERO } from '../core/profiles.js';
 import { addApples } from '../core/economy.js';
+import { gaugesAt, settle, foodOffer, feed, careOffer, doCare } from '../core/care.js';
+import { playState, napOrNight } from '../core/playtime.js';
 import { readAloud, speak as voiceSpeak, hush as voiceHush } from './voice.js';
 
 /* ---------- modules du compagnon (chargés à la demande, avec repli) ---------- */
@@ -121,20 +136,13 @@ export function setAvatar(el, html, opts = {}) {
   return s;
 }
 
-/* ---------- jauges (v11 : petNow / materializePet / petMood) ---------- */
-const clampG = v => Math.max(PET.FLOOR, Math.min(PET.MAX, v));
-function petNow(pet, now = Date.now()) {
-  const p = pet || {};
-  const dt = Math.max(0, now - (p.last || now));
-  const v = k => clampG((Number.isFinite(+p[k]) ? +p[k] : PET.START) - 100 * dt / PET.DECAY[k]);
-  return { faim: v('faim'), forme: v('forme'), joie: v('joie') };
-}
+/* ---------- jauges (v11 : petNow / materializePet / petMood ; v2.4 : js/core/care.js, partagé avec le concours) ---------- */
+const petNow = (pet, now = Date.now()) => gaugesAt(pet, now);
 /* fige les valeurs courantes avant toute modification (à appeler dans mutateProfile) */
-function materialize(pet, now = Date.now()) {
-  const g = petNow(pet, now);
-  pet.faim = g.faim; pet.forme = g.forme; pet.joie = g.joie;
-  pet.last = now;
-}
+const materialize = (pet, now = Date.now()) => settle(pet, now);
+/* fin du temps de jeu : sieste déjà montrée aujourd'hui à cet enfant (il ne s'endort sous ses yeux qu'une fois par jour ;
+   ensuite, l'accueil le montre endormi) — clés « id|jour » */
+const napShown = new Set();
 
 /* ---------- accords (genre grammatical de la monture) ---------- */
 const mountOf = p => MOUNTS[p && p.companion && p.companion.type] || MOUNTS.pony;
@@ -236,6 +244,8 @@ export function renderCompanionCard(container, opts = {}) {
   let destroyed = false, clip = null, walking = false, openPanel = null, evolving = false;
   let shownSig = '', lastMoodCls = null, minuteTimer = 0, ctl = null, svgEl = null;
   let pendingLook = false, seasonShown = '', evoScheduled = false, swapping = false;
+  /* fin du temps de jeu du jour (v2.4) : null | 'sieste' | 'nuit' ; dozeT : il s'endort sous les yeux de l'enfant */
+  let napKind = null, dozeT = 0;
   /* cabine d'essayage : objet ou monture qu'on essaie sans l'avoir acheté ({ kind: 'item' | 'mount', id }) ;
      rayon de la boutique affiché ('habits' | 'animaux') */
   let trying = null, rayon = 'habits';
@@ -312,10 +322,12 @@ export function renderCompanionCard(container, opts = {}) {
   const G = { faim: gauge('faim', 'Ventre', '🍎'), forme: gauge('forme', 'Forme', '🎾'), joie: gauge('joie', 'Joie', '💛') };
 
   const panels = {};
-  const act = (key, icon, label, panel) => {
+  /* priced : étiquette « gratuit » / prix (brossage, promenade : le premier du jour est gratuit, v2.4) */
+  const act = (key, icon, label, panel, priced) => {
     const b = h('button', { type: 'button', class: 'cc-act', 'data-act': key },
       h('span', { class: 'cc-act-ico', 'aria-hidden': 'true' }, icon), h('span', { class: 'cc-act-txt' }, label),
       h('span', { class: 'cc-act-state sr-only' }),
+      priced ? h('span', { class: 'cc-act-price', 'aria-hidden': 'true', hidden: true }) : null,
       hero ? h('span', { class: 'cc-act-ok', 'aria-hidden': 'true' }, '✓') : null);
     if (panel) { b.setAttribute('aria-expanded', 'false'); b.setAttribute('aria-controls', uid + '-' + panel); }
     return b;
@@ -324,8 +336,8 @@ export function renderCompanionCard(container, opts = {}) {
      l'icône est le seul repère visuel */
   const btns = {
     food: act('food', '🥕', 'Nourrir', 'food'),
-    brush: act('brush', '🧽', 'Brosser'),
-    walk: act('walk', '🚶', 'Promener'),
+    brush: act('brush', '🧽', 'Brosser', null, true),
+    walk: act('walk', '🚶', 'Promener', null, true),
     shop: act('shop', '🛍️', 'Boutique', 'shop'),
     settings: act('settings', '⚙️', 'Réglages', 'settings')
   };
@@ -345,10 +357,13 @@ export function renderCompanionCard(container, opts = {}) {
   };
   const panelHead = (title, withPurse) => h('div', { class: 'cc-panel-head' }, h('h2', { class: 'cc-panel-title' }, frTypo(title)), withPurse && !hero ? walletPill() : null, panelClose());
   const foodGrid = h('div', { class: 'cc-grid' });
+  /* garde-manger : « {N} n'a plus faim 😊 » quand il est rassasié (tous les aliments grisés) */
+  const foodNote = h('p', { class: 'cc-note', role: 'status', hidden: true });
+  const foodHead = panelHead('🥕 Le garde-manger', true);
   const shopGrid = h('div', { class: 'cc-grid', id: uid + '-habits' });
   const mountGrid = h('div', { class: 'cc-grid cc-grid-mounts', id: uid + '-animaux' });
   panels.food = h('div', { class: 'cc-panel', id: uid + '-food', hidden: true },
-    panelHead('🥕 Le garde-manger', true), foodGrid);
+    foodHead, foodNote, foodGrid);
   /* scène héros : deux rayons, un seul visible (👒 Habits / 🐾 Animaux) ; pendant un essayage, UN bouton « Acheter »,
      sous le rayon et collé en bas de l'écran tant que le rayon défile (la scène est collée en haut : on voit à la fois
      le compagnon qui essaie et le bouton, même sur un petit téléphone) */
@@ -486,7 +501,7 @@ export function renderCompanionCard(container, opts = {}) {
   function onLife(type, detail) {
     if (destroyed) return;
     if (type === 'pause') stage.classList.add('is-paused');
-    else if (type === 'resume') { stage.classList.remove('is-paused'); updateSky(); refresh(); }
+    else if (type === 'resume') { stage.classList.remove('is-paused'); updateSky(); refresh(); syncNap(); }
     else if (type === 'sleep') { stage.classList.add('is-asleep'); refresh(true); }
     else if (type === 'wake') {
       stage.classList.remove('is-asleep');
@@ -495,18 +510,50 @@ export function renderCompanionCard(container, opts = {}) {
     } else if (type === 'tap') petTap(detail);
     else if (type === 'hug') petHug(detail);
   }
+  /* temps de jeu du jour fini (js/core/playtime.js) → 'sieste' (il fait jour) | 'nuit' (soir, nuit) ; sinon null */
+  function napNow() {
+    const p = profile();
+    if (!p) return null;
+    let over = false;
+    try { over = !!playState(p, dayStr()).over; } catch (_) {}
+    if (!over) return null;
+    const d = new Date();
+    return napOrNight(life ? life.skyAt(d).phase : 'day', life ? life.isNight(d) : false);
+  }
+  const napKey = p => (p && p.id) + '|' + dayStr();
+  /* la limite est atteinte (retour d'un jeu, réglage des parents) ou levée (minuit, minutes accordées) pendant que la
+     scène est affichée : il s'endort (bâillement), ou reprend le rythme ordinaire (la nuit, il dort quand même) */
+  function syncNap() {
+    if (destroyed) return;
+    const k = napNow();
+    if (k === napKind) return;
+    const was = napKind;
+    napKind = k;
+    stage.setAttribute('data-nap', k || '');
+    if (dozeT) { clearTimeout(dozeT); timers.delete(dozeT); dozeT = 0; }
+    if (!ctl) return;
+    if (k && !was) { napShown.add(napKey(profile())); ctl.sleep(true); }
+    else if (!k) ctl.sleep(null);
+    else if (asleep()) { const p = profile(); if (p) tell(moodMsg(p, petNow(p.companion && p.companion.pet))); }   /* sieste → nuit */
+  }
   /* (re)dessine le compagnon et lui donne vie ; stageOverride : stade imposé (évolution) */
   function drawSVG(p, stageOverride) {
     if (walking) { pendingLook = true; return; }
     pendingLook = false;
     const night = life ? life.isNight(new Date()) : false;
-    /* réveillé en pleine nuit (on vient de le toucher) : le nouveau dessin reste éveillé */
-    const awake = night && !!ctl && !ctl.state.sleeping;
+    napKind = napNow();
+    stage.setAttribute('data-nap', napKind || '');
+    const drowsy = night || !!napKind;
+    /* réveillé en pleine nuit ou pendant la sieste (on vient de le toucher) : le nouveau dessin reste éveillé */
+    const awake = drowsy && !!ctl && !ctl.state.sleeping;
+    /* temps de jeu fini : la première fois du jour, il s'endort sous les yeux de l'enfant (bâillement), ensuite il dort */
+    const doze = !!napKind && !night && !awake && !!life && !napShown.has(napKey(p));
+    if (dozeT) { clearTimeout(dozeT); timers.delete(dozeT); dozeT = 0; }
     if (ctl) { try { ctl.destroy(); } catch (_) {} ctl = null; }
     const g = petNow(p.companion && p.companion.pet);
     const m = moodOf(p, g);
     const st = stageOverride || shownStage(p);
-    const cls = [night && !awake ? 'sleep' : '', m.cls].filter(Boolean).join(' ');
+    const cls = [drowsy && !awake && !doze ? 'sleep' : '', m.cls].filter(Boolean).join(' ');
     const look = lookProfile(p);                   /* cabine d'essayage : ce qu'il essaie, par-dessus ce qui est à lui */
     svgEl = setAvatar(holder, avatarOf(look, petSize(), cls, { stage: st }), { live: false });
     shownSig = lookOf(p);
@@ -514,9 +561,12 @@ export function renderCompanionCard(container, opts = {}) {
     if (life && svgEl && svgEl.classList.contains('c-rig')) {
       ctl = life.bringToLife(svgEl, {
         species: look.companion.type, stage: st, interactive: true, hitEl: stage,
-        greet: !night, awake, mood: g, onEvent: onLife
+        greet: !drowsy, awake, mood: g, onEvent: onLife, sleep: napKind && !doze ? true : null
       });
     }
+    if (doze && ctl) {
+      dozeT = later(() => { dozeT = 0; if (ctl && napKind) { napShown.add(napKey(profile())); ctl.sleep(true); } }, 1400);
+    } else if (napKind && ctl) napShown.add(napKey(p));    /* (pas le dessin de secours d'avant le moteur de vie) */
     stage.classList.toggle('is-asleep', !!(ctl && ctl.state.sleeping));
     later(placeThought, 60);
   }
@@ -564,21 +614,35 @@ export function renderCompanionCard(container, opts = {}) {
         b.classList.toggle('is-low', v < 35);
       }
     }
-    if (hero) renderCareStates(g);
+    renderCareStates(g);
   }
-  /* scène héros : état de chaque soin dans son nom accessible ; ✓ et icône atténuée quand c'est déjà fait (brossage
-     toutes les 4 h, promenade une fois par jour) ; 🛍️ cerclée d'or quand un objet nouveau est à portée de pommes */
+  /* état de chaque soin dans son nom accessible (v2.4) : 🧽 et 🚶 portent « gratuit » (le premier du jour) ou leur
+     prix ; scène héros : ✓ et icône atténuée quand le soin ne servirait à rien (il n'a plus faim, jauge pleine après
+     le soin gratuit) ; 🛍️ cerclée d'or quand un objet nouveau est à portée de pommes */
   function renderCareStates(g) {
     const p = profile(); if (!p) return;
-    const pet = (p.companion && p.companion.pet) || {};
-    const done = { brush: Date.now() - (pet.brushLast || 0) < PET.BRUSH.cooldown, walk: pet.walkDay === dayStr() };
-    for (const k of ['faim', 'forme', 'joie']) {
-      const key = GAUGE_BTN[k], b = btns[key];
-      const isDone = !!done[key];
-      b.classList.toggle('is-done', isDone);
+    const today = dayStr();
+    const setState = (b, txt, done) => {
+      b.classList.toggle('is-done', !!done);
       const s = b.querySelector('.cc-act-state');
-      if (s) s.textContent = ' (' + GAUGE_WORD[k] + ' : ' + Math.round(g[k]) + ' sur 100' + (isDone ? ', déjà fait' : '') + ')';
+      if (s) s.textContent = txt;
+    };
+    const fed = Math.round(g.faim) >= PET.FULL;
+    setState(btns.food, ' (' + GAUGE_WORD.faim + ' : ' + Math.round(g.faim) + ' sur 100' + (fed ? say(p, ', {ilM} n’a plus faim') : '') + ')', fed);
+    for (const key of ['brush', 'walk']) {
+      const o = careOffer(p, key, today);
+      const k = key === 'brush' ? 'joie' : 'forme', b = btns[key];
+      const rest = !o.free && o.full;                /* déjà au mieux : rien à payer pour l'instant */
+      setState(b, ' (' + GAUGE_WORD[k] + ' : ' + Math.round(g[k]) + ' sur 100, '
+        + (o.free ? 'gratuit aujourd’hui' : rest ? 'pas besoin pour l’instant' : o.price + ' pommes') + ')', rest);
+      const tag = b.querySelector('.cc-act-price');
+      if (tag) {
+        tag.hidden = rest;
+        tag.classList.toggle('is-free', o.free);
+        tag.textContent = o.free ? 'gratuit' : o.price + NBSP + '🍎';
+      }
     }
+    if (!hero) return;
     const apples = (p.wallet && p.wallet.apples) | 0;
     const c = p.companion || {};
     const owned = (c.equip && c.equip.owned) || [];
@@ -595,7 +659,17 @@ export function renderCompanionCard(container, opts = {}) {
     for (const e of el.querySelectorAll('.cc-purse-n')) e.textContent = String(n);
     for (const e of el.querySelectorAll('.cc-purse')) e.setAttribute('aria-label', 'Tu as ' + n + ' pommes');
   }
+  /* v2.4 : l'aliment de tous les jours de son espèce sur 🥕 (nourrir), la bulle de pensée et le titre du garde-manger */
+  function renderFoodIcon(p) {
+    const e = foodsOf(p && p.companion && p.companion.type)[0].e;
+    const ico = btns.food.querySelector('.cc-act-ico');
+    if (ico && ico.textContent !== e) ico.textContent = e;
+    if (thought) { const t = thought.querySelector('.cc-think-ico'); if (t && t.textContent !== e) t.textContent = e; }
+    const ti = foodHead.querySelector('.cc-panel-title');
+    if (ti) ti.textContent = e + ' Le garde-manger';
+  }
   function renderName(p) {
+    renderFoodIcon(p);
     const m = mountOf(p);
     const nm = (p && p.companion && p.companion.name) || m.label;
     if (hero) { nameTxt.textContent = nm; setTitle.textContent = m.em + ' ' + nm; }
@@ -646,7 +720,12 @@ export function renderCompanionCard(container, opts = {}) {
   }
   /* message d'humeur (la nuit : il dort) */
   function moodMsg(p, g) {
-    if (ctl && ctl.state.sleeping) return say(p, 'Chut… {N} fait de beaux rêves 🌙');
+    if (ctl && ctl.state.sleeping) {
+      /* temps de jeu du jour fini (v2.4) : la sieste le jour, la nuit le soir ; les jeux attendent demain */
+      if (napKind === 'sieste') return say(p, 'Chut… {N} fait la sieste 💤 À demain pour jouer !');
+      if (napKind === 'nuit') return say(p, 'Chut… {N} fait de beaux rêves 🌙 À demain pour jouer !');
+      return say(p, 'Chut… {N} fait de beaux rêves 🌙');
+    }
     return moodOf(p, g).msg;
   }
   /* v11 renderPet : compagnon, message d'humeur, jauges */
@@ -699,6 +778,8 @@ export function renderCompanionCard(container, opts = {}) {
   }
   /* plutôt qu'un refus : ce qu'il manque, et comment l'avoir */
   const missing = n => frTypo('Il te manque ' + n + NBSP + '🍎. Tu les gagnes en jouant !');
+  /* refus doux du garde-manger (v2.4) : rien n'est dépensé ; ce qu'il dit explique pourquoi */
+  const NOT_HUNGRY = '{N} n’a plus faim 😊', TOO_BIG = 'C’est trop pour {N} : choisis plus petit 😊';
 
   /* ----- grilles des panneaux ----- */
   /* grille reconstruite après un geste au clavier (essayer, acheter, porter, nourrir) : le focus reste sur la même case
@@ -714,16 +795,24 @@ export function renderCompanionCard(container, opts = {}) {
     b.addEventListener('click', () => onTap(b));
     return b;
   };
+  /* garde-manger (v2.4) : les trois aliments de SON espèce (DIET) ; rassasié (faim ≥ 90) → tout est grisé et
+     « {N} n'a plus faim 😊 » ; aliment trop gros pour sa faim (la tarte quand il n'a qu'un petit creux) → grisé,
+     « plus tard » ; il manque des pommes → prix grisé (cadre vert = « tu peux te l'offrir ») */
   function renderFood() {
     const p = profile(); if (!p) return;
-    const apples = p.wallet.apples;
     const back = focusAt(foodGrid);
     clear(foodGrid);
-    for (const f of FOODS) {
-      const ok = apples >= f.price;
-      foodGrid.appendChild(item(ok ? 'can' : 'cant', f.e, f.name, f.price + ' 🍎',
-        f.name + ', ' + f.price + ' pommes' + (ok ? '' : ' (pas assez de pommes)'), b => feedPet(f.id, b)));
+    let full = false;
+    for (const f of foodsOf(p.companion.type)) {
+      const o = foodOffer(p, f.id);
+      const fit = o.why !== 'full' && o.why !== 'big', afford = o.why !== 'short';
+      if (o.why === 'full') full = true;
+      const label = f.name + ', ' + f.price + ' pommes' + (!fit ? (o.why === 'full' ? say(p, ' : {N} n’a plus faim') : ' : trop gros pour sa faim, plus tard')
+        : afford ? '' : ' (pas assez de pommes)');
+      foodGrid.appendChild(item(fit ? (afford ? 'can' : 'cant') : 'full', f.e, f.name, fit ? f.price + ' 🍎' : 'plus tard', label, b => feedPet(f.id, b)));
     }
+    foodNote.hidden = !full;
+    foodNote.textContent = full ? say(p, '{N} n’a plus faim 😊') : '';
     refocus(foodGrid, back);
   }
   function renderShop() {
@@ -865,7 +954,11 @@ export function renderCompanionCard(container, opts = {}) {
     if (thought) { const q = profile(); if (q) renderNeeds(q, petNow(q.companion && q.companion.pet)); }
     if (nameTag && hero) nameTag.setAttribute('aria-expanded', String(openPanel === 'settings'));
     if (!openPanel) return;
-    if (key === 'food') renderFood();
+    if (key === 'food') {
+      renderFood();
+      /* rassasié : il le dit dès l'ouverture (les petits lecteurs voient tout grisé sans savoir pourquoi) */
+      if (!foodNote.hidden) { const q = profile(); if (q) sayOut(say(q, NOT_HUNGRY)); }
+    }
     if (key === 'shop') { setRayon(rayon); renderShop(); renderMounts(); renderTry(); }
     if (key === 'settings') fillSettings();
     renderPurse(profile());
@@ -955,23 +1048,26 @@ export function renderCompanionCard(container, opts = {}) {
     return true;
   }
   function feedPet(id, srcBtn) {
-    const f = FOODS.find(o => o.id === id);
+    const f = FOOD_BY_ID[id];
     const p = profile();
     if (!f || !p) return;
     if (busyWalking()) return;
-    if (p.wallet.apples < f.price) {
-      sayOut(missing(f.price - p.wallet.apples));
-      motion.shake(mood, { dist: 4 });
+    const o = foodOffer(p, id);
+    if (!o.ok) {
+      if (o.why === 'short') {
+        sayOut(missing(o.missing));
+        motion.shake(mood, { dist: 4 });
+      } else if (o.why === 'full' || o.why === 'big') {
+        audio.tap();
+        sayOut(say(p, o.why === 'full' ? NOT_HUNGRY : TOO_BIG));
+      }
       return;
     }
     /* point de départ relevé AVANT de redessiner le garde-manger (le bouton touché va être remplacé) */
     const from = srcBtn && srcBtn.isConnected ? centerOf(srcBtn) : null;
-    store.mutateProfile(pp => {
-      materialize(pp.companion.pet);
-      addApples(pp, -f.price);
-      pp.companion.pet.faim = Math.min(PET.MAX, pp.companion.pet.faim + f.faim);
-      pp.companion.pet.joie = Math.min(PET.MAX, pp.companion.pet.joie + (f.joie || 0));
-    });
+    let fed = false;
+    store.mutateProfile(pp => { fed = feed(pp, id).ok; });
+    if (!fed) return;
     audio.beep(660, 0.08, 0.1); later(() => audio.beep(880, 0.1, 0.1), 110);
     renderFood(); refresh();
     /* la nourriture vole du garde-manger jusqu'à sa bouche ; il la voit venir, l'attrape et mâche */
@@ -983,22 +1079,31 @@ export function renderCompanionCard(container, opts = {}) {
         motion.flyTo(from, to, { emoji: f.e, size: 30, dur: flight, arc: 0.4, popTarget: false });
         later(() => audio.tap(), flight + 260); later(() => audio.tap(), flight + 780); later(() => audio.tap(), flight + 1300);
       }
-      sayOut(say(profile(), '{N} croque ' + f.e + ' avec appétit. Miam !'));
+      sayOut(frTypo(foodLine(f)));                  /* « Miam, une carotte ! » (v2.4 : l'aliment de son espèce, nommé) */
     });
+  }
+  /* brossage, promenade (v2.4) : le premier du jour est gratuit, les suivants se paient ; refusés sans rien coûter s'ils
+     ne servaient à rien (jauge déjà pleine) ou s'il manque des pommes */
+  function refuseCare(p, o) {
+    if (o.why === 'short') {
+      audio.beep(180, 0.1, 0.06);
+      sayOut(missing(o.missing));
+      motion.shake(btns[o.kind], { dist: 4 });
+    } else if (o.why === 'full') {
+      audio.tap();
+      sayOut(o.kind === 'brush' ? say(p, '{N} est déjà ' + (fem(p) ? 'toute belle' : 'tout beau') + ' ✨ Reviens un peu plus tard !')
+        : say(p, '{N} est déjà en pleine forme ! 🚶'));
+    }
   }
   function brushPet() {
     const p = profile(); if (!p) return;
     if (busyWalking()) return;
-    const now = Date.now();
-    if (now - (p.companion.pet.brushLast || 0) < PET.BRUSH.cooldown) {
-      sayOut(say(p, '{N} est déjà ' + (fem(p) ? 'toute belle' : 'tout beau') + ' ✨ Reviens un peu plus tard !'));
-      return;
-    }
-    store.mutateProfile(pp => {
-      materialize(pp.companion.pet, now);
-      pp.companion.pet.brushLast = now;
-      pp.companion.pet.joie = Math.min(PET.MAX, pp.companion.pet.joie + PET.BRUSH.joie);
-    });
+    const today = dayStr();
+    const o = careOffer(p, 'brush', today);
+    if (!o.ok) { refuseCare(p, o); return; }
+    let done = false;
+    store.mutateProfile(pp => { done = doCare(pp, 'brush', today).ok; });
+    if (!done) return;
     audio.beep(880, 0.08, 0.08);
     refresh();
     const kind = mountOf(profile()).kind;
@@ -1010,18 +1115,13 @@ export function renderCompanionCard(container, opts = {}) {
   }
   function walkPet() {
     const p = profile(); if (!p) return;
-    const today = dayStr();
-    if (p.companion.pet.walkDay === today) {
-      sayOut(say(p, '{N} a déjà eu sa promenade du jour 🚶 À demain !'));
-      return;
-    }
     if (walking) return;
-    store.mutateProfile(pp => {
-      materialize(pp.companion.pet);
-      pp.companion.pet.walkDay = today;
-      pp.companion.pet.forme = Math.min(PET.MAX, pp.companion.pet.forme + PET.WALK.forme);
-      pp.companion.pet.joie = Math.min(PET.MAX, pp.companion.pet.joie + PET.WALK.joie);
-    });
+    const today = dayStr();
+    const o = careOffer(p, 'walk', today);
+    if (!o.ok) { refuseCare(p, o); return; }
+    let done = false;
+    store.mutateProfile(pp => { done = doCare(pp, 'walk', today).ok; });
+    if (!done) return;
     refresh();
     const ms = 4200;
     walking = true;
@@ -1235,6 +1335,7 @@ export function renderCompanionCard(container, opts = {}) {
     }
     refresh();
     if (openPanel === 'food') renderFood();
+    syncNap();                                     /* partie finie : le temps de jeu du jour est peut-être épuisé */
   });
 
   /* v11 : setInterval(renderPet, 60000) — jauges, humeur, ciel (le SVG n'est jamais redessiné pour l'humeur) */
@@ -1242,6 +1343,7 @@ export function renderCompanionCard(container, opts = {}) {
     if (destroyed) return;
     updateSky();
     if (!walking) refresh();
+    syncNap();                                     /* minuit, minutes accordées : il se réveille ; sieste → nuit */
   }, 60000);
 
   /* premier rendu (le SVG et le moteur de vie arrivent dès qu'ils sont chargés) */
@@ -1273,6 +1375,14 @@ export function renderCompanionCard(container, opts = {}) {
       if (destroyed || !ctl) return;
       try { ctl.react('tap'); } catch (_) {}
     },
+    /* v2.4 : temps de jeu du jour fini → il fait la sieste (le jour) ou dort (le soir) ; la scène le vérifie seule (store,
+       chaque minute, retour à l'écran) ; l'accueil peut demander une vérification tout de suite → null | 'sieste' | 'nuit' */
+    napCheck() {
+      if (destroyed) return null;
+      syncNap();
+      return napKind;
+    },
+    get nap() { return napKind; },
     /* fin de balade : le compagnon danse, confettis, fanfare */
     dance() {
       if (destroyed) return;

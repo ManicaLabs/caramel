@@ -1164,6 +1164,7 @@ function createCloture(root, ctx) {
       safe(() => K.gentleWrong(el));
       phase = 'answer';
       showHint('retry');
+      offerLater();
       if (placing()) setSub();
       return;
     }
@@ -1171,6 +1172,25 @@ function createCloture(root, ctx) {
     phase = 'learn';
     safe(() => K.gentleWrong(el));
     learn();
+  }
+  /* « 🌱 Pas encore appris » (v2.5, ctx.later) : sous l'astuce de la 1re erreur ; confirmé → l'item n'est pas rapporté,
+     le compagnon le dit, puis la portion de clôture suivante arrive (elle remplace celle-ci dans la partie) */
+  function offerLater() {
+    const tok = token, it = item;
+    const chip = safe(() => ctx.later && ctx.later(it, { onSkip: s => skipItem(tok, s) }));
+    if (chip && bubbleEl) { (bubbleEl.querySelector('.kit-bubble-body') || bubbleEl).appendChild(chip); placeBubble(); }
+  }
+  function skipItem(tok, s) {
+    if (!alive || tok !== token || phase !== 'answer') return;
+    phase = 'busy';
+    dropHeld();
+    va.pause(true);
+    if (grid) grid.disable();
+    if (kp) kp.disable(true);
+    if (placing()) setControls(false);
+    setBubble(s.line, 'good', '🌱');
+    ctx.announce(s.line);
+    s.done.then(() => { if (alive && tok === token) next(false); });
   }
   /* 2e erreur : la réponse est montrée (le compagnon marche jusqu'au bon piquet) + explication */
   function learn() {

@@ -1,13 +1,16 @@
 /* ============ EN-TÊTE COMMUN DES JEUX ============
-   « Un seul gros bouton » : UNE ligne, rien à lire — ← retour · pastilles de progression (au centre) · 🔊 · joker 💡.
-   🔊 (js/ui/voice.js) : relit la dernière chose que le compagnon a dite (la question, l'indice, l'explication) ; caché
-   tant que le jeu ne lui a rien confié (setLine) et quand la lecture à voix haute est réglée sur Non (voice.listenOn).
+   « Un seul gros bouton » : UNE ligne, rien à lire — ← retour · pastilles de progression (au centre) · 🔁 · joker 💡 · 🔊.
+   🔁 « Écouter encore » (js/ui/voice.js ; 🔊 jusqu'à la 2.3) : relit la dernière chose que le compagnon a dite (la
+   question, l'indice, l'explication) ; caché tant que le jeu ne lui a rien confié (setLine), quand la lecture à voix
+   haute est réglée sur Non et quand les sons sont coupés (voice.listenOn).
+   🔊 / 🔇 (v2.4, js/ui/sound-toggle.js) : coupe et remet le son, toujours au bout de la ligne, discret.
    Le titre du jeu reste le titre de la page (h1 masqué, lu par les lecteurs d'écran ; la scène dit le jeu).
    Les 🍎 gagnées ne s'affichent plus ici (le bilan les compte) : la pomme d'une bonne réponse vole dans la
    pastille de la question (applesEl), qui devient verte.
    Utilisé par la coquille de jeu (js/ui/game-shell.js) et par le banc d'essai (tests/harness/game.html). */
 import { h, clear } from '../core/util.js';
-import { listenButton } from './voice.js';
+import { listenButton, listenOn } from './voice.js';
+import { soundButton } from './sound-toggle.js';
 
 export function createHeader({ icon = '🎲', title = '', short = '', hints = 2, onBack, onJoker } = {}) {
   const back = h('button', { class: 'back', type: 'button', 'aria-label': 'Retour', on: { click: () => onBack && onBack() } }, '←');
@@ -28,12 +31,18 @@ export function createHeader({ icon = '🎲', title = '', short = '', hints = 2,
   const sink = h('span', { class: 'gh-sink', 'aria-hidden': 'true' });      /* cible des 🍎 quand il n'y a pas de pastilles */
   const mid = h('div', { class: 'gh-mid' }, dots, counter, sink);
   const live = h('div', { class: 'sr-only', 'aria-live': 'polite' });
-  let line = '';
+  let line = '', lineShow = false;
   const listen = listenButton(() => line, { label: 'Écouter encore' });
   listen.classList.add('gh-listen');
   listen.hidden = true;
-  const el = h('header', { class: 'game-header' },
-    h('div', { class: 'gh-row' }, back, mid, listen, joker), titleEl, apples, live);
+  let el = null;
+  const paintListen = () => {
+    listen.hidden = !(lineShow && line && listenOn());
+    if (el) el.classList.toggle('has-listen', !listen.hidden);   /* pastilles resserrées : tout tient sur une ligne */
+  };
+  const sound = soundButton({ cls: 'gh-sound', onChange: paintListen });   /* sons coupés : 🔁 s'en va, revient après */
+  el = h('header', { class: 'game-header' },
+    h('div', { class: 'gh-row' }, back, mid, listen, joker, sound), titleEl, apples, live);
 
   let shownApples = 0;
   const shown = e => { try { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; } catch (_) { return false; } };
@@ -79,11 +88,12 @@ export function createHeader({ icon = '🎲', title = '', short = '', hints = 2,
       }
     },
     announce(text) { live.textContent = ''; setTimeout(() => { live.textContent = text; }, 30); },
-    /* phrase que 🔊 relit ; show = la lecture à voix haute est activée pour cet enfant (sinon le bouton reste caché) */
+    /* phrase que 🔁 relit ; show = la lecture à voix haute est activée pour cet enfant (sinon le bouton reste caché ;
+       il l'est aussi tant que les sons sont coupés, et revient avec 🔊) */
     setLine(text, show) {
       line = String(text || '');
-      listen.hidden = !(show && line);
-      el.classList.toggle('has-listen', !listen.hidden);      /* pastilles resserrées : tout tient sur une ligne */
+      lineShow = !!show;
+      paintListen();
     },
     destroy() {}
   };

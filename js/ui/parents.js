@@ -24,13 +24,20 @@
    - évaluations importées + import (photo / saisie / fichier → #/import) ;
    - réglages : pour l'enfant (mutateProfile : thème, durée, chrono, sons, animations, soustraction, classe, prénom,
      accords ; lecture des consignes à voix haute masquée jusqu'à la 2.2, cf. READ_ALOUD_READY) et sur cet appareil
-     (code parent, rappels) ;
+     (code parent, rappels) ; v2.4 (retour du parent du 07/10/2026) : « Temps de jeu par jour » (30 min à 2 h, ou sans
+     limite ; 1 h par défaut ; js/core/playtime.js), le temps joué aujourd'hui et « Encore 15 minutes aujourd'hui »
+     (profile.playBonus, cumulable dans la journée) ;
    - sauvegardes (backup.js ; date de la dernière sauvegarde téléchargée d'ici) ; profils ; à propos (version,
      confidentialité exacte, auteur et retours) et, v2.2.2, « État de cet appareil » (js/ui/diag.js : version, navigateur
      et système, installé ou non, son, voix enregistrée, voix du téléphone, micro, reconnaissance, WebAssembly, stockage,
      ✓ / ✗, pour une capture à envoyer) ;
    - v2.2.2 : « Sur cet appareil » › « Écran d'accueil » (js/ui/install.js : état, vrai bouton « Installer » ou marche
      à suivre sur iPhone et iPad) ; « Lire les consignes à voix haute » : Oui (défaut, tous les enfants) / Non.
+   - v2.5 (décisions du parent du 07/10/2026) : « 🌱 Au fil de l'année » (js/content/calendar.js) : rythme des notions
+     (Au rythme de la classe — défaut — / Un peu en avance / Selon ses réussites), les notions « Pas encore appris »
+     repoussées par l'enfant (date de retour, exemple, « Remettre maintenant » ; « repoussé 2 fois de suite : à regarder
+     ensemble ? »), et le programme de l'année période par période, avec pour chaque notion « Selon le calendrier »,
+     « Déjà vu en classe » ou « Pas encore vu en classe ».
    Toute écriture du profil passe par store.mutateProfile / store.mutate. Rien n'est jamais affiché à l'enfant ici. */
 
 import { h, svg, clear, loadCSS, dayStr, daysBetween, parseDay, fmtNum, frTypo, weekKey, deNom, sha256Hex } from '../core/util.js';
@@ -42,7 +49,10 @@ import { mclmExpected, mclmTarget } from '../core/levels.js';
 import { weakKeys } from '../core/leitner.js';
 import { setClasse, offerNextClasse, sanitizeName, SESSION_MINUTES, fillTemplate, markSeen } from '../core/profiles.js';
 import { totalStars } from '../core/economy.js';
-import { GAMES } from '../games/index.js';
+import { GAMES, gamesFor } from '../games/index.js';
+import { hasGenerator, loadGenerator } from '../content/index.js';
+import { RYTHMES, RYTHME_LABEL, PERIOD_MONTHS, LATER, rythmeOf, activeLater, laterStreak, release as releaseLater,
+  setParentFamily, yearFamilies, family as calFamily, useGenerator, parentState } from '../content/calendar.js';
 import { MOUNTS } from '../content/companion-data.js';
 import * as notifs from '../core/notifs.js';
 import * as kit from './kit.js';
@@ -58,6 +68,8 @@ import { parentsRow as installRow } from './install.js';
 import { parentsRow as fluidRow } from './voice-fluid.js';
 import { diagCard } from './diag.js';
 import * as wipe from './wipe.js';
+import { DAILY_OPTIONS, normDailyMin, withBonus, BONUS_STEP } from '../core/playtime.js';
+import { playNow, parentLine, dailyLabel, BONUS_LABEL } from './play-limit.js';
 
 /* crédits et retours (v11.1, déplacés de l'accueil de l'enfant : un adulte seulement sort vers LinkedIn) */
 const LINKEDIN_PROFILE = 'https://www.linkedin.com/in/cedric-delalande-57bb7860/';
@@ -676,7 +688,7 @@ function renderContent({ entering = false, keepScroll = false, nudge = false, fo
   const navBox = h('nav', { class: 'pa-nav', 'aria-label': 'Rubriques' },
     /* boutons (et non ancres #pa-…) : le routeur hash ne doit jamais voir ces cibles ; « À revoir », seule partie qui
        propose quoi faire, juste après « Progrès » */
-    [['progres', 'Progrès'], ['revoir', 'À revoir'], ['evals', 'Évaluations'], ['reglages', 'Réglages'], ['sauvegardes', 'Sauvegardes'], ['profils', 'Profils'], ['apropos', 'À propos']]
+    [['progres', 'Progrès'], ['revoir', 'À revoir'], ['annee', 'Au fil de l’année'], ['evals', 'Évaluations'], ['reglages', 'Réglages'], ['sauvegardes', 'Sauvegardes'], ['profils', 'Profils'], ['apropos', 'À propos']]
       .map(([id, label]) => h('button', { type: 'button', class: 'pa-nav-a', 'aria-controls': 'pa-' + id, 'data-fk': 'nav-' + id, on: { click: () => {
         audio.tap();
         const t = globalThis.document.getElementById('pa-' + id);
@@ -781,7 +793,7 @@ function progressBlocks(p) {
   const out = [briefCard(p, { fresh, playedAny, classe })];
   if (playedAny || (Number(p.stats && p.stats.sessions) || 0) > 0) out.push(statsCard(p));
   if (!fresh) out.push(radarsCard(p), axisTable(p));
-  out.push(mclmCard(p), reviewCard(p));
+  out.push(mclmCard(p), reviewCard(p), yearCard(p));
   return out;
 }
 
@@ -1249,6 +1261,119 @@ function reviewCard(p) {
   return card;
 }
 
+/* ---------- au fil de l'année (v2.5, js/content/calendar.js) ----------
+   rythme des notions, notions « Pas encore appris » (reports de l'enfant), programme de l'année et réglage par notion */
+const RYTHME_HELP = {
+  ecole: 'Conseillé. Caramel ne propose une notion qu’environ deux semaines après le début de la période où elle est vue en classe (programmes 2024-2025), et la rentrée commence par deux semaines de révisions.',
+  avance: 'Les notions arrivent une période plus tôt (environ deux mois), pour un enfant très à l’aise. Rien de la classe suivante pendant l’été.',
+  libre: 'Comme avant : les questions suivent seulement ses réussites, jusqu’à un an d’avance sur la classe.'
+};
+const FAM_STATE = {
+  vu: 'Vu en classe ✓',
+  bientot: 'À venir',
+  later: 'Pas encore appris 🌱',
+  pasvu: 'Pas encore vu (votre choix)',
+  force: 'Déjà vu (votre choix)'
+};
+const shortDate = d => { const x = parseDay(d); return (x.getDate() === 1 ? '1er' : x.getDate()) + '\u00A0' + MONTHS[x.getMonth()]; };
+/* générateurs des jeux de la classe : leurs notions déclarées (ex. problèmes) rejoignent le calendrier */
+let calLoad = null;
+function loadCalendarGenerators(classe) {
+  const axes = [...new Set(gamesFor(classe).flatMap(g => g.axes || []))].filter(a => hasGenerator(a) && a !== 'fr.fluence');
+  calLoad = calLoad || {};
+  const key = axes.join(',');
+  if (!calLoad[key]) calLoad[key] = Promise.all(axes.map(a => loadGenerator(a).then(useGenerator).catch(() => {})));
+  return calLoad[key];
+}
+function yearCard(p) {
+  const id = p.id;
+  const classe = p.classe || 'CM2';
+  const card = h('div', { class: 'card pa-card pa-year', id: 'pa-annee' },
+    h('h3', { class: 'pa-h3', tabindex: '-1' }, h('span', { 'aria-hidden': 'true' }, '🌱 '), 'Au fil de l’année'),
+    h('p', { class: 'pa-note' }, frTypo('Les jeux proposent les notions quand elles ont été vues en classe. ' + p.name
+      + ' peut aussi dire « Pas encore appris » après une erreur : la notion revient le mois suivant, sans effet sur ses progrès.')));
+  /* rythme */
+  const r = rythmeOf(p);
+  const help = h('p', { class: 'pa-help' }, frTypo(RYTHME_HELP[r]));
+  const rseg = seg(RYTHMES.map(x => [x, RYTHME_LABEL[x]]), r, v => {
+      store.mutateProfile(q => { if (!q.settings || typeof q.settings !== 'object') q.settings = {}; q.settings.rythme = v; }, id);
+      audio.tap();
+      done(frTypo('Rythme : ' + RYTHME_LABEL[v].toLowerCase() + ' ✓'));
+      help.textContent = frTypo(RYTHME_HELP[v]);
+      later(fill);
+    }, 'Rythme des notions');
+  rseg.classList.add('pa-seg-col');
+  card.appendChild(h('div', { class: 'pa-row' }, h('div', { class: 'pa-row-label' }, 'Rythme des notions'), rseg, help));
+  const laterBox = h('div', { class: 'pa-later-box' });
+  const progBox = h('div', { class: 'pa-prog-box' });
+  card.append(laterBox, progBox);
+  const set = (fn, msg) => { store.mutateProfile(q => fn(q), id); audio.tap(); done(msg); fill(); };
+
+  function fill() {
+    const q = store.getProfile(id);
+    if (!q) return;
+    const today = dayStr();
+    /* reports de l'enfant */
+    clear(laterBox);
+    const act = activeLater(q, today);
+    if (act.length) {
+      laterBox.appendChild(h('h4', { class: 'pa-rev-t' }, frTypo('Pas encore appris (' + act.length + ' sur ' + LATER.max + ' au plus)')));
+      laterBox.appendChild(h('ul', { class: 'pa-later' }, act.map(e => {
+        const f = calFamily(e.fam);
+        const two = laterStreak(q, e.fam, today) >= LATER.streak;
+        return h('li', { class: 'pa-later-it' + (two ? ' is-two' : '') },
+          h('div', { class: 'pa-later-t' }, h('span', { 'aria-hidden': 'true' }, (f ? f.icon : '🌱') + '\u00A0'), f ? f.adult : e.fam),
+          h('div', { class: 'pa-later-s' }, frTypo('Repoussé le ' + shortDate(e.d) + ', revient le ' + shortDate(e.until) + '.')),
+          e.ex ? h('div', { class: 'pa-later-ex' }, frTypo('Exemple : « ' + e.ex + ' »')) : null,
+          two ? h('p', { class: 'pa-later-two' }, frTypo('Repoussé ' + e.n + ' fois de suite : à regarder ensemble ? ' + p.name + ' ne peut plus le repousser seul ; vous pouvez choisir « Pas encore vu en classe ».')) : null,
+          h('div', { class: 'pa-later-acts' },
+            h('button', { type: 'button', class: 'btn small white', 'data-fk': 'later-back-' + e.fam,
+              on: { click: () => set(x => releaseLater(x, e.fam, dayStr()), frTypo('« ' + (f ? f.adult : e.fam) + ' » revient dès aujourd’hui ✓')) } }, 'Remettre maintenant'),
+            two ? h('button', { type: 'button', class: 'btn small white', 'data-fk': 'later-pasvu-' + e.fam,
+              on: { click: () => set(x => setParentFamily(x, e.fam, 'pasvu', dayStr()), frTypo('« ' + (f ? f.adult : e.fam) + ' » : pas encore vu en classe ✓')) } }, 'Pas encore vu en classe') : null));
+      })));
+    }
+    /* programme de l'année, période par période */
+    clear(progBox);
+    const axes = [...new Set(gamesFor(classe).flatMap(g => g.axes || []))];
+    const fams = yearFamilies(q, today, axes);
+    if (!fams.length) return;
+    const details = h('details', { class: 'pa-details pa-prog' });
+    keepOpen(details, 'prog-' + id);
+    const byP = [[], [], [], [], []];
+    for (const f of fams) byP[Math.max(0, Math.min(4, f.at.period - 1))].push(f);
+    const lists = byP.map((list, i) => list.length ? h('div', { class: 'pa-prog-p' },
+      h('h4', { class: 'pa-rev-t' }, frTypo('Période ' + (i + 1) + ' · ' + PERIOD_MONTHS[i])),
+      h('ul', { class: 'pa-prog-list' }, list.map(f => h('li', null,
+        h('button', { type: 'button', class: 'pa-prog-row is-' + f.state, 'data-fk': 'prog-' + f.fam, on: { click: () => famSheet(f) } },
+          h('span', { class: 'pa-prog-ico', 'aria-hidden': 'true' }, f.icon),
+          h('span', { class: 'pa-prog-name' }, f.adult),
+          h('span', { class: 'pa-prog-st' }, FAM_STATE[f.state])))))) : null);
+    details.append(h('summary', null, frTypo('Le programme du ' + classe + ', période par période')),
+      h('p', { class: 'pa-help' }, frTypo('Le calendrier suit les programmes 2024-2025 (et, à défaut, les progressions les plus courantes). Chaque classe avance à son rythme : touchez une notion pour indiquer qu’elle a déjà été vue en classe, ou pas encore.')),
+      ...lists);
+    progBox.appendChild(details);
+  }
+  function famSheet(f) {
+    const cur = parentState(store.getProfile(id), f.fam) || 'cal';
+    const when = 'Au programme : ' + classe + ', période ' + f.at.period + ' (' + PERIOD_MONTHS[f.at.period - 1] + ').';
+    const pick = v => {
+      const label = { cal: 'selon le calendrier', vu: 'déjà vu en classe', pasvu: 'pas encore vu en classe' }[v];
+      set(x => setParentFamily(x, f.fam, v === 'cal' ? null : v, dayStr()), frTypo('« ' + f.adult + ' » : ' + label + ' ✓'));
+    };
+    const opt = (v, emo, text) => ({ label: iconLabel(emo, text + (cur === v ? ' ✓' : '')), kind: cur === v ? '' : 'white', onClick: () => pick(v) });
+    kit.sheet({
+      title: f.adult,
+      content: h('div', null, h('p', null, frTypo(when)),
+        h('p', { class: 'pa-help' }, frTypo('« Déjà vu en classe » : la notion peut venir dès maintenant. « Pas encore vu » : elle attend que vous changiez d’avis (jusqu’à la fin de l’année).'))),
+      actions: [opt('cal', '📅', 'Selon le calendrier'), opt('vu', '✅', 'Déjà vu en classe'), opt('pasvu', '⏳', 'Pas encore vu en classe')]
+    });
+  }
+  fill();
+  loadCalendarGenerators(classe).then(() => { if (card.isConnected) fill(); });
+  return card;
+}
+
 /* ---------- évaluations ---------- */
 /* « 📖 Français : 9 compétences (2 absences) » / « 🔢 Maths : 7 compétences » */
 function evalLines(e) {
@@ -1448,6 +1573,36 @@ function tourRow(p) {
     btn,
     h('p', { class: 'pa-help' }, frTypo('Le compagnon présente l’accueil à ' + p.name + ' (et chaque jeu, à la première partie), une seule fois. Ce bouton la fait revenir à la prochaine ouverture de l’accueil.')));
 }
+/* temps de jeu par jour (v2.4, retour du parent du 07/10/2026 ; js/core/playtime.js) : la limite de l'enfant, le temps
+   joué aujourd'hui, et « Encore 15 minutes aujourd'hui » (profile.playBonus, cumulable, remis à zéro le lendemain) */
+function playTimeRow(p, set) {
+  const id = p.id;
+  const state = h('p', { class: 'pa-dev-state pa-play-state', 'aria-live': 'polite' });
+  const more = h('button', { type: 'button', class: 'btn small white pa-play-more', 'data-fk': 'play-more' },
+    h('span', { 'aria-hidden': 'true' }, '⏳'), BONUS_LABEL);
+  const show = () => {
+    const q = store.getProfile(id) || p;
+    const today = dayStr();
+    const ps = playNow(q, today);
+    state.textContent = parentLine(q, today);
+    state.classList.toggle('is-over', ps.over);
+    more.hidden = ps.unlimited;
+    more.classList.toggle('white', !ps.over);           /* temps atteint : c'est LE bouton de la ligne */
+  };
+  more.addEventListener('click', () => {
+    store.mutateProfile(q => { q.playBonus = withBonus(q, dayStr(), BONUS_STEP); }, id);
+    audio.tap();
+    done(frTypo(BONUS_STEP + '\u00A0minutes de plus pour ' + p.name + ' aujourd’hui ✓'));
+    show();
+  });
+  const pick = seg(DAILY_OPTIONS.map(m => [m, dailyLabel(m)]), normDailyMin((p.settings || {}).dailyMin),
+    v => { set(x => { x.dailyMin = v; }, frTypo('Temps de jeu par jour : ' + dailyLabel(v).toLowerCase() + ' ✓')); show(); }, 'Temps de jeu par jour');
+  show();
+  return h('div', { class: 'pa-row' },
+    h('div', { class: 'pa-row-label' }, 'Temps de jeu par jour'),
+    pick, state, more,
+    h('p', { class: 'pa-help' }, frTypo('Seul le temps passé dans les jeux compte (pas les soins du compagnon). Une partie commencée va toujours jusqu’au bout ; ensuite, les jeux se grisent et le compagnon s’endort jusqu’au lendemain. Vous pouvez accorder un peu plus de temps pour la journée.')));
+}
 function settingsCard(p) {
   const id = p.id;
   const s = p.settings || {};
@@ -1479,18 +1634,19 @@ function settingsCard(p) {
         if (plan && !(Array.isArray(plan.blocks) && plan.blocks.some(b => b && b.done))) q.today = null;
       }), 'Durée de la balade du jour'),
     h('p', { class: 'pa-help' }, frTypo('Environ 10, 15 ou 20 minutes : quatre petites étapes, la dernière est un jeu au choix.'))));
+  card.appendChild(playTimeRow(p, set));
 
   if (READ_ALOUD_READY) card.appendChild(h('div', { class: 'pa-row' },
     h('div', { class: 'pa-row-label' }, 'Lire les consignes à voix haute'),
     seg([['on', 'Oui'], ['off', 'Non']], readAloudOf(s),
       v => set(x => { x.readAloud = v; }, frTypo(v === 'on' ? 'Lecture à voix haute : oui ✓' : 'Lecture à voix haute : non ✓')), 'Lire les consignes à voix haute'),
-    h('p', { class: 'pa-help' }, frTypo('Oui (conseillé, dans toutes les classes) : le compagnon lit les consignes, les indices et la visite guidée quand les sons sont activés, et le bouton 🔊 relit la phrase ; le texte reste affiché. Non : rien n’est lu et 🔊 disparaît.')),
+    h('p', { class: 'pa-help' }, frTypo('Oui (conseillé, dans toutes les classes) : le compagnon lit les consignes, les indices et la visite guidée quand les sons sont activés, et le bouton 🔁 relit la phrase ; le texte reste affiché. Non : rien n’est lu et 🔁 disparaît.')),
     voiceTest(p)));
   card.appendChild(tourRow(p));
 
   card.appendChild(switchRow('Chronomètre dans les jeux', 'Une jauge de temps douce s’affiche dans certains jeux (Galop des tables, Pommes express). Jamais d’échec quand le temps est écoulé.',
     !!s.timers, on => set(x => { x.timers = on; })));
-  card.appendChild(switchRow('Sons', null, s.sound !== false, on => set(x => { x.sound = on; })));
+  card.appendChild(switchRow('Sons', 'L’enfant peut aussi couper et remettre le son d’un toucher : 🔊 / 🔇 en haut de l’accueil et des jeux. Sons coupés, la voix se tait aussi.', s.sound !== false, on => set(x => { x.sound = on; })));
   card.appendChild(switchRow('Animations douces', 'Moins de mouvements à l’écran : des fondus à la place des rebonds et des confettis.',
     s.motion === 'soft', on => set(x => { x.motion = on ? 'soft' : 'full'; })));
 

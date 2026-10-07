@@ -52,7 +52,11 @@
    }
    opts : avoid (Set de clés), kind (sous-type imposé ; s'il n'existe pas encore à ce niveau, l'item est
           pris au premier niveau où il existe, et item.A le dit).
-   describeKey(key) → '7 × 8 = 56' (écriture lisible d'une clé, pour l'espace parents « à revoir »). */
+   describeKey(key) → '7 × 8 = 56' (écriture lisible d'une clé, pour l'espace parents « à revoir »).
+   Calendrier (js/content/calendar.js, v2.5) : item.notion = la notion la plus récente du fait (table de 7, facteur
+   manquant, doubles du CE1…), item.notions = toutes ses notions ; notionOfKey(clé Leitner) → notion de la clé.
+   Un produit appartient à la première table où il s'apprend (7 × 8 : table de 7 ; à égalité, le plus grand facteur
+   autre que 1 et 10 : 2 × 5 → table de 5). */
 
 import { fmtNum, frTypo } from '../../core/util.js';
 
@@ -405,11 +409,47 @@ function p10Info(I, e, j, op) {
   return { lo, cap, dec };
 }
 
+/* ========== NOTIONS (calendrier, js/content/calendar.js) ========== */
+/* table d'un produit {x ≤ y} : la première table où il s'apprend (TABLE_FROM) ; à égalité, le plus grand facteur autre
+   que 1 et 10 ; 0 × n : « multiplier par 0 » ; 25 × n et décompositions de 60 : leurs propres notions */
+function tableNotion(x, y) {
+  if (x === 0) return 't0';
+  if (y === 25) return 'x25';
+  if (y > 10) return 'dec60';
+  const lx = TABLE_FROM[x], ly = TABLE_FROM[y];
+  if (lx !== ly) return 't' + (lx < ly ? x : y);
+  const pref = [x, y].filter(n => n !== 1 && n !== 10);
+  return 't' + (pref.length ? Math.max(...pref) : Math.max(x, y));
+}
+const NOTION_AT = { t0: 1.2, t1: 1, t2: 1, t5: 1, t10: 1, t3: 1.2, t4: 1.2, t6: 1.2, t7: 1.4, t8: 1.6, t9: 1.8, x25: 1.5, dec60: 2.3, facteur: 1.5, div: 3 };
+/* notions d'un produit présenté sous une forme : la plus récente en premier (à égalité, la table) */
+function mulNotions(x, y, form) {
+  const t = tableNotion(x, y);
+  if (form !== 'facteur' && form !== 'div') return [t];
+  return NOTION_AT[form] > NOTION_AT[t] ? [form, t] : [t, form];
+}
+function addNotion(a, b, kind) {
+  if (kind === 'c10') return 'c10';
+  const lo = addInfo(Math.min(a, b), Math.max(a, b)).lo;
+  return lo < 0.3 ? 'add.s9' : lo < 0.6 ? 'add.s13' : 'add.passage';
+}
+/* doubles et moitiés : par année d'arrivée de la liste */
+function dblNotion(lo, half) {
+  if (lo >= 4) return 'half.cm2';
+  if (lo >= 2) return 'dbl.ce2';
+  if (lo >= 1) return 'dbl.ce1';
+  if (lo >= 0.6) return 'dbl.cp4';
+  return lo >= (half ? 0.4 : 0.2) ? 'dbl.cp2' : 'dbl.cp1';
+}
+const p10Notion = info => (info.lo >= 4 ? 'p10.dec3' : info.lo >= 3.3 ? 'p10.dec' : 'p10');
+
 /* ========== ASSEMBLAGE ========== */
 function finish(o) {
   const voice = isInt(o.answer) && o.answer >= 0 && o.answer <= 1000;
+  const notions = (o.notions || []).map(n => `${axis}:${n}`);
   return {
     axis, kind: o.kind, key: o.key, A: r3(o.A), prompt: o.prompt, answer: o.answer,
+    notion: notions[0], notions,
     hint: frTypo(o.hint), explain: frTypo(o.explain), autoMs: o.autoMs || AUTO_FACT, leitner: o.kind !== 'p10',
     data: { voice, op: o.op, a: o.a, b: o.b ?? null, c: o.c, hole: o.hole, reversed: !!o.reversed }
   };
@@ -425,7 +465,7 @@ function addItem(a, b, form, A, kind) {
   const c = a + b;
   const info = kind === 'c10' ? { lo: 0, cap: 1.2 } : addInfo(Math.min(a, b), Math.max(a, b));
   const key = kind === 'c10' ? `${axis}:c10:${Math.min(a, b)}` : `${axis}:add:${Math.min(a, b)}+${Math.max(a, b)}`;
-  const base = { kind, key, A: clamp(A, info.lo, info.cap), op: '+', a, b, c };
+  const base = { kind, key, A: clamp(A, info.lo, info.cap), op: '+', a, b, c, notions: [addNotion(a, b, kind)] };
   if (form === 'sum') {
     return finish({ ...base, prompt: eqPrompt(a, '+', b, c, 'c'), answer: c, hole: 'c', hint: addHintSum(a, b), explain: addExplainSum(a, b) });
   }
@@ -443,14 +483,15 @@ function mulItem(x, y, form, A, rng) {
   const Ai = clamp(A, lo, Math.max(lo, mulCap(info, form)));
   const [a, b] = rng.chance(0.5) ? [x, y] : [y, x];           /* commutativité : les deux ordres */
   const p = a * b;
+  const notions = mulNotions(Math.min(x, y), Math.max(x, y), form);
   if (form === 'mul') {
-    return finish({ kind: 'mul', key, A: Ai, op: '×', a, b, c: p, hole: 'c', prompt: eqPrompt(a, '×', b, p, 'c'), answer: p,
+    return finish({ kind: 'mul', key, A: Ai, op: '×', a, b, c: p, hole: 'c', notions, prompt: eqPrompt(a, '×', b, p, 'c'), answer: p,
       hint: mulHint(Math.min(a, b), Math.max(a, b)), explain: mulExplain(a, b) });
   }
   if (form === 'div') {
     /* p ÷ b = a */
     const eqText = `${f(p)} ÷ ${b} = ${a}`;
-    return finish({ kind: 'div', key, A: Ai, op: '÷', a: p, b, c: a, hole: 'c', prompt: eqPrompt(p, '÷', b, a, 'c'), answer: a,
+    return finish({ kind: 'div', key, A: Ai, op: '÷', a: p, b, c: a, hole: 'c', notions, prompt: eqPrompt(p, '÷', b, a, 'c'), answer: a,
       hint: `Diviser, c’est chercher le facteur qui manque : ${b} × ${HOLE} = ${f(p)}.`,
       explain: `${eqText}, car ${b} × ${a} = ${f(p)}.` + (b > 1 && b <= 10 && a > 1 && a < 10 ? ` Compte de ${b} en ${b} : ${countBy(b, p)}.` : '') });
   }
@@ -458,22 +499,22 @@ function mulItem(x, y, form, A, rng) {
   const hole = sub === 'a' ? 'a' : 'b', reversed = sub === 'left';
   const k = hole === 'a' ? b : a, ans = hole === 'a' ? a : b;
   const eqText = reversed ? `${f(p)} = ${a} × ${b}` : `${a} × ${b} = ${f(p)}`;
-  return finish({ kind: 'facteur', key, A: Ai, op: '×', a, b, c: p, hole, reversed, prompt: eqPrompt(a, '×', b, p, hole, reversed),
+  return finish({ kind: 'facteur', key, A: Ai, op: '×', a, b, c: p, hole, reversed, notions, prompt: eqPrompt(a, '×', b, p, hole, reversed),
     answer: ans, hint: facteurHint(k, p, ans), explain: facteurExplain(eqText, k, p, ans) });
 }
 function doubleItem(n, A) {
   const lo = levelIn(DOUBLES, n) ?? 0, t = doubleTexts(n);
-  return finish({ kind: 'double', key: `${axis}:dbl:${n}`, A: clamp(A, lo, lo + 1.5), op: 'double', a: n, b: null, c: 2 * n,
+  return finish({ kind: 'double', key: `${axis}:dbl:${n}`, A: clamp(A, lo, lo + 1.5), op: 'double', a: n, b: null, c: 2 * n, notions: [dblNotion(lo, false)],
     hole: 'c', prompt: `double de ${f(n)}`, answer: 2 * n, hint: t.hint, explain: t.explain });
 }
 function halfItem(n, A) {
   const lo = levelIn(HALVES, n) ?? 0, t = halfTexts(n), h = n / 2;
-  return finish({ kind: 'moitie', key: `${axis}:half:${n}`, A: clamp(A, lo, lo === 4 ? A_TOP : lo + 1.5), op: 'moitié', a: n, b: null,
+  return finish({ kind: 'moitie', key: `${axis}:half:${n}`, A: clamp(A, lo, lo === 4 ? A_TOP : lo + 1.5), op: 'moitié', a: n, b: null, notions: [dblNotion(lo, true)],
     c: h, hole: 'c', prompt: `moitié de ${f(n)}`, answer: h, hint: t.hint, explain: t.explain, autoMs: isInt(h) ? AUTO_FACT : AUTO_DEC });
 }
 function p10Item({ I, e, j, op }, A) {
   const t = p10Texts(I, e, j, op), info = p10Info(I, e, j, op);
-  return finish({ kind: 'p10', key: p10Key(I, e, j, op), A: clamp(A, info.lo, info.cap), op, a: t.x, b: t.m, c: t.res, hole: 'c',
+  return finish({ kind: 'p10', key: p10Key(I, e, j, op), A: clamp(A, info.lo, info.cap), op, a: t.x, b: t.m, c: t.res, hole: 'c', notions: [p10Notion(info)],
     prompt: `${f(t.x)} ${op} ${f(t.m)} = ${HOLE}`, answer: t.res, hint: t.hint, explain: t.explain,
     autoMs: info.dec ? AUTO_DEC : AUTO_P10 });
 }
@@ -601,6 +642,19 @@ export function fromKey(key, A, rng) {
   if (k.type === 'double') return doubleItem(k.n, a);
   if (k.type === 'moitie') return halfItem(k.n, a);
   return p10Item(k, a);
+}
+/* notion d'une clé Leitner (calendrier) : 'ma.faits:7x8' → 'ma.faits:t7' (la forme n'est pas dans la clé) */
+export function notionOfKey(key) {
+  const k = parseKey(key);
+  if (!k) return null;
+  let n;
+  if (k.type === 'mul') n = tableNotion(k.x, k.y);
+  else if (k.type === 'add') n = addNotion(k.a, k.b, 'add');
+  else if (k.type === 'c10') n = 'c10';
+  else if (k.type === 'double') n = dblNotion(levelIn(DOUBLES, k.n), false);
+  else if (k.type === 'moitie') n = dblNotion(levelIn(HALVES, k.n), true);
+  else n = p10Notion(p10Info(k.I, k.e, k.j, k.op));
+  return `${axis}:${n}`;
 }
 /* écriture lisible d'une clé (espace parents) : 'ma.faits:7x8' → '7 × 8 = 56' */
 export function describeKey(key) {

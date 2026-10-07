@@ -1,4 +1,4 @@
-/* ============ REGISTRE DES JEUX (v2.0 : 6 jeux) ============
+/* ============ REGISTRE DES JEUX (v2.0 : 6 jeux ; v2.5 : 7 avec les Missions du ranch) ============
    Module pur (aucun import de jeu au chargement : chaque jeu est chargé à la demande).
    title peut contenir des jetons de template ({N} = nom du compagnon) → fillTemplate.
    Icônes : emoji d'Emoji 12 ou avant (Android anciens : pas de carré vide), d'où 📏 pour la clôture (D3-17). */
@@ -23,7 +23,11 @@ export const GAMES = [
     primary: 'fr.conjug', minGrade: 1, tint: '#ede9fe', manche: { 10: 8, 15: 10, 20: 12 } },
   { id: 'operations', title: 'L’Atelier des opérations', short: 'Les opérations', icon: '🧮',
     blurb: 'Pose et calcule, colonne par colonne.', axes: ['ma.operations'],
-    primary: 'ma.operations', minGrade: 1, tint: '#e0f2fe', manche: { 10: 2, 15: 3, 20: 4 } }
+    primary: 'ma.operations', minGrade: 1, tint: '#e0f2fe', manche: { 10: 2, 15: 3, 20: 4 } },
+  /* v2.5 : un problème ≈ 40 à 90 s → manche courte (CDC §6 jeu 18, étude « problèmes » du 07/10/2026) */
+  { id: 'missions', title: 'Les Missions du ranch', short: 'Les missions', icon: '🧭',
+    blurb: 'Lis le problème du ranch et trouve la réponse.', axes: ['ma.problemes'],
+    primary: 'ma.problemes', minGrade: 0, tint: '#fef9c3', manche: { 10: 4, 15: 5, 20: 6 } }
 ];
 
 export const GAME_BY_ID = Object.fromEntries(GAMES.map(g => [g.id, g]));
@@ -48,7 +52,8 @@ const LOADERS = {
   tables: () => import('./tables.js'),
   pommes: () => import('./pommes.js'),
   orchestre: () => import('./orchestre.js'),
-  operations: () => import('./operations.js')
+  operations: () => import('./operations.js'),
+  missions: () => import('./missions.js')
 };
 /* charge le module du jeu → son export default { id, title, axes, css?, mount, unmount } */
 export async function loadGame(id) {

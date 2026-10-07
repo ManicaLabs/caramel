@@ -478,7 +478,8 @@ test('branchements : jeux, bilan, visite guidée préparent à l’avance ; sans
   /* astuce et explication jamais calculées d'avance : un calcul en cours ne s'interrompt pas, il retarderait la question
      suivante (mesuré : jusqu'à 2 s en CM2) ; l'encouragement enregistré couvre leur calcul */
   for (const g of [tb, pm, SRC('js/games/cloture.js')]) assert.doesNotMatch(g, /ctx\.voice\.prepare\(/);
-  assert.match(SRC('js/ui/game-shell.js'), /voice\.prepareNext\(praiseTxt\);\s*later\(\(\) => \{ if \(st === my && voice\.voiceOn\(q\)\) voice\.speak\(praiseTxt\); \}, 900\);/);
+  /* v2.4 : temps de jeu du jour atteint, la phrase douce suit celle du bilan (« … Noisette se repose 💤 À demain ! ») */
+  assert.match(SRC('js/ui/game-shell.js'), /const spoken = rest \? praiseTxt \+ ' ' \+ restTxt : praiseTxt;\s*voice\.prepareNext\(spoken\);\s*later\(\(\) => \{ if \(st === my && voice\.voiceOn\(q\)\) voice\.speak\(spoken\); \}, 900\);/);
   assert.match(SRC('js/ui/home.js'), /voice\.prepareNext\(tx\[0\]\); voice\.prepare\(tx\.slice\(1\)\);/);
   assert.match(SRC('js/main.js'), /fluid\.init\(\);\s*fluid\.onRoute\(router\.current\(\)\);\s*router\.onChange\(\(\) => fluid\.onRoute\(router\.current\(\)\)\);/);
   /* le banc d'essai s'appuie sur le même moteur (pas de copie) */

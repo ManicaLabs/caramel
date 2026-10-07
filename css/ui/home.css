@@ -9,7 +9,7 @@
   padding-bottom: calc(14px + var(--safe-b));
 }
 
-/* ---------- en-tête : avatar (« Qui joue ? ») · bonjour · 🎨 univers · 🔒 parents ---------- */
+/* ---------- en-tête : avatar (« Qui joue ? ») · bonjour · 🔊 son · 🎨 univers · 🔒 parents ---------- */
 .hm-head { display: flex; align-items: center; gap: 12px; min-height: 52px; }
 /* avatar : petit pré (décor naturel, fixe : jetons --n-*) ; anneau décoratif du thème (--ava-ring, aucun dans Caramel)
    et pastille du thème (🦖, 👑…) en bas à GAUCHE : le portrait regarde à droite, son museau reste visible */
@@ -42,6 +42,9 @@
 .hm-icon-btn:active { transform: scale(.92); background: var(--pink-100); }
 .hm-icon-btn:focus-visible { border-radius: 50%; }
 .hm-lock-btn { margin-left: -6px; background: transparent; border-color: transparent; font-size: 1.05rem; }
+/* 🔊 / 🔇 (v2.4, js/ui/sound-toggle.js) : même rond que 🎨 ; sons coupés : 🔇 sur fond plein, bien visible */
+.hm-sound-btn[hidden] { display: none; }
+.hm-sound-btn.is-off { background: var(--card); border-color: var(--ink-4); }
 .hm-lock-btn > span { opacity: .7; }
 
 /* ---------- trésor sur le ciel de la scène (à droite ; la plaque du compagnon est à gauche) ---------- */
@@ -76,6 +79,23 @@
 .hm-go.is-done:active { box-shadow: 0 1px 0 var(--pink-200), var(--shadow-1); }
 .hm-go.is-done .btn-play-ico { color: var(--pink-800); }
 .hm-go.is-done .hm-go-ico { width: 48px; height: 48px; padding-left: 0; font-size: 1.5rem; }
+
+/* v2.4 — temps de jeu du jour : « ⏳ Encore 5 minutes de jeu aujourd'hui » (doux), puis le bouton se repose
+   (« À demain ! 💤 » : css/ui/balade.css, .btn.play.is-rest) */
+.hm-near {
+  align-self: center; display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 6px 14px;
+  border-radius: var(--r-pill); background: var(--amber-100); color: var(--ink-2); font-weight: 600; font-size: .95rem;
+}
+.hm-near[hidden] { display: none; }
+.hm-near-ico { font-size: 1.05rem; line-height: 1; }
+.hm-go.is-rest { min-height: 76px; font-size: 1.6rem; }
+.hm-go.is-rest .hm-go-ico { width: 50px; height: 50px; font-size: 1.5rem; }
+.hm.is-rest .hm-peb.is-now { animation: none; }      /* l'étape du jour attend demain : elle ne clignote plus */
+/* la ligne « Encore 5 minutes » prend sa hauteur à la scène (comme la barre de préchargement) : tout tient sans défiler */
+.hm:has(.hm-near:not([hidden])) .cc.is-hero .cc-stage { height: clamp(188px, calc(100dvh - var(--hm-rest, 440px) - 44px), 440px); }
+@media (min-width: 600px) {
+  .hm:has(.hm-near:not([hidden])) .cc.is-hero .cc-stage { height: clamp(260px, calc(100dvh - var(--hm-rest) - 44px), 560px); }
+}
 
 /* pierres de la balade (icônes des jeux) : toucher = la carte du pré */
 .hm-path { align-self: center; display: flex; justify-content: center; min-height: 54px; padding: 4px 12px; border-radius: var(--r-pill); }
@@ -125,6 +145,7 @@ html.who-swap::view-transition-group(hm-who-ava) { animation-duration: 560ms; an
 
 /* ---------- petits téléphones ---------- */
 @media (max-width: 370px) {
+  .hm-head { gap: 8px; }
   .hm-go { font-size: 1.8rem; }
   .hm-pebs { gap: 12px; }
 }
@@ -145,14 +166,16 @@ html.who-swap::view-transition-group(hm-who-ava) { animation-duration: 560ms; an
   .hm {
     --hm-rest: 150px;
     display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(300px, 1fr); column-gap: 32px; row-gap: 14px;
-    grid-template-areas: "head head" "next next" "pet play" "pet alt"; grid-template-rows: auto auto 1fr auto;
-    align-content: center;
+    grid-template-areas: "head head" "next next" "pet play" "pet alt"; grid-template-rows: auto auto auto auto;
+    align-content: center;   /* rangées à leur taille, le bloc centré : sur un écran très haut, une rangée 1fr s'étirait
+                                jusqu'en bas (scène en haut, « Jouer » au pied de l'écran — retour du parent, PC 2541 × 1309) */
   }
   .hm-head { grid-area: head; }
   .hm-next-slot { grid-area: next; }
-  .hm-pet { grid-area: pet; }
+  .hm-pet { grid-area: pet; align-self: center; }
   .hm-play { grid-area: play; align-self: end; width: 100%; }
   .hm-alt { grid-area: alt; align-self: start; }
   .hm-hello { font-size: 1.9rem; }
   .hm .cc.is-hero .cc-stage { height: clamp(300px, calc(100dvh - 260px), 620px); }
+  .hm:has(.hm-near:not([hidden])) .cc.is-hero .cc-stage { height: clamp(300px, calc(100dvh - 260px), 620px); }   /* colonne à part */
 }

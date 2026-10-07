@@ -361,10 +361,13 @@ function checkBounds(it, ctx) {
   const nums = k === 'div' || k === 'divdec' ? [ops[0], d.result] : [...ops, d.result];
   for (const n of nums) assert.ok(Number(n.split(',')[0]) <= fieldCap(A), `${ctx} ${n} hors du champ numérique à A=${it.A}`);
   const decs = Math.max(...ops.map(decimalsOf));
-  assert.ok(it.A >= { add: 0, sub: 1.5, mul: 2.6, div: 3.2, divdec: 4 }[k] - 1e-9, `${ctx} ${k} avant sa classe`);
+  /* v2.5 (calendrier, décisions du parent du 07/10/2026) : quotient décimal au CM2 en P2 (4,2), dividende décimal en
+     P3 (4,4) ; montants en euros au CE2 « au plus tard en période 2 » (2,2) */
+  assert.ok(it.A >= { add: 0, sub: 1.5, mul: 2.6, div: 3.2, divdec: 4.2 }[k] - 1e-9, `${ctx} ${k} avant sa classe`);
+  if (k === 'divdec' && (decimalsOf(ops[0]) || P(ops[0]).v.toString().length >= 5)) assert.ok(A >= 4.4, `${ctx} dividende décimal en P3`);
   if (decs) {
-    if (d.unit) assert.ok(A >= (k === 'add' ? 2.4 : k === 'sub' ? 2.7 : 3.3) && decs === 2, `${ctx} montants en euros`);
-    else assert.ok(A >= (k === 'divdec' ? 4 : 3.3), `${ctx} décimaux au CM`);
+    if (d.unit) assert.ok(A >= (k === 'add' ? 2.2 : k === 'sub' ? 2.7 : 3.3) && decs === 2, `${ctx} montants en euros`);
+    else assert.ok(A >= (k === 'divdec' ? 4.4 : 3.3), `${ctx} décimaux au CM`);
     if (decs === 3) assert.ok(A >= 4, `${ctx} millièmes au CM2`);
   }
   if (k === 'add') {
@@ -418,7 +421,7 @@ test('opérations : des milliers d’opérations jouées étape par étape, exac
     if (it.kind !== 'div' && it.kind !== 'divdec') assert.ok(it.data.grid.cols <= 10, `${ctx} ${it.data.grid.cols} colonnes`);
     count[it.kind] = (count[it.kind] || 0) + 1;
   }
-  for (const A of [0.29, 0.3, 0.59, 0.6, 0.99, 1, 1.19, 1.2, 1.29, 1.3, 1.49, 1.5, 1.69, 1.7, 1.84, 1.85, 1.99, 2, 2.39, 2.4, 2.59, 2.6, 2.69, 2.79, 2.8, 2.99, 3, 3.19, 3.2, 3.29, 3.3, 3.39, 3.4, 3.79, 3.8, 3.99, 4, 4.19, 4.2, 4.29, 4.3, 4.39, 4.4, 4.99, 5, 5.6])
+  for (const A of [0.29, 0.3, 0.59, 0.6, 0.99, 1, 1.19, 1.2, 1.29, 1.3, 1.49, 1.5, 1.69, 1.7, 1.84, 1.85, 1.99, 2, 2.19, 2.2, 2.39, 2.4, 2.59, 2.6, 2.69, 2.79, 2.8, 2.99, 3, 3.19, 3.2, 3.29, 3.3, 3.39, 3.4, 3.79, 3.8, 3.99, 4, 4.19, 4.2, 4.29, 4.3, 4.39, 4.4, 4.99, 5, 5.6])
     for (const subMethod of METHODS) for (let s = 0; s < 40; s++) {
       const it = O.gen(A, makeRng(`e${A}|${s}`), { subMethod });
       const ctx = `A=${A} ${subMethod} « ${it.prompt} »`;
@@ -447,12 +450,12 @@ test('opérations : chaque opération arrive à son palier', () => {
   const ex = [
     ['add:45+37', '82', 0.6], ['add:28+8+56', '92', 1.3], ['add:245+437', '682', 1.2], ['add:76+7+568', '651', 1.3],
     ['sub:578-241:compensation', '337', 1.6], ['sub:72-47:cassage', '25', 1.7], ['sub:364-18:compensation', '346', 1.7],
-    ['sub:4354-3366:cassage', '988', 2], ['add:672+9816', '10488', 3.4], ['add:4.56+15.30:euros', '19,86', 2.4],
+    ['sub:4354-3366:cassage', '988', 2], ['add:672+9816', '10488', 3.4], ['add:4.56+15.30:euros', '19,86', 2.2],
     ['sub:74.36-12.50:compensation:euros', '61,86', 2.7], ['mul:16x548', '8768', 2.9], ['mul:305x5', '1525', 2.7],
     ['mul:418x23', '9614', 2.9], ['mul:876x208', '182208', 3.4], ['mul:7x46.55:euros', '325,85', 3.3],
     ['mul:8x17.3', '138,4', 3.3], ['add:56.75+234+0.8', '291,55', 3.3], ['sub:34.5-2.58:cassage', '31,92', 3.3],
-    ['div:9456/7', '1350', 3.5], ['div:2458/6', '409', 3.5], ['mul:8.76x208', '1822,08', 4], ['divdec:785/4', '196,25', 4.2],
-    ['divdec:148.2/5', '29,64', 4.3], ['divdec:9855/6', '1642,5', 4], ['divdec:7854/8', '981,75', 4.2], ['divdec:986.3/5', '197,26', 4.3]
+    ['div:9456/7', '1350', 3.5], ['div:2458/6', '409', 3.5], ['mul:8.76x208', '1822,08', 4], ['divdec:785/4', '196,25', 4.3],
+    ['divdec:148.2/5', '29,64', 4.4], ['divdec:9855/6', '1642,5', 4.2], ['divdec:7854/8', '981,75', 4.3], ['divdec:986.3/5', '197,26', 4.4]
   ];
   for (const [k, res, lo] of ex) {
     const it = O.fromKey('ma.operations:' + k, 5.6);

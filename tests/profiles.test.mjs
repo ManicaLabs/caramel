@@ -154,7 +154,7 @@ test('defaultProfile : profil complet, réglages par défaut', () => {
     pet: { faim: 80, forme: 80, joie: 80, last: 0, brushLast: 0, walkDay: '' }, stage: 1, minutes: 0 });
   assert.deepEqual(p.wallet, { apples: 0, stars: {} });
   assert.deepEqual(p.streak, { count: 0, last: '', freezes: 1, freezeWeek: '' });
-  assert.deepEqual(p.settings, { sessionMin: 15, timers: false, sound: true, motion: 'full', theme: 'caramel', readAloud: 'on' });
+  assert.deepEqual(p.settings, { sessionMin: 15, timers: false, sound: true, motion: 'full', theme: 'caramel', readAloud: 'on', dailyMin: 60, rythme: 'ecole' });
   assert.deepEqual(p.settings, DEFAULT_SETTINGS);
   assert.notEqual(p.settings, DEFAULT_SETTINGS, 'copie, pas la référence partagée');
   assert.deepEqual(p.stats, { minutes: 0, sessions: 0, items: 0 });
@@ -251,7 +251,7 @@ test('normalizeProfile : invariants (bornes, ids, un objet par emplacement, plaf
   /* divers */
   assert.equal(p.today, null);
   assert.deepEqual(p.legacy, { from: 'v11', mclm: null, stars: 12 });
-  assert.deepEqual(p.settings, { sessionMin: 15, timers: false, sound: true, motion: 'full', theme: 'caramel', readAloud: 'on' });
+  assert.deepEqual(p.settings, { sessionMin: 15, timers: false, sound: true, motion: 'full', theme: 'caramel', readAloud: 'on', dailyMin: 60, rythme: 'ecole' });
   assert.deepEqual(p.stats, { minutes: 0, sessions: 2, items: 0 });
   assert.deepEqual(p.champFutur, [1, 2, 3]);
 });
@@ -265,7 +265,7 @@ test('normalizeProfile : idempotente, sans effet sur un profil sain', () => {
   q.history.push({ d: TODAY, t: 1759400000000, g: 'tables', ax: 'ma.faits', n: 10, ok: 8, hint: 1, ms: 180000, th: 1.62, mode: 'balade' });
   q.mclm.push({ d: TODAY, t: 1759400000000, s: 'pomme', v: 92, p: 95, z: 88 });
   q.today = { d: TODAY, idx: 0, done: false, rewarded: false, blocks: [{ kind: 'echauffement', game: 'tables', axis: 'ma.faits', count: 7, offset: -0.6, done: false, result: null }] };
-  q.settings = { sessionMin: 20, timers: true, sound: false, motion: 'soft', theme: 'ocean', readAloud: 'on' };
+  q.settings = { sessionMin: 20, timers: true, sound: false, motion: 'soft', theme: 'ocean', readAloud: 'on', dailyMin: 45, rythme: 'avance' };
   assert.equal(JSON.stringify(normalizeProfile(q, '2030-01-01')), JSON.stringify(q));
   /* entrée non objet → profil par défaut */
   for (const bad of [null, undefined, 42, 'texte', [1, 2]]) {
@@ -410,4 +410,53 @@ test('médailles : valeurs illisibles écartées, niveaux connus seulement', () 
   const n = normalizeProfile(p, TODAY);
   assert.deepEqual(n.medals, { 'ma.faits': 'or', __proto__x: 'bronze' });
   assert.deepEqual([...MEDAL_TIERS], ['bronze', 'argent', 'or']);
+});
+
+/* ---------- v2.5 : progression au fil de l'année (js/content/calendar.js) ---------- */
+test('réglage rythme : « Au rythme de la classe » par défaut, profils existants compris ; valeurs connues gardées', () => {
+  assert.equal(DEFAULT_SETTINGS.rythme, 'ecole');
+  const old = deepClone(defaultProfile({ id: 'p1', name: 'Léa', classe: 'CE1', today: TODAY }));
+  delete old.settings.rythme;                                 /* profil d'avant la 2.5 */
+  assert.equal(normalizeProfile(old, TODAY).settings.rythme, 'ecole');
+  for (const r of ['ecole', 'avance', 'libre']) {
+    const p = deepClone(old); p.settings.rythme = r;
+    assert.equal(normalizeProfile(p, TODAY).settings.rythme, r);
+  }
+  for (const bad of ['', 'vite', 3, null, true]) {
+    const p = deepClone(old); p.settings.rythme = bad;
+    assert.equal(normalizeProfile(p, TODAY).settings.rythme, 'ecole', String(bad));
+  }
+});
+
+test('profile.cal : reports et réglages du parent normalisés (familles, dates, n, exemple, 30 au plus), idempotent', () => {
+  const p = deepClone(defaultProfile({ id: 'p1', name: 'Léa', classe: 'CE1', today: TODAY }));
+  assert.ok(!('cal' in normalizeProfile(p, TODAY)), 'champ facultatif : absent = rien');
+  const later = {
+    'ma.faits:t8': { d: '2026-10-07', until: '2026-11-01', n: '2', ex: 'ligne\u0007 7 × 8 = …', ax: 'ma.faits', extra: 1 },
+    'ma.problemes:partage': { d: '2026-10-06', until: '2026-11-01', n: 40 },           /* famille déclarée par un générateur */
+    'pas-une-famille': { d: '2026-10-07', until: '2026-11-01' },
+    'ma.faits:t9': { d: 'hier', until: '2026-11-01' },
+    'ma.faits:t7': { d: '2026-10-07' },
+    __proto__x: 1
+  };
+  for (let i = 0; i < 40; i++) later['ma.procedures:k' + i] = { d: '2026-09-' + String(1 + (i % 28)).padStart(2, '0'), until: '2026-10-15', n: 1 };
+  p.cal = { later, parent: { 'fr.conjug:futur': { s: 'vu', d: '2026-10-07' }, 'fr.conjug:imparfait': { s: 'pasvu' }, 'fr.conjug:x': { s: 'oui' } }, futur: [1] };
+  const n = normalizeProfile(p, TODAY);
+  assert.deepEqual(n.cal.later['ma.faits:t8'], { d: '2026-10-07', until: '2026-11-01', n: 2, ex: 'ligne  7 × 8 = …', ax: 'ma.faits' });
+  assert.equal(n.cal.later['ma.problemes:partage'].n, 9);
+  for (const k of ['pas-une-famille', 'ma.faits:t9', 'ma.faits:t7']) assert.ok(!(k in n.cal.later), k);
+  assert.equal(Object.keys(n.cal.later).length, 30, '30 entrées au plus, les plus récentes');
+  assert.ok('ma.faits:t8' in n.cal.later && 'ma.problemes:partage' in n.cal.later);
+  assert.deepEqual(n.cal.parent, { 'fr.conjug:futur': { s: 'vu', d: '2026-10-07' }, 'fr.conjug:imparfait': { s: 'pasvu', d: '' } });
+  assert.deepEqual(n.cal.futur, [1], 'clé inconnue conservée');
+  assert.equal(JSON.stringify(normalizeProfile(n, '2027-01-01')), JSON.stringify(n), 'idempotent');
+});
+
+test('setClasse : reports et réglages par notion effacés au changement de classe (pas sans changement)', () => {
+  const p = defaultProfile({ id: 'p1', name: 'Léa', classe: 'CE1', today: TODAY });
+  p.cal = { later: { 'ma.faits:t8': { d: TODAY, until: '2026-11-01', n: 1 } }, parent: {} };
+  setClasse(p, 'CE1', TODAY);
+  assert.ok(p.cal, 'même classe : gardé');
+  setClasse(p, 'CE2', TODAY);
+  assert.ok(!('cal' in p), 'nouvelle classe : effacé');
 });

@@ -34,9 +34,10 @@
 
 import { clamp, addDays, daysBetween, parseDay, weekKey } from './util.js';
 import { gradeIndex } from './levels.js';
-import { PET, MOUNTS, SHOP } from '../content/companion-data.js';
+import { MOUNTS, SHOP } from '../content/companion-data.js';
 import { totalStarsOf } from '../content/stories/index.js';
 import { weekFromHistory } from './economy.js';
+import { gaugesAt } from './care.js';
 
 const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const num = (v, def = 0) => { const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN; return Number.isFinite(n) ? n : def; };
@@ -168,13 +169,11 @@ export function stageOf(companion) {
   const byMinutes = m >= STAGE_MINUTES[2] ? 3 : m >= STAGE_MINUTES[1] ? 2 : 1;
   return Math.max(clamp(int(c.stage, 1), 1, 3), byMinutes);
 }
-/* jauges à l'instant `now` (décroissance douce depuis pet.last, plancher 15 : mêmes règles que la carte du compagnon) */
+/* jauges à l'instant `now` (décroissance douce depuis pet.last, plancher 15) : la fonction même de la scène du
+   compagnon (js/core/care.js gaugesAt, v2.4 — avant, une copie) ; soins payants (v2.4) : une jauge ne dépasse
+   jamais 100, la note des soins reste plafonnée à 300 et les soins gratuits du jour sont les mêmes pour tous */
 export function gaugesNow(pet, now = Date.now()) {
-  const p = isObj(pet) ? pet : {};
-  const last = num(p.last, 0);
-  const dt = last > 0 ? Math.max(0, now - last) : 0;
-  const g = k => clamp(num(p[k], PET.START) - (100 * dt) / PET.DECAY[k], PET.FLOOR, PET.MAX);
-  return { faim: g('faim'), forme: g('forme'), joie: g('joie') };
+  return gaugesAt(pet, now);
 }
 /* score d'évolution d'un compagnon → { stage, minutes, gauges, accessories, mounts, notes: { growth, care, style }, total } */
 export function companionScore(profile, now = Date.now()) {

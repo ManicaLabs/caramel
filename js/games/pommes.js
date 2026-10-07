@@ -473,6 +473,30 @@ function createPommes(root, ctx) {
     if (b && long) b.classList.add('is-long');
     announce((head ? head + ' ' : '') + frTypo('Astuce : ') + c.item.hint);
     if (why !== 'assist') say((head ? head + ' ' : '') + frTypo('Astuce : ') + c.item.hint);   /* coup de pouce : dit avec le calcul */
+    return b;
+  }
+  /* « 🌱 Pas encore appris » (v2.5, ctx.later) : sous l'astuce de la 1re erreur ; confirmé → l'item n'est pas rapporté,
+     le compagnon le dit, la pomme remonte dans l'arbre et la suivante arrive (elle remplace celle-ci dans la partie) */
+  function offerLater(c, b) {
+    const chip = safe(() => ctx.later && ctx.later(c.item, { onSkip: s => skipItem(c, s) }));
+    if (chip && b) (b.querySelector('.kit-bubble-body') || b).appendChild(chip);
+  }
+  function skipItem(c, s) {
+    if (cur !== c || c.resolved) return;
+    c.resolved = true;
+    c.locked = true;
+    idleTimer = cancel(idleTimer);
+    va.pause(true);
+    if (c.info.choice) { if (grid) grid.disable(); } else kp.disable(true);
+    sprintPause('learn');
+    showBubble(s.line, 'good', '🌱');
+    announce(s.line);
+    s.done.then(() => {
+      if (!alive || ended || cur !== c) return;
+      sprintResume('learn');
+      liftCard(c);
+      later(nextItem, AFTER_LEARN_MS);
+    });
   }
 
   /* ================= SAISIE ================= */
@@ -614,7 +638,7 @@ function createPommes(root, ctx) {
     else kp.setState('wrong');
     safe(() => ctx.kit.gentleWrong(c.card));
     if (c.tries === 1) {
-      showTip('retry');
+      offerLater(c, showTip('retry'));
       later(() => {
         if (cur !== c || c.resolved || c.locked) return;
         if (c.info.choice) setChoiceHole(c, '', null);
@@ -671,7 +695,11 @@ function createPommes(root, ctx) {
     peekNext();
     removeLearn();
     sprintResume('learn');
-    /* la pomme remonte dans l'arbre : on la retrouvera une autre fois */
+    liftCard(c);
+    later(nextItem, AFTER_LEARN_MS);
+  }
+  /* la pomme remonte dans l'arbre : on la retrouvera une autre fois */
+  function liftCard(c) {
     const card = c.card;
     freezeHole(c);
     const a = animate(card, reduced() ? [{ opacity: 1 }, { opacity: 0 }]
@@ -679,7 +707,6 @@ function createPommes(root, ctx) {
     { duration: reduced() ? 150 : AFTER_LEARN_MS - 10, easing: 'cubic-bezier(.55, 0, .85, .45)', fill: 'forwards' });
     const gone = () => { if (card && card.parentNode) card.remove(); };
     if (a) a.finished.then(gone, gone); else gone();
-    later(nextItem, AFTER_LEARN_MS);
   }
 
   /* ---------- joker 💡 : l'astuce avant de répondre (l'item compte comme aidé) ---------- */

@@ -18,6 +18,8 @@
    n'est pas évalué mais Pommes express a un palier CP (+1/−1, +10 : CDC §5.1) → CP = course,
    clôture, tables, pommes ; jamais orchestre ni opérations.
    « Pratiqué » = une manche jouée (profile.history), pas un import d'évaluation.
+   Calendrier (v2.5, js/content/calendar.js) : les clés Leitner dues d'une notion pas encore vue en classe ou repoussée
+   ne comptent pas pour choisir la révision (dès que le générateur de l'axe a été chargé une fois : notionOfKey).
    ensureToday / completeBlock / finishDay modifient le profil reçu : à appeler dans store.mutateProfile. */
 
 import { clamp, dayStr, daysBetween } from './util.js';
@@ -25,6 +27,7 @@ import { gamesFor, mancheSize } from '../games/index.js';
 import { skillOf } from './adaptive.js';
 import { dueKeys } from './leitner.js';
 import { addApples } from './economy.js';
+import { calState, notionOfKey } from '../content/calendar.js';
 
 export const IMPORTANCE = { 'fr.fluence': 1.3, 'ma.faits': 1.3 };
 
@@ -102,6 +105,15 @@ function blockCount(kind, game, sessionMin) {
   return kind === 'echauffement' ? Math.ceil(WARM_RATIO * size) : size;
 }
 
+/* clés Leitner dues d'un axe, sans celles d'une notion verrouillée (pas encore vue en classe, repoussée) */
+function dueCount(profile, axis, today) {
+  const keys = dueKeys(profile, axis, today, Infinity);
+  if (!keys.length) return 0;
+  const st = calState(profile, axis, today);
+  if (!st.locked.size) return keys.length;
+  return keys.filter(k => { const n = notionOfKey(k); return !n || !st.locked.has(n); }).length;
+}
+
 /* CP qui ne lit pas encore : aucune lecture mesurée à 15 mots/min ou plus (course, ni v11 importée) */
 export function isPreReader(profile) {
   if (!profile || profile.classe !== 'CP') return false;
@@ -125,7 +137,7 @@ export function planDay(profile, today = dayStr()) {
     w: axisWeight(profile, c.axis, today),
     unseen: daysUnseen(profile, c.axis, today),
     unseenLevel: daysUnseenAtLevel(profile, c.axis, today),
-    due: LEITNER_AXES.includes(c.axis) ? dueKeys(profile, c.axis, today, Infinity).length : 0
+    due: LEITNER_AXES.includes(c.axis) ? dueCount(profile, c.axis, today) : 0
   }));
   const byWeight = (a, b) => desc(a.w, b.w) || asc(a.theta, b.theta) || a.i - b.i;
   const block = (kind, c, offset = 0) =>

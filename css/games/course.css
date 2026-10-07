@@ -340,6 +340,11 @@
 .cr-actions > .btn { flex: 1 1 140px; }
 .cr-actions > .btn.wide { flex-basis: 100%; }
 .cr-actions > .btn.play { min-height: 60px; }
+/* v2.4 — temps de jeu du jour atteint : la phrase douce au-dessus de « Accueil 🏠 » */
+.cr-rest {
+  flex-basis: 100%; margin: 0; padding: 8px 14px; border-radius: var(--r-m); text-align: center;
+  background: color-mix(in srgb, var(--violet) 14%, var(--card)); color: var(--ink-2); font-weight: 600; line-height: 1.35;
+}
 
 /* ---------- survol (souris uniquement) ---------- */
 @media (hover: hover) and (pointer: fine) {

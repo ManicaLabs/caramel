@@ -10,7 +10,9 @@
                   jambes), blaze (liste), shade (pattes du fond), mane2/mane3 (bandes de crinière), paw (pieds),
                   nose (truffe), wave (vague), spike (piques), wing (ailes), horn (cornes), muzzle (museau du
                   capybara), fin (nageoires du dauphin), frill (collerettes du dragon)
-   FOODS : faim / joie = gain de jauge · SHOP : slot = emplacement (un seul objet porté par slot) */
+   FOODS : faim / joie = gain de jauge · say = l'aliment avec son article : le compagnon dit « Miam, une carotte ! » en
+           le croquant (foodLine ; clips enregistrés : js/content/voice-lines.js) · DIET[type] = les 3 aliments de l'espèce (v2.4)
+   SHOP : slot = emplacement (un seul objet porté par slot) */
 
 export const MOUNTS = {
   pony:    { em:'🐴', label:'Poney',    noun:'poney',    g:'m', kind:'horse',   price:0,   body:'#c8863f', mane:'#7a4a24', belly:'#f0d2a2',
@@ -31,11 +33,56 @@ export const MOUNTS = {
              look:{ spike:'#f59e45', wing:'#ffcf8c', horn:'#fff3d6', frill:'#ffc27a' } }
 };
 
+/* Aliments (v2.4, retour du parent du 07/10/2026 : « adapter la nourriture selon l'animal ») : chaque espèce a SES trois
+   aliments, sur le modèle v11 — un petit (5 🍎, +15 faim), un moyen (10 🍎, +30 faim, +5 joie), un régal (25 🍎, +70 faim,
+   +12 joie). Ids stables (sauvegardes, clips de voix) ; carotte, pomme (la Poire) et tarte : ids v11 gardés pour la
+   famille du cheval. Un même aliment peut nourrir deux espèces (poisson : chat et dauphin ; poire : poney, cheval et
+   licorne) : mêmes prix et gains partout. Emoji d'Emoji 12 au plus (Android anciens) ; un emoji = un seul aliment
+   (miettes de js/ui/companion-life.js, CRUMBS). */
 export const FOODS = [
-  { id:'carotte', e:'🥕', name:'Carotte', price:5,  faim:15, joie:0 },
-  { id:'pomme',   e:'🍐', name:'Poire',   price:10, faim:30, joie:5 },   /* id gardé (sauvegardes) ; une « pomme » à 10 🍎 prêtait à confusion (D4-24) */
-  { id:'tarte',   e:'🥧', name:'Tarte',   price:25, faim:70, joie:12 }
+  /* poney, cheval (et licorne pour la poire) */
+  { id:'carotte',    e:'🥕', name:'Carotte',    price:5,  faim:15, joie:0,  say:'une carotte' },
+  { id:'pomme',      e:'🍐', name:'Poire',      price:10, faim:30, joie:5,  say:'une poire' },   /* id gardé (sauvegardes) ; une « pomme » à 10 🍎 prêtait à confusion (D4-24) */
+  { id:'tarte',      e:'🥧', name:'Tarte',      price:25, faim:70, joie:12, say:'une tarte' },
+  /* licorne */
+  { id:'fraise',     e:'🍓', name:'Fraise',     price:5,  faim:15, joie:0,  say:'une fraise' },
+  { id:'gateau',     e:'🍰', name:'Gâteau',     price:25, faim:70, joie:12, say:'du gâteau' },
+  /* chat (le poisson aussi pour le dauphin) */
+  { id:'croquettes', e:'🥣', name:'Croquettes', price:5,  faim:15, joie:0,  say:'des croquettes' },
+  { id:'poisson',    e:'🐟', name:'Poisson',    price:10, faim:30, joie:5,  say:'du poisson' },
+  { id:'sushi',      e:'🍣', name:'Sushi',      price:25, faim:70, joie:12, say:'des sushis' },
+  /* dauphin */
+  { id:'crevette',   e:'🦐', name:'Crevette',   price:5,  faim:15, joie:0,  say:'une crevette' },
+  { id:'calamar',    e:'🦑', name:'Calamar',    price:25, faim:70, joie:12, say:'un calamar' },
+  /* capybara (la mandarine : il en pose déjà une sur sa tête) */
+  { id:'mandarine',  e:'🍊', name:'Mandarine',  price:5,  faim:15, joie:0,  say:'une mandarine' },
+  { id:'salade',     e:'🥬', name:'Salade',     price:10, faim:30, joie:5,  say:'de la salade' },
+  { id:'pasteque',   e:'🍉', name:'Pastèque',   price:25, faim:70, joie:12, say:'de la pastèque' },
+  /* lion */
+  { id:'poulet',     e:'🍗', name:'Poulet',     price:5,  faim:15, joie:0,  say:'du poulet' },
+  { id:'steak',      e:'🥩', name:'Steak',      price:10, faim:30, joie:5,  say:'un steak' },
+  { id:'burger',     e:'🍔', name:'Hamburger',  price:25, faim:70, joie:12, say:'un hamburger' },
+  /* dragon (le maïs éclate en pop-corn, la pizza cuit à son feu) */
+  { id:'piment',     e:'🌶\uFE0F', name:'Piment', price:5, faim:15, joie:0,  say:'un piment' },
+  { id:'popcorn',    e:'🍿', name:'Pop-corn',   price:10, faim:30, joie:5,  say:'du pop-corn' },
+  { id:'pizza',      e:'🍕', name:'Pizza',      price:25, faim:70, joie:12, say:'de la pizza' }
 ];
+export const FOOD_BY_ID = Object.freeze(Object.fromEntries(FOODS.map(f => [f.id, f])));
+/* les trois aliments de chaque espèce, du petit au régal */
+export const DIET = Object.freeze({
+  pony:    ['carotte', 'pomme', 'tarte'],
+  horse:   ['carotte', 'pomme', 'tarte'],
+  unicorn: ['fraise', 'pomme', 'gateau'],
+  cat:     ['croquettes', 'poisson', 'sushi'],
+  dolphin: ['crevette', 'poisson', 'calamar'],
+  capy:    ['mandarine', 'salade', 'pasteque'],
+  lion:    ['poulet', 'steak', 'burger'],
+  dragon:  ['piment', 'popcorn', 'pizza']
+});
+/* aliments du garde-manger d'une espèce (espèce inconnue → ceux du poney) */
+export const foodsOf = type => (DIET[type] || DIET.pony).map(id => FOOD_BY_ID[id]);
+/* ce que dit le compagnon en croquant un aliment (affiché et dit : « Miam, une carotte ! ») */
+export const foodLine = f => 'Miam, ' + f.say + ' !';
 
 export const SHOP = [
   { id:'foulard',  e:'🧣', name:'Foulard',      price:30,  slot:'neck' },
@@ -50,14 +97,20 @@ export const SHOP = [
 
 /* Jauges du compagnon (bienveillant, jamais punitif) — constantes v11.
    FLOOR = plancher (jamais de « mort ») · DECAY = durée d'une baisse de 100 points (ms),
-   décroissance calculée à la volée depuis pet.last (pet.last = 0 → pas encore de référence).
-   START = valeur initiale (defaultSave v11) · actions v11 : brossage (délai 4 h), promenade (1 fois/jour), caresse. */
+   décroissance calculée à la volée depuis pet.last (pet.last = 0 → pas encore de référence ; js/core/care.js gaugesAt).
+   START = valeur initiale (defaultSave v11).
+   Soins (v2.4, retours du parent du 07/10/2026 ; règles dans js/core/care.js) : FULL = jauge « presque pleine » :
+   on ne nourrit plus un compagnon rassasié, on ne paie pas un brossage ni une promenade qui ne servirait à rien ;
+   brossage (+15 joie) et promenade (+25 forme, +8 joie) : le premier du jour est gratuit, les suivants coûtent
+   BRUSH.price / WALK.price 🍎 (le prix du petit et du moyen aliment : des gains du même ordre). Remplace le délai de
+   4 h du brossage et la promenade unique de la v11. Caresse : +2 joie, toujours gratuite. */
 export const PET = {
   FLOOR: 15,
   MAX: 100,
   START: 80,
   DECAY: { faim: 48 * 3600e3, forme: 72 * 3600e3, joie: 96 * 3600e3 },
-  BRUSH: { cooldown: 4 * 3600e3, joie: 15 },
-  WALK: { forme: 25, joie: 8 },
+  FULL: 90,
+  BRUSH: { joie: 15, price: 5 },
+  WALK: { forme: 25, joie: 8, price: 10 },
   TAP: { joie: 2 }
 };

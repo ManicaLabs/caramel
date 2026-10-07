@@ -56,6 +56,11 @@
 .gs-next .btn-play-ico { width: 46px; height: 46px; font-size: 1.1rem; }
 .gs-next.is-home .btn-play-ico { padding-left: 0; }
 .gs-home { gap: 6px; color: var(--ink-2); font-weight: 600; }
+/* v2.4 — temps de jeu du jour atteint : la phrase douce au-dessus de « Accueil 🏠 » (seul bouton du bilan) */
+.gs-rest {
+  margin: 0 0 8px; padding: 8px 14px; border-radius: var(--r-m); text-align: center; width: 100%;
+  background: color-mix(in srgb, var(--violet) 14%, var(--card)); color: var(--ink-2); font-weight: 600; line-height: 1.35;
+}
 .gs-next > span:first-child { white-space: nowrap; }
 @media (max-width: 400px) {
   .gs-next { font-size: 1.25rem; gap: 12px; padding-left: 18px; padding-right: 12px; }

@@ -17,7 +17,9 @@
    Historique : les étapes se REMPLACENT (une seule entrée « Avec un copain ») ; ← revient à l'étape d'avant, le retour
    Android ramène là d'où l'on vient (accueil). Le bandeau de mise à jour ne vient pas ici (js/main.js, BUSY_ROUTES).
    Le prénom de l'enfant n'est jamais dans le code ni dit avec lui. Mémoire de l'appareil (localStorage
-   'caramel-duel-prefs') : longueur choisie et dernier code donné (jamais redonné tout de suite). */
+   'caramel-duel-prefs') : longueur choisie et dernier code donné (jamais redonné tout de suite).
+   v2.4 — temps de jeu du jour (js/core/playtime.js, js/ui/play-limit.js) : l'enfant actif au bout de son temps de jeu
+   ne lance ni ne rejoint de partie : #/duel le ramène à l'accueil (« {N} se repose 💤 À demain ! »). */
 
 import { h, clear, frTypo, loadCSS } from '../core/util.js';
 import * as store from '../core/store.js';
@@ -30,6 +32,7 @@ import * as D from '../core/duel.js';
 import { CHALLENGES, CHALLENGE_BY_ID } from '../core/family.js';
 import { makeRng } from '../core/rng.js';
 import { petReady, putPet, petMood } from './famille.js';
+import { timeUp, restNotice } from './play-limit.js';
 
 const PREFS_KEY = 'caramel-duel-prefs';
 const G = globalThis;
@@ -62,6 +65,8 @@ export default {
     teardown();
     const p = store.getProfile();
     if (!p || !p.classe) { router.go('home', { replace: true }); return; }
+    /* temps de jeu du jour atteint (v2.4) : pas de nouvelle partie aujourd'hui → l'accueil, où le compagnon se repose */
+    if (timeUp(p)) { restNotice(p); router.go('home', { replace: true }); return; }
     const wrap = h('div', { class: 'bt du' });
     clear(root);
     root.appendChild(wrap);

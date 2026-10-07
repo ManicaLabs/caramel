@@ -36,11 +36,12 @@ function assertNoRepeat(plan) {
 }
 
 test('axes éligibles : jeux accessibles à la classe', () => {
-  assert.deepEqual(eligibleAxes(prof({ classe: 'CP' })), ['fr.fluence', 'ma.ligne', 'ma.faits', 'ma.procedures']);
-  assert.deepEqual(eligibleAxes(prof({ classe: 'CE1' })).length, 6);
+  /* v2.5 : les Missions du ranch (ma.problemes) dès le CP */
+  assert.deepEqual(eligibleAxes(prof({ classe: 'CP' })), ['fr.fluence', 'ma.ligne', 'ma.faits', 'ma.procedures', 'ma.problemes']);
+  assert.deepEqual(eligibleAxes(prof({ classe: 'CE1' })).length, 7);
   assert.deepEqual(eligibleAxes(prof({ classe: 'CM2' })),
-    ['fr.fluence', 'ma.ligne', 'ma.faits', 'ma.procedures', 'fr.conjug', 'ma.operations']);
-  assert.equal(eligibleAxes(prof({ classe: null })).length, 6);       /* classe pas encore choisie */
+    ['fr.fluence', 'ma.ligne', 'ma.faits', 'ma.procedures', 'fr.conjug', 'ma.operations', 'ma.problemes']);
+  assert.equal(eligibleAxes(prof({ classe: null })).length, 7);       /* classe pas encore choisie */
 });
 
 test('poids : (3 − θ)^1,5 × importance × fraîcheur', () => {
@@ -97,8 +98,8 @@ test('durée de séance : count = mancheSize(jeu, sessionMin)', () => {
 });
 
 test('révision hebdomadaire : l’axe non pratiqué depuis ≥ 6 jours revient', () => {
-  const skills = { 'ma.faits': 2.6, 'fr.fluence': 1.0, 'ma.ligne': 0.7, 'ma.operations': 2.2, 'ma.procedures': 1.9, 'fr.conjug': 1.6 };
-  const played = { 'ma.faits': 1, 'fr.fluence': 1, 'ma.ligne': 1, 'ma.operations': 8, 'ma.procedures': 1, 'fr.conjug': 2 };
+  const skills = { 'ma.faits': 2.6, 'fr.fluence': 1.0, 'ma.ligne': 0.7, 'ma.operations': 2.2, 'ma.procedures': 1.9, 'fr.conjug': 1.6, 'ma.problemes': 1.9 };
+  const played = { 'ma.faits': 1, 'fr.fluence': 1, 'ma.ligne': 1, 'ma.operations': 8, 'ma.procedures': 1, 'fr.conjug': 2, 'ma.problemes': 1 };
   const plan = planDay(prof({ skills, played }), D);
   assert.equal(plan.blocks[0].axis, 'ma.faits');
   assert.equal(plan.blocks[1].axis, 'fr.fluence');
@@ -113,8 +114,8 @@ test('révision hebdomadaire : l’axe non pratiqué depuis ≥ 6 jours revient'
 });
 
 test('révision espacée : ≥ 4 clés Leitner dues (faits, conjugaison)', () => {
-  const skills = { 'ma.ligne': 2.5, 'fr.fluence': 1.0, 'fr.conjug': 1.2, 'ma.faits': 1.8, 'ma.procedures': 1.5, 'ma.operations': 1.7 };
-  const played = { 'ma.ligne': 1, 'fr.fluence': 1, 'fr.conjug': 2, 'ma.faits': 2, 'ma.procedures': 1, 'ma.operations': 3 };
+  const skills = { 'ma.ligne': 2.5, 'fr.fluence': 1.0, 'fr.conjug': 1.2, 'ma.faits': 1.8, 'ma.procedures': 1.5, 'ma.operations': 1.7, 'ma.problemes': 1.9 };
+  const played = { 'ma.ligne': 1, 'fr.fluence': 1, 'fr.conjug': 2, 'ma.faits': 2, 'ma.procedures': 1, 'ma.operations': 3, 'ma.problemes': 1 };
   const base = planDay(prof({ skills, played }), D);
   assert.equal(base.blocks[0].axis, 'ma.ligne');
   assert.equal(base.blocks[1].axis, 'fr.fluence');

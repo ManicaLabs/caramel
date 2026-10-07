@@ -16,7 +16,11 @@
    de lecture restent les mêmes.
    Thèmes : la page suit le thème de l'enfant actif ; la vignette de chaque enfant porte data-theme = SON thème.
    Outils partagés avec js/ui/battle.js : petReady, petHTML, putPet (vie légère), petMood, lifeOf, podiumEl, petLabel,
-   plural, themeIdOf. Élision (« d’Inès ») et listes (« A, B et C ») : deNom et frList de js/core/util.js. */
+   plural, themeIdOf. Élision (« d’Inès ») et listes (« A, B et C ») : deNom et frList de js/core/util.js.
+   v2.4 — temps de jeu du jour (js/core/playtime.js, js/ui/play-limit.js) : un enfant au bout de son temps de jeu a son
+   compagnon endormi sur la carte du défi ; moins de deux enfants éveillés → « Lancer un défi » grisé, avec la phrase
+   (« Le compagnon de Léa se repose 💤 Un défi demain ? ») ; « Avec un copain » grisé quand c'est l'enfant actif qui
+   se repose. Toucher un bouton grisé : la phrase est redite, rien ne démarre. */
 
 import { h, clear, dayStr, frTypo, loadCSS, fmtNum, deNom, frList } from '../core/util.js';
 import * as store from '../core/store.js';
@@ -28,6 +32,9 @@ import { themeOf } from '../core/themes.js';
 import { addTrophy } from '../core/economy.js';
 import { mountReady, avatarOf, setAvatar } from './companion.js';
 import * as F from '../core/family.js';
+import { timeUp, familyRest, restNotice } from './play-limit.js';
+import * as kit from './kit.js';
+import * as voice from './voice.js';
 
 /* ============ OUTILS PARTAGÉS ============ */
 /* compagnon dessiné avec son STADE (mountSVG, opts { expr, stage } + view 'portrait' pour les avatars ronds, phase) ;
@@ -187,6 +194,13 @@ function topbar(title, extra) {
 function duelButton() {
   const b = h('button', { type: 'button', class: 'btn white block fm-duel' }, h('span', { 'aria-hidden': 'true' }, '👫'),
     frTypo('Avec un copain, chacun son téléphone'));
+  /* l'enfant actif au bout de son temps de jeu du jour (v2.4) : grisé, la phrase au toucher */
+  const me = store.getProfile();
+  if (timeUp(me)) {
+    b.setAttribute('aria-disabled', 'true');
+    b.addEventListener('click', () => restNotice(me, { el: b }));
+    return b;
+  }
   b.addEventListener('click', () => { audio.tap(); router.go('duel'); });
   return b;
 }
@@ -226,16 +240,28 @@ function mainScreen(root, my, list) {
   for (const p of list.slice(0, 6)) {
     const s = h('span', { class: 'fm-hero-pet', 'data-theme': themeIdOf(p) });
     const pic = h('span', { class: 'fm-hero-pic' });
-    putPet(pic, p, list.length > 3 ? 64 : 78, '', { expr: 'happy', live: true });
+    /* temps de jeu du jour atteint (v2.4) : son compagnon a les yeux fermés */
+    putPet(pic, p, list.length > 3 ? 64 : 78, '', { expr: timeUp(p, today) ? 'sleepy' : 'happy', live: true });
     s.append(pic, h('span', { class: 'fm-hero-name' }, p.name));
     heroPets.appendChild(s);
   }
   const go = h('button', { type: 'button', class: 'btn big block fm-hero-go' }, h('span', { 'aria-hidden': 'true' }, '⚔️'), 'Lancer un défi');
-  go.addEventListener('click', () => { audio.tap(); router.go('battle'); });
+  /* moins de deux enfants éveillés (v2.4) : grisé, la phrase dessous et redite au toucher */
+  const restTxt = familyRest(list, today, F.BATTLE.MIN);
+  if (restTxt) {
+    go.setAttribute('aria-disabled', 'true');
+    go.setAttribute('aria-describedby', 'fm-rest');
+    go.addEventListener('click', () => {
+      try { audio.soft(); } catch (_) {}
+      motion.shake(go, { dist: 3, dur: 300 });
+      kit.toast(restTxt, 3600);
+      try { if (voice.voiceOn()) voice.speak(restTxt); } catch (_) {}
+    });
+  } else go.addEventListener('click', () => { audio.tap(); router.go('battle'); });
   const hero = h('section', { class: 'card hero fm-hero', 'aria-labelledby': 'fm-hero-t' },
     h('h2', { class: 'fm-h2', id: 'fm-hero-t' }, h('span', { class: 'fm-h2-ico', 'aria-hidden': 'true' }, '⚔️'), 'Défi en famille'),
     h('p', { class: 'fm-sub' }, frTypo('Tables, calcul éclair, conjugaison… Chacun reçoit des questions à son niveau : tout le monde peut gagner !')),
-    heroPets, go, duelButton());
+    heroPets, go, restTxt ? h('p', { class: 'fm-rest', id: 'fm-rest' }, restTxt) : null, duelButton());
 
   /* ----- classements de la semaine ----- */
   const range = F.weekRange(today);

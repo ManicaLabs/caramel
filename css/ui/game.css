@@ -1,5 +1,6 @@
 /* ============ COQUILLE DE JEU : en-tête commun + zone de jeu ============
-   En-tête sur UNE ligne : ← · pastilles de progression (centre) · 🔊 (petits lecteurs) · joker 💡. Le titre est un h1
+   En-tête sur UNE ligne : ← · pastilles de progression (centre) · 🔁 (lecture à voix haute) · joker 💡 · 🔊 / 🔇 (son).
+   Le titre est un h1
    masqué. */
 .game-screen { gap: 0; }
 /* jeux : fond uni du thème, sans son motif derrière les consignes à lire (le motif reste sur les écrans de navigation),
@@ -13,16 +14,18 @@ html:has(.game-screen) body { background: linear-gradient(180deg, var(--bg-1) 0%
 .gh-icon { font-size: 1.35rem; flex: none; }
 .gh-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gh-short { display: none; }
+/* joker : rond comme 🔁 (v2.4 : la place de 🔊 / 🔇 au bout de la ligne), le nombre en pastille dans le coin */
 .gh-joker {
-  flex: none; display: inline-flex; align-items: center; gap: 4px; min-height: 48px; padding: 4px 12px;
-  border-radius: var(--r-pill); background: var(--card); border: 2px solid var(--amber-200);
-  font-weight: 700; font-size: 1.2rem; color: var(--amber-900); box-shadow: var(--shadow-1);
+  position: relative; flex: none; display: grid; place-items: center; width: 48px; height: 48px; padding: 0;
+  border-radius: 50%; background: var(--card); border: 2px solid var(--amber-200);
+  font-weight: 700; font-size: 1.2rem; line-height: 1; color: var(--amber-900); box-shadow: var(--shadow-1);
   transition: transform var(--dur-1) var(--ease-out), opacity var(--dur-2);
 }
 .gh-joker:active { transform: scale(.92); }
 .gh-joker.empty { opacity: .45; }
-.gh-badge { min-width: 20px; height: 20px; padding: 0 5px; border-radius: var(--r-pill); background: var(--amber-400);
-  color: var(--amber-900); font-size: .8rem; display: inline-grid; place-items: center; }
+.gh-badge { position: absolute; top: -5px; right: -5px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: var(--r-pill);
+  background: var(--amber-400); color: var(--amber-900); font-size: .8rem; display: inline-grid; place-items: center;
+  box-shadow: 0 0 0 2px var(--card); }
 /* pastilles : un peu plus grandes et bien cerclées (elles sont le seul repère de l'en-tête) ; bords à 3:1 au moins sur
    blanc dans les 8 thèmes (D2-13) */
 .gh-dots { gap: 5px; margin: 0; }
@@ -31,7 +34,21 @@ html:has(.game-screen) body { background: linear-gradient(180deg, var(--bg-1) 0%
 .gh-dots .dot.helped { background: var(--amber-400); border-color: var(--amber-900); }
 .gh-dots .dot.now { background: var(--amber-200); border-color: var(--title); }
 .gh-counter { font-weight: 700; color: var(--ink-3); font-size: 1.05rem; font-variant-numeric: tabular-nums; }
-/* 🔊 « Écouter encore » : bouton de js/ui/voice.js, styles dans css/ui/kit.css (servi aussi à l'accueil, visite guidée) */
+/* 🔁 « Écouter encore » : bouton de js/ui/voice.js, styles dans css/ui/kit.css (servi aussi à l'accueil, visite guidée) */
+/* 🔊 / 🔇 (v2.4, js/ui/sound-toggle.js) : au bout de la ligne, discret comme 🔒 sur l'accueil (sans bord) ; sons
+   coupés : 🔇 dans un rond, bien visible */
+.gh-sound {
+  flex: none; width: 40px; height: 48px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 1.15rem; line-height: 1; background: transparent; border: 2px solid transparent;
+  transition: transform var(--dur-1) var(--ease-out), background var(--dur-1);
+}
+.gh-sound[hidden] { display: none; }
+.gh-sound .snd-ico { opacity: .75; }
+.gh-sound:active { transform: scale(.92); background: var(--pink-100); }
+.gh-sound:focus-visible { border-radius: 50%; }
+.gh-sound.is-off { width: 44px; height: 44px; background: var(--card); border-color: var(--ink-4); }
+.gh-sound.is-off .snd-ico { opacity: 1; }
+@media (hover: hover) and (pointer: fine) { .gh-sound:hover .snd-ico { opacity: 1; } }
 .game-body { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
 /* 1re partie d'un jeu (v2.2.1, js/ui/game-shell.js) : UNE phrase du compagnon (bulle), le compagnon, « C'est parti ▶ » */
 .gs-hello {
@@ -55,15 +72,25 @@ html:has(.game-screen) body { background: linear-gradient(180deg, var(--bg-1) 0%
 @media (max-width: 380px) {
   .gh-dots { gap: 4px; }
   .gh-dots .dot { width: 12px; height: 12px; }
-  .gh-joker { padding: 4px 9px; }
 }
-/* 🔊 présent (petits lecteurs) : pastilles un peu plus petites pour garder UNE ligne jusqu'à 10 questions */
+/* 🔁 présent (lecture à voix haute) : pastilles un peu plus petites pour garder UNE ligne jusqu'à 10 questions */
 .game-header.has-listen .gh-row { gap: 6px; }
 .game-header.has-listen .gh-dots { gap: 4px; }
 .game-header.has-listen .gh-dots .dot { width: 11px; height: 11px; }
 @media (max-width: 380px) {
   .game-header.has-listen .gh-dots { gap: 3px; }
   .game-header.has-listen .gh-dots .dot { width: 10px; height: 10px; }
+}
+/* petit téléphone (360 px) avec 🔁, 💡 et 🔊 : boutons un peu plus serrés (44 px et plus), pastilles de 9 px au-delà
+   de 10 questions — toujours UNE ligne jusqu'à 12 */
+@media (max-width: 380px) {
+  .game-header.has-listen .gh-row { gap: 4px; }
+  .game-header.has-listen .back { width: 44px; min-width: 44px; }
+  .game-header.has-listen .gh-listen { width: 44px; height: 44px; }
+  .game-header.has-listen .gh-joker { width: 44px; height: 44px; }
+  .game-header.has-listen .gh-sound { width: 34px; }
+  .game-header.has-listen .gh-sound.is-off { width: 40px; height: 40px; }
+  .game-header.has-listen .gh-dots:has(.dot:nth-child(11)) .dot { width: 9px; height: 9px; }
 }
 /* 11 ou 12 questions (séance de 20 min) : pastilles plus serrées, toujours UNE ligne (V22B-04) */
 .gh-dots:has(.dot:nth-child(11)) { gap: 2px; }

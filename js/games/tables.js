@@ -475,7 +475,9 @@ function createTables(root, ctx) {
   const refreshIdle = () => { if (help.querySelector('.tb-idle')) showIdle(); };
   function showBubble(text, kind, icon) {
     clear(help);
-    help.appendChild(ctx.kit.bubble(text, kind, { icon }));
+    const b = ctx.kit.bubble(text, kind, { icon });
+    help.appendChild(b);
+    return b;
   }
   /* « comment répondre » : au premier calcul seulement (divulgation progressive, CDC §1 principe 7) ; ensuite la zone
      d'aide reste vide jusqu'à une bulle (sa hauteur est réservée : rien ne bouge), le pavé et 🎤 suffisent */
@@ -554,10 +556,31 @@ function createTables(root, ctx) {
   function hideBoard() { board.classList.add('is-hidden'); clear(board); if (cur) cur.boardShown = false; }
 
   function showHint(prefix, kind = 'hint') {
-    if (!cur) return;
+    if (!cur) return null;
     cur.hintShown = true;
-    showBubble((prefix || '') + cur.item.hint, kind, '💡');
+    const b = showBubble((prefix || '') + cur.item.hint, kind, '💡');
     showBoard();
+    return b;
+  }
+
+  /* « 🌱 Pas encore appris » (v2.5, ctx.later) : sous l'astuce de la 1re erreur ; confirmé → l'item n'est pas rapporté,
+     le compagnon le dit, puis il saute l'obstacle et le calcul suivant arrive (il remplace celui-ci dans la partie) */
+  function offerLater(c, b) {
+    const chip = safe(() => ctx.later && ctx.later(c.item, { onSkip: s => skipItem(c, s) }));
+    if (chip && b) (b.querySelector('.kit-bubble-body') || b).appendChild(chip);
+  }
+  function skipItem(c, s) {
+    if (cur !== c || c.resolved) return;
+    c.resolved = true;
+    c.locked = true;
+    cancelVoiceTimer();
+    renderVoice();
+    kp.disable(true);
+    kp.clear(); kp.setState(null);
+    hideBoard();
+    showBubble(s.line, 'good', '🌱');
+    announce(s.line);
+    s.done.then(() => { if (alive && !ended && cur === c) leap(() => nextItem()); });
   }
 
   /* ---------- combo ---------- */
@@ -660,7 +683,7 @@ function createTables(root, ctx) {
     if (c.tries === 1) {
       /* la bulle : un mot doux (1 à 3 mots, kit.cheer) puis l'astuce ; dite aux petits lecteurs */
       const head = via === 'voice' ? frTypo('J’ai entendu ' + fmtNum(value) + '…') + '\n' : cheer('retry') + '\n';
-      showHint(head);
+      offerLater(c, showHint(head));
       announce(head + c.item.hint);
       say(head + c.item.hint);
       later(() => { if (cur === c && !c.resolved && !c.locked) { kp.clear(); kp.setState(null); } }, WRONG_CLEAR_MS);

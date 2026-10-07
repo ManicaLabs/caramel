@@ -30,18 +30,22 @@
    | 1 – 2      | CE1 : 2 nombres de 2-3 chiffres sans retenue (1), avec retenues (1,2) ; 3 nombres de 1 à 3     |
    |            |   chiffres 76 + 7 + 568 (1,3) ; soustraction : 2 chiffres sans retenue (1,5), 3 chiffres sans  |
    |            |   retenue (1,6), avec retenue (1,7), avec un 0 à traverser 503 − 47 (1,85)                    |
-   | 2 – 3      | CE2 : + et − jusqu'à 9 999 (2 ; 3 termes ou 0 à traverser 2,1) ; euros 4,56 € + 15,30 € (2,4), |
+   | 2 – 3      | CE2 : + et − jusqu'à 9 999 (2 ; 3 termes ou 0 à traverser 2,1) ; euros 4,56 € + 15,30 € (2,2), |
    |            |   74,36 € − 12,50 € (2,7) ; multiplication : 2 chiffres × 1 (2,6), 3 chiffres × 1 (2,7),      |
    |            |   2 chiffres × 2 (2,8), 3 chiffres × 2 (2,9), produit ≤ 9 999                                |
    | 3 – 4      | CM1 : 4 chiffres × 1 (3) ; division euclidienne, dividende de 3 chiffres (3,2), 4 (3,5),        |
    |            |   5 (3,8) ; décimaux en colonnes avec zéros utiles en pâle 56,75 + 234 + 0,8, 34,5 − 2,58 (3,3) ;|
    |            |   décimal × entier < 10 : 7 × 46,55 € (3,3) ; 876 × 208 et nombres ≤ 999 999 (3,4)            |
    | 4 – 5      | CM2 : décimal × entier 8,76 × 208 (4) ; division décimale : quotient à 1 décimale 9 855 ÷ 6   |
-   |            |   (4), à 2 décimales 785 ÷ 4 (4,2), dividende décimal 148,2 ÷ 5 ou de 5 chiffres (4,3) ;      |
+   |            |   (4,2), à 2 décimales 785 ÷ 4 (4,3), dividende décimal 148,2 ÷ 5 ou de 5 chiffres (4,4) ;    |
    |            |   millièmes en + et − (4)                                                                    |
    | 5 – 5,6    | Plus long, toujours au programme du CM2 : 3 termes décimaux, 4 chiffres × 3 chiffres (entier  |
    |            |   ou décimal), divisions de 5 chiffres (jamais de diviseur à 2 chiffres)                     |
-   Tirage de l'opération : + seule avant 1,5 ; puis + et − ; × dès 2,6 ; ÷ euclidienne dès 3,2 ; ÷ décimale dès 4.
+   Tirage de l'opération : + seule avant 1,5 ; puis + et − ; × dès 2,6 ; ÷ euclidienne dès 3,2 ; ÷ décimale dès 4,2.
+   Calendrier (v2.5, js/content/calendar.js ; décisions du parent du 07/10/2026) : addition de montants en euros au CE2
+   en P2 (BO « au plus tard en période 2 », était 2,4) ; division à quotient décimal au CM2 en P2 et dividende décimal en
+   P3 (repères 2019, étaient 4,0 et 4,3). item.notion = notion la plus récente de l'opération ('ma.operations:sub',
+   'ma.operations:add.euros', 'ma.operations:divdec'…).
 
    ---------- ITEM ----------
    { axis: 'ma.operations', kind, key, A, prompt, answer, hint, explain, leitner: false, data }
@@ -115,7 +119,7 @@ export const KINDS = ['add', 'sub', 'mul', 'div', 'divdec'];
 export const SUB_METHODS = ['compensation', 'cassage'];
 
 const A_TOP = 5.6, TRIES = 30, SPAN = 0.6, SAMPLE_TRIES = 40;
-const KIND_FROM = { add: 0, sub: 1.5, mul: 2.6, div: 3.2, divdec: 4 };
+const KIND_FROM = { add: 0, sub: 1.5, mul: 2.6, div: 3.2, divdec: 4.2 };
 const OP_ASCII = { add: '+', sub: '-', mul: 'x', div: '/', divdec: '/' };
 const NNBSP = '\u202f';
 
@@ -623,7 +627,7 @@ function levelAdd(terms, unit) {
   const R = parse(decStr(N.reduce((t, n) => t + scaled(n, D), 0n), D));
   const w = Math.max(...N.map(n => n.int.length)), carries = addCarries(N, D);
   let lo;
-  if (unit) lo = 2.4;
+  if (unit) lo = 2.2;
   else if (D) lo = D <= 2 ? 3.3 : 4;
   else if (w <= 2 && k === 2) lo = carries ? 0.6 : Math.min(...N.map(n => n.int.length)) === 1 ? 0 : 0.3;
   else if (w <= 3) lo = k >= 3 ? 1.3 : carries ? 1.2 : 1;
@@ -657,7 +661,7 @@ function levelMul(topStr, botStr) {
 function levelDiv(nStr, decimal, qDec) {
   const N = parse(nStr), n = N.s.length;
   if (!decimal) return Math.max(n <= 3 ? 3.2 : n === 4 ? 3.5 : 3.8, fieldLevel(N.int));
-  return Math.max(N.dec || n >= 5 ? 4.3 : qDec >= 2 ? 4.2 : 4, fieldLevel(N.int));
+  return Math.max(N.dec || n >= 5 ? 4.4 : qDec >= 2 ? 4.3 : 4.2, fieldLevel(N.int));
 }
 
 /* ========== TIRAGES ========== */
@@ -707,7 +711,7 @@ function addShape(A, rng) {
     const a = rng.int(100, 899), b = rng.int(100, 899);
     return a + b <= 1000 && carriesInt([a, b]) >= 1 ? { terms: order(rng, [a, b]) } : null;
   }
-  const opts = A < 2.4 ? [['int', 1]] : A < 3.3 ? [['int', 0.65], ['eur', 0.35]] : [['int', 0.35], ['eur', 0.15], ['dec', 0.5]];
+  const opts = A < 2.2 ? [['int', 1]] : A < 3.3 ? [['int', 0.65], ['eur', 0.35]] : [['int', 0.35], ['eur', 0.15], ['dec', 0.5]];
   const kind = rng.weighted(opts.map(x => x[0]), opts.map(x => x[1]));
   if (kind === 'int') {
     const maxD = intDigitsCap(A), k = rng.chance(A >= 5 ? 0.5 : A >= 2.2 ? 0.3 : 0.15) ? 3 : 2;
@@ -830,15 +834,15 @@ function potenceCols(nStr, d) {
 }
 function divdecShape(A, rng) {
   const maxCols = A >= 5 ? 16 : 13;                            /* tient sur un téléphone (785 ÷ 4 : 12 colonnes) */
-  if (A >= 4.3 && rng.chance(0.4)) {
+  if (A >= 4.4 && rng.chance(0.4)) {
     const n = rng.pick(A >= 5 ? [4, 5] : [3, 4, 4, 5]), d = rng.int(2, 9), Ns = nd(rng, n);
     if (Ns % 10 === 0 || (Ns * 10) % d !== 0 || Ns % (10 * d) === 0) return null;
     const str = `${S(Ns).slice(0, -1)},${S(Ns).slice(-1)}`;
     return Number(str.split(',')[0]) >= d && potenceCols(str, d) <= maxCols ? { n: str, d: S(d) } : null;
   }
-  const n = A < 4.2 ? rng.pick([3, 4, 4]) : rng.pick([3, 4, 4, 5]);
+  const n = A < 4.4 ? rng.pick([3, 4, 4]) : rng.pick([3, 4, 4, 5]);
   const d = rng.weighted([2, 4, 5, 6, 8], [1, 1.4, 1, 0.8, 1.4]), N = nd(rng, n);
-  if (N % d === 0 || (N * 100) % d !== 0 || (A < 4.2 && (N * 10) % d !== 0)) return null;
+  if (N % d === 0 || (N * 100) % d !== 0 || (A < 4.3 && (N * 10) % d !== 0)) return null;
   return potenceCols(S(N), d) <= maxCols ? { n: S(N), d: S(d) } : null;
 }
 const SHAPES = { add: addShape, sub: subShape, mul: mulShape, div: divShape, divdec: divdecShape };
@@ -855,10 +859,29 @@ function kindWeights(A) {
   if (A < 2.6) return [['add', 0.45], ['sub', 0.55]];
   if (A < 3) return [['add', 0.25], ['sub', 0.3], ['mul', 0.45]];
   if (A < 3.2) return [['add', 0.2], ['sub', 0.2], ['mul', 0.6]];
-  if (A < 4) return [['add', 0.15], ['sub', 0.15], ['mul', 0.35], ['div', 0.35]];
+  if (A < KIND_FROM.divdec) return [['add', 0.15], ['sub', 0.15], ['mul', 0.35], ['div', 0.35]];
   return [['add', 0.1], ['sub', 0.12], ['mul', 0.3], ['div', 0.18], ['divdec', 0.3]];
 }
 function pickKind(A, rng) { const w = kindWeights(A); return rng.weighted(w.map(x => x[0]), w.map(x => x[1])); }
+
+/* ========== NOTION (calendrier, js/content/calendar.js) ==========
+   la notion la plus récente d'une opération, d'après son niveau réel lo : euros, décimaux, grands nombres, puis
+   l'opération elle-même (soustraction avec retenue, division à quotient décimal…) */
+function opNotion(kind, lo, spec) {
+  const terms = kind === 'add' ? spec.terms : kind === 'sub' ? [spec.a, spec.b] : kind === 'mul' ? [spec.top, spec.bot] : [spec.n];
+  const dec = !spec.unit && terms.some(t => parse(t).dec > 0);
+  let n;
+  if (kind === 'divdec') n = lo >= 4.4 - 1e-9 ? 'divdec.dec' : 'divdec';
+  else if (kind === 'div') n = 'div';
+  else if (kind === 'mul') n = parse(spec.top).dec ? (lo >= 4 - 1e-9 ? 'dec.cm2' : 'dec') : lo >= 3 - 1e-9 ? 'mul.cm1' : 'mul';
+  else if (spec.unit) n = kind === 'add' ? 'add.euros' : 'sub.euros';
+  else if (dec) n = lo >= 4 - 1e-9 ? 'dec.cm2' : 'dec';
+  else if (lo >= 4.4 - 1e-9) n = 'grands.cm2';
+  else if (lo >= 3.4 - 1e-9) n = 'grands';
+  else if (kind === 'add') n = lo < 1 ? 'add.cp' : lo < 2 ? 'add.ce1' : 'add.ce2';
+  else n = lo < 1.7 - 1e-9 ? 'sub' : lo < 2 ? 'sub.retenue' : 'sub.ce2';
+  return `${axis}:${n}`;
+}
 
 /* ========== ITEM ========== */
 const euro = (str, unit) => `${fs(str)}${unit ? `${NNBSP}€` : ''}`;
@@ -912,7 +935,7 @@ function makeItem(kind, spec, method, A) {
   if (!data || !Number.isFinite(lo)) return null;
   const key = `${axis}:${kind}:${ops}${kind === 'sub' ? `:${data.method}` : ''}${spec.unit ? ':euros' : ''}`;
   const item = {
-    axis, kind, key, A: r2(clamp(A, lo, lo + SPAN)),
+    axis, kind, key, A: r2(clamp(A, lo, lo + SPAN)), notion: opNotion(kind, lo, spec),
     prompt, answer: data.result, hint: T(hint), explain: T(explain), leitner: false, data
   };
   return { item, lo };

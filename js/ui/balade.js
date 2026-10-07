@@ -8,7 +8,10 @@
    sauf celui de l'étape précédente (jamais deux fois le même jeu de suite).
    « Un seul gros bouton » : l'accueil (« Jouer ▶ ») et le bilan (« Étape suivante ▶ ») lancent directement l'étape
    en cours ; cette carte du pré reste l'aperçu de la journée (pierres = icônes des jeux, sans étiquettes) avec un
-   seul bouton. Exporte STEP_KIND, stepInfo(), currentStep(), launchStep() et openGamePicker() (accueil, bilan). */
+   seul bouton. Exporte STEP_KIND, stepInfo(), currentStep(), launchStep() et openGamePicker() (accueil, bilan).
+   v2.4 — temps de jeu du jour (js/core/playtime.js, js/ui/play-limit.js) : une fois atteint, launchStep ne lance plus
+   rien (le compagnon dit gentiment pourquoi), la feuille des jeux montre ses tuiles grisées sous « {N} se repose 💤
+   À demain ! », et le bouton de cette carte devient « À demain ! 💤 » (« Encore un jeu ? » laisse place à la phrase). */
 
 import { h, clear, dayStr, frTypo, loadCSS, svg } from '../core/util.js';
 import * as store from '../core/store.js';
@@ -20,6 +23,7 @@ import { fillTemplate } from '../core/profiles.js';
 import { ensureToday } from '../core/session.js';
 import { gamesFor, GAME_BY_ID } from '../games/index.js';
 import { mountReady, avatarOf, setAvatar } from './companion.js';
+import { timeUp, restLine, restNotice, restKind, REST_TEXT } from './play-limit.js';
 
 /* étapes : libellés enfant (jamais de niveau scolaire) — JEUX.md §8 */
 export const STEP_KIND = Object.freeze({
@@ -63,33 +67,46 @@ export function openGamePicker({ title = 'Choisis ton jeu', exclude = null, onPi
   const skip = new Set([].concat(exclude || []).filter(Boolean));
   const list = gamesFor(q.classe).filter(g => !skip.has(g.id));
   const grid = h('div', { class: 'bl-pick' });
+  /* temps de jeu du jour atteint (v2.4, js/ui/play-limit.js) : tuiles grisées, une petite phrase au-dessus ; toucher
+     une tuile la fait juste remuer et redit la phrase (aucun jeu ne démarre) */
+  const rest = timeUp(q);
+  const restTxt = rest ? restLine(q) : '';
   let s = null;
+  const tile = (t, label, go) => {
+    if (rest) {
+      t.classList.add('is-rest');
+      t.setAttribute('aria-disabled', 'true');
+      t.setAttribute('aria-label', label + ' : ' + restTxt);
+      t.appendChild(h('span', { class: 'bl-pick-zz', 'aria-hidden': 'true' }, '💤'));
+      t.addEventListener('click', () => restNotice(q, { el: t }));
+      return;
+    }
+    t.addEventListener('click', () => {
+      audio.tap();
+      if (s) s.close('action').then(go); else go();
+    });
+  };
   for (const g of list) {
-    const t = h('button', { type: 'button', class: 'bl-pick-tile', 'aria-label': fillTemplate(g.title, q) },
+    const label = fillTemplate(g.title, q);
+    const t = h('button', { type: 'button', class: 'bl-pick-tile', 'aria-label': label },
       h('span', { class: 'bl-pick-ico', 'aria-hidden': 'true' }, g.icon),
       h('span', { class: 'bl-pick-t', 'aria-hidden': 'true' }, fillTemplate(g.short || g.title, q)));
     t.style.setProperty('--tint', 'var(--tile-' + g.id + ', ' + (g.tint || 'var(--card)') + ')');
-    t.addEventListener('click', () => {
-      audio.tap();
-      const go = () => { if (typeof onPick === 'function') onPick(g.id); };
-      if (s) s.close('action').then(go); else go();
-    });
+    tile(t, label, () => { if (typeof onPick === 'function') onPick(g.id); });
     grid.appendChild(t);
   }
   for (const x of Array.isArray(extras) ? extras : []) {
     if (!x || typeof x.onPick !== 'function') continue;
-    const t = h('button', { type: 'button', class: 'bl-pick-tile is-wide', 'data-id': x.id || null, 'aria-label': frTypo(x.label || x.title) },
+    const label = frTypo(x.label || x.title);
+    const t = h('button', { type: 'button', class: 'bl-pick-tile is-wide', 'data-id': x.id || null, 'aria-label': label },
       h('span', { class: 'bl-pick-ico', 'aria-hidden': 'true' }, x.icon),
       h('span', { class: 'bl-pick-t', 'aria-hidden': 'true' }, frTypo(x.title)));
-    t.addEventListener('click', () => {
-      audio.tap();
-      const go = () => { try { x.onPick(); } catch (e) { console.error(e); } };
-      if (s) s.close('action').then(go); else go();
-    });
+    tile(t, label, () => { try { x.onPick(); } catch (e) { console.error(e); } });
     grid.appendChild(t);
   }
+  const content = rest ? h('div', { class: 'bl-pick-wrap' }, h('p', { class: 'bl-rest' }, restTxt), grid) : grid;
   s = kit.sheet({
-    title: frTypo(title), content: grid, label: 'Choisis ton jeu',
+    title: frTypo(title), content, label: 'Choisis ton jeu',
     onClose: reason => { if (!['action', 'nav', 'api'].includes(reason) && typeof onCancel === 'function') onCancel(reason); }
   });
   if (s && s.el) motion.stagger(grid.children, el => motion.enter(el, { from: 'scale', dur: 320 }), 40);
@@ -99,11 +116,17 @@ export function openGamePicker({ title = 'Choisis ton jeu', exclude = null, onPi
 /* lance l'étape i de la balade du jour (jeu imposé, ou feuille de choix pour la récompense « au choix ») ;
    from = écran de retour (#/home, #/balade) ; replace = remplacer l'entrée d'historique (enchaînement depuis le bilan)
    → api de la feuille de choix, ou null */
-export function launchStep(i, { from = '#/home', replace = false, onCancel = null } = {}) {
+export function launchStep(i, { from = '#/home', replace = false, onCancel = null, el = null } = {}) {
   const q = store.getProfile();
   const plan = q && q.today;
   const b = plan && Array.isArray(plan.blocks) ? plan.blocks[i] : null;
   if (!b || b.done) return null;
+  /* temps de jeu du jour atteint (v2.4) : l'étape attendra demain ; on le dit gentiment (el = ce qui a été touché) */
+  if (timeUp(q)) {
+    restNotice(q, { el, kind: 'why' });
+    if (typeof onCancel === 'function') onCancel('rest');
+    return null;
+  }
   const go = id => {
     ssSet(FROM_KEY, from);
     router.go('play/' + id, { query: { mode: 'balade', block: i }, replace });
@@ -329,6 +352,8 @@ export default {
     function renderCta() {
       clear(cta);
       const q = store.getProfile() || p;
+      /* temps de jeu du jour atteint (v2.4) : plus de nouveau jeu aujourd'hui, le compagnon se repose */
+      const rest = timeUp(q);
       if (plan.done) {
         const streak = q.streak && q.streak.count ? q.streak.count : 0;
         cta.classList.add('is-done');
@@ -340,7 +365,16 @@ export default {
               streak > 1 ? streak + ' jours de suite' : 'Premier jour de ta série') : null),
           h('div', { class: 'bl-cta-btns' },
             h('button', { type: 'button', class: 'btn play block bl-home', on: { click: () => { audio.tap(); leaveHome(); } } }, h('span', null, 'Accueil'), h('span', { class: 'btn-play-ico', 'aria-hidden': 'true' }, '🏠')),
-            h('button', { type: 'button', class: 'btn ghost bl-more', on: { click: () => { audio.tap(); pickFree(); } } }, h('span', { 'aria-hidden': 'true' }, '🎲'), frTypo('Encore un jeu ?'))));
+            rest ? h('p', { class: 'bl-rest' }, restLine(q))
+              : h('button', { type: 'button', class: 'btn ghost bl-more', on: { click: () => { audio.tap(); pickFree(); } } }, h('span', { 'aria-hidden': 'true' }, '🎲'), frTypo('Encore un jeu ?'))));
+        return;
+      }
+      if (rest) {
+        /* le gros bouton se repose aussi : grisé, « À demain ! », et dit pourquoi au toucher */
+        const zz = h('button', { type: 'button', class: 'btn play block bl-go is-rest', 'aria-disabled': 'true', 'aria-label': restLine(q) },
+          h('span', null, frTypo(REST_TEXT.button)), h('span', { class: 'btn-play-ico', 'aria-hidden': 'true' }, restKind() === 'nuit' ? '🌙' : '💤'));
+        zz.addEventListener('click', () => restNotice(store.getProfile() || q, { el: zz, kind: 'why' }));
+        cta.append(zz);
         return;
       }
       const go = h('button', { type: 'button', class: 'btn play block bl-go' },
@@ -349,12 +383,13 @@ export default {
       cta.append(go);
     }
 
-    /* lancer l'étape i (jeu imposé, ou feuille de choix pour la récompense « au choix ») */
+    /* lancer l'étape i (jeu imposé, ou feuille de choix pour la récompense « au choix ») ; temps de jeu du jour
+       atteint : launchStep le dit gentiment, rien ne démarre */
     function start(i) {
       const b = blocks[i];
       if (!b || b.done) return;
-      audio.tap();
-      const s = launchStep(i, { from: '#/balade' });
+      if (!timeUp(store.getProfile() || p)) audio.tap();
+      const s = launchStep(i, { from: '#/balade', el: labels[i] || null });
       if (s) my.sheet = s;
     }
     /* « encore un jeu ? » (balade finie) : partie libre, retour sur cette carte */
@@ -373,7 +408,9 @@ export default {
     if (party) ssSet(FETE_KEY, feteKey);
 
     renderCta();
-    drawBuddy('');
+    /* temps de jeu du jour atteint (v2.4) : le compagnon dort sur sa pierre */
+    const sleepy = () => timeUp(store.getProfile() || p);
+    drawBuddy(sleepy() ? 'sleep' : '');
     placeBuddy(from, L.pts[Math.min(from + 1, N - 1)].x >= L.pts[from].x ? 1 : -1);
     motion.stagger([top, scene, cta], el => motion.enter(el, { from: 'bottom', dist: 12, dur: 400 }), 60);
 
@@ -392,7 +429,7 @@ export default {
       if (st !== my) return;
       revealBuddy();
       if (plan.done && party) { dance(); return; }
-      drawBuddy(plan.done ? 'joy' : '');
+      drawBuddy(sleepy() ? 'sleep' : plan.done ? 'joy' : '');
       motion.squash(buddyPic, { amount: 0.8 });
     }
     function dance() {
@@ -405,7 +442,7 @@ export default {
       audio.fanfare();
       const r = buddy.getBoundingClientRect();
       motion.burst(r.left + r.width / 2, r.top, { count: 22, spread: 90 });
-      later(() => { buddyPic.classList.remove('anim-dance'); drawBuddy('joy'); }, 1700);
+      later(() => { buddyPic.classList.remove('anim-dance'); drawBuddy(sleepy() ? 'sleep' : 'joy'); }, 1700);
     }
 
     /* marche le long du sentier, de pierre en pierre (motion réduit : simple fondu à l'arrivée) */
@@ -478,7 +515,7 @@ export default {
 
     /* redimensionnement (tablette tournée, fenêtre PC) : taille du compagnon */
     let wasWide = wide();
-    const onResize = () => { if (wide() !== wasWide) { wasWide = wide(); drawBuddy(plan.done ? 'joy' : ''); } };
+    const onResize = () => { if (wide() !== wasWide) { wasWide = wide(); drawBuddy(sleepy() ? 'sleep' : plan.done ? 'joy' : ''); } };
     window.addEventListener('resize', onResize);
     my.unsubs.push(() => window.removeEventListener('resize', onResize));
   },

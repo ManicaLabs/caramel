@@ -6,17 +6,20 @@
    sommeil la nuit (22 h - 7 h, heure locale) et réactions aux soins (manger, brosser, promener, toucher, câlin…).
 
    API
-     bringToLife(svg, { species, stage, interactive = true, onEvent, hitEl, greet = true, light = false, awake, mood }) → contrôleur
+     bringToLife(svg, { species, stage, interactive = true, onEvent, hitEl, greet = true, light = false, awake, mood, sleep }) → contrôleur
        (awake : la nuit, rester éveillé un moment — on vient de le réveiller —, au lieu de s'endormir aussitôt ;
-        mood : jauges de départ { faim, forme, joie }, comme setMood)
+        mood : jauges de départ { faim, forme, joie }, comme setMood ; sleep : true | false | null, sommeil imposé dès
+        la naissance comme sleep(v) — v2.4, sieste de la fin du temps de jeu : endormi sans bâiller, ou, avec awake,
+        éveillé un moment puis rendormi)
        setExpression(nom, ms?)        expression du rig (EXPRESSIONS) ; avec ms : temporaire, puis retour à la base
        react(action, opts) → Promise<boolean>   'tap' ({ x, y }) · 'hug' · 'eat' ({ food, from, flightMs }) · 'brush'
                                       · 'walk' ({ ms }) · 'celebrate' · 'proud' ({ acc }) · 'surprise' · 'yawn' · 'wake'
                                       · 'appear' ; résolue à la fin de la scène (false si interrompue ou détruite)
        lookAt(x, y)                   regarde un point de l'écran (coordonnées client) ; lookAt(null) → regard libre
        setMood({ faim, forme, joie }) jauges 0-100 → humeur (classe sad du rig si la moyenne < 40, comme la v11)
-       sleep(true | false | null)     force le sommeil / l'éveil ; null → automatique (la nuit, 22 h - 7 h)
-       pause(), resume(), destroy(), state → { sleeping, busy, mood, expr, running, species, stage }
+       sleep(true | false | null)     force le sommeil / l'éveil ; null → automatique (la nuit, 22 h - 7 h) ; sommeil
+                                      forcé : un toucher le réveille ≈ 45 s, puis il se rendort (comme la nuit)
+       pause(), resume(), destroy(), state → { sleeping, busy, mood, expr, running, species, stage, light, sleepMode }
        onEvent(type, detail) : 'tap' / 'hug' ({ x, y }, geste reconnu sur hitEl), 'sleep', 'wake', 'act' ({ name }),
                                'pause', 'resume'.
      liven(el, opts) → contrôleur LÉGER (regard + clignements + joie au toucher) pour les avatars des autres écrans
@@ -382,8 +385,17 @@ const FX = {
     + '<path d="M0,0C2.8,1.4 5.2,3.8 3.4,5C1.8,5.8 .4,3 0,0Z" fill="#ff9fbf" stroke="#4a2c1a" stroke-width=".6"/></g>'
     + `<ellipse rx=".7" ry="2.6" fill="${INK}"/><path d="M-.3,-2.4C-.9,-3.6 -1.6,-4 -2.2,-4M.3,-2.4C.9,-3.6 1.6,-4 2.2,-4" fill="none" stroke="${INK}" stroke-width=".45" stroke-linecap="round"/>`
 };
-/* miettes selon l'aliment */
-const CRUMBS = { '🥕': ['#ff9a3c', '#f07a1f', '#67c26f'], '🍎': ['#ef5b5b', '#fff1c9', '#d94343'], '🥧': ['#f0c070', '#d9963f', '#fff0c8'] };
+/* miettes selon l'aliment, par emoji (react('eat', { food: emoji }) ; un emoji = un aliment, js/content/companion-data.js
+   FOODS ; v2.4 : les trois aliments de chaque espèce — la poire avait les miettes rouges d'une pomme 🍎) */
+export const CRUMBS = Object.freeze({
+  '🥕': ['#ff9a3c', '#f07a1f', '#67c26f'], '🍐': ['#c9d94a', '#fff6c2', '#a8b83a'], '🥧': ['#f0c070', '#d9963f', '#fff0c8'],
+  '🍓': ['#ef4b5f', '#ffd4d9', '#5fb85a'], '🍰': ['#fff3e0', '#f7b6c8', '#e9c48a'],
+  '🥣': ['#b8763c', '#8a5428', '#d9a066'], '🐟': ['#9cc7e8', '#e8f4ff', '#6f9fc8'], '🍣': ['#fff8f0', '#ff9a76', '#3d5a40'],
+  '🦐': ['#ff9b7a', '#ffd0bd', '#e8704f'], '🦑': ['#f6c6d6', '#ffe8ef', '#d996b0'],
+  '🍊': ['#ffa53a', '#ffd38a', '#f08a1c'], '🥬': ['#8fd16a', '#d6f2b8', '#5fae45'], '🍉': ['#f2556a', '#ffd0d6', '#4fae5a'],
+  '🍗': ['#d98a45', '#f5c993', '#a85f2a'], '🥩': ['#d65a5a', '#f6c0b0', '#a83a3a'], '🍔': ['#e8a54a', '#7a4a2a', '#6cbf5a'],
+  '🌶\uFE0F': ['#e8402e', '#ff8a5c', '#5aa84a'], '🍿': ['#fffbe8', '#ffe28a', '#f2c94c'], '🍕': ['#f6c453', '#e8553e', '#fff0c8']
+});
 const DEFAULT_CRUMBS = ['#e8c18a', '#c9965a', '#fff0c8'];
 /* repli si les ancres du rig sont indisponibles */
 const ANCHORS0 = { ground: 74, mouth: [78, 40], eyes: [[59, 29], [68, 28]], top: [63, 17], neck: [61, 44], back: [40, 43], chest: [60, 52], tail: [24, 49] };
@@ -429,8 +441,11 @@ class Life {
     try { this.docHidden = G.document.visibilityState === 'hidden'; } catch (_) {}
     this._takeOver();
     if (this.svg.classList.contains('sleep')) this.sleeping = true;
+    /* sommeil imposé dès la naissance (v2.4 : sieste quand le temps de jeu du jour est fini), comme sleep(v) */
+    if (o.sleep === true || o.sleep === false) this.sleepMode = o.sleep;
+    const night = this.sleepMode === null ? isNight(new Date()) : this.sleepMode;
     if (o.awake && !this.sleeping) { this.awakeUntil = nowMs() + 45000; this.lastTouch = nowMs(); }
-    else if (this.autoSleep && !this.sleeping && isNight(new Date())) this._sleepNow();
+    else if (this.autoSleep && !this.sleeping && night) this._sleepNow();
     if (this.sleeping) { this.svg.classList.add('sleep'); }
     if (o.mood && typeof o.mood === 'object') this.setMood(o.mood);
     this._applyPoses(1);
@@ -1313,7 +1328,7 @@ class Life {
   }
   async _rxEat(o) {
     const flight = clamp(+o.flightMs || 0, 0, 2500);
-    const cols = CRUMBS[o.food] || DEFAULT_CRUMBS;
+    const cols = CRUMBS[o.food] || CRUMBS[String(o.food || '') + '\uFE0F'] || CRUMBS[String(o.food || '').replace(/\uFE0F/g, '')] || DEFAULT_CRUMBS;
     if (R()) {
       this.setExpression('happy', flight + 1500);
       this._later(flight + 1500, () => this.setExpression('delighted', 900));
@@ -1512,7 +1527,7 @@ class Life {
 
   get state() {
     return { sleeping: this.sleeping, busy: !!this.sceneTok, mood: this.moodState, expr: this.svg.getAttribute('data-expr'),
-      running: this.running, species: this.species, stage: this.stage, light: this.light };
+      running: this.running, species: this.species, stage: this.stage, light: this.light, sleepMode: this.sleepMode };
   }
 
   destroy() {

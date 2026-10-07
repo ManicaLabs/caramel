@@ -1004,24 +1004,34 @@ function createCourse(root, ctx) {
       h('p', { class: 'cr-res-missed read' }, missed));
 
     let actions;
+    /* temps de jeu du jour (v2.4) : la partie finie, plus de nouvelle course aujourd'hui (une histoire suivante du même
+       bloc de balade fait partie de la même partie : elle reste) */
+    const rest = !more && !!ctx.timeUp;
+    const restTxt = rest && typeof ctx.restLine === 'function' ? ctx.restLine() : '';
     if (balade && more) {
       actions = [h('button', { type: 'button', class: 'btn big wide', on: { click: () => { ctx.audio.tap(); nextBaladeStory(); } } },
         frTypo('Histoire suivante ➜'))];
     } else if (balade) {
-      /* comme le bilan des autres jeux : « Étape suivante ▶ » lance l'étape suivante ; balade finie → « Accueil 🏠 » */
+      /* comme le bilan des autres jeux : « Étape suivante ▶ » lance l'étape suivante ; balade finie (ou temps de jeu du
+         jour atteint, v2.4) → « Accueil 🏠 » */
       const q = prof();
       const plan = q && q.today && Array.isArray(q.today.blocks) ? q.today : null;
-      const goOn = !summary.dayDone && !!plan && !plan.done && plan.blocks.some(b => b && !b.done);
+      const goOn = !summary.dayDone && !!plan && !plan.done && plan.blocks.some(b => b && !b.done) && !rest;
       actions = [h('button', { type: 'button', class: 'btn play wide cr-next', on: { click: () => { ctx.audio.tap(); ctx.nextStep(); } } },
         h('span', null, goOn ? 'Étape suivante' : 'Accueil'), h('span', { class: 'btn-play-ico', 'aria-hidden': 'true' }, goOn ? '▶' : '🏠'))];
+    } else if (rest) {
+      /* temps de jeu du jour atteint (v2.4) : ni Revanche, ni Suite, ni Histoires ; l'accueil, où le compagnon se repose */
+      actions = [h('button', { type: 'button', class: 'btn play wide cr-next', on: { click: () => { ctx.audio.tap(); ctx.leave(); } } },
+        h('span', null, 'Accueil'), h('span', { class: 'btn-play-ico', 'aria-hidden': 'true' }, '🏠'))];
     } else {
       const next = nextUnlocked(r.s);
       actions = [
-        h('button', { type: 'button', class: 'btn' + (next ? '' : ' wide'), on: { click: () => { ctx.audio.tap(); ctx.again(); openStory(r.s); } } }, '🔄 Revanche'),
-        next ? h('button', { type: 'button', class: 'btn', on: { click: () => { ctx.audio.tap(); ctx.again(); openStory(next); } } }, '➡️ Suite') : null,
-        h('button', { type: 'button', class: 'btn pink wide', on: { click: () => { ctx.audio.tap(); ctx.again(); showList(r.s.id); } } }, '📚 Histoires')
+        h('button', { type: 'button', class: 'btn' + (next ? '' : ' wide'), on: { click: () => { ctx.audio.tap(); if (ctx.again() !== false) openStory(r.s); } } }, '🔄 Revanche'),
+        next ? h('button', { type: 'button', class: 'btn', on: { click: () => { ctx.audio.tap(); if (ctx.again() !== false) openStory(next); } } }, '➡️ Suite') : null,
+        h('button', { type: 'button', class: 'btn pink wide', on: { click: () => { ctx.audio.tap(); if (ctx.again() !== false) showList(r.s.id); } } }, '📚 Histoires')
       ];
     }
+    if (restTxt) actions = [h('p', { class: 'cr-rest' }, restTxt), ...actions];
     v.append(boxEl, h('div', { class: 'cr-actions' }, actions));
 
     /* chorégraphie : la boîte monte, les étoiles tombent une à une, le compteur défile ; fanfare v11 */
@@ -1031,7 +1041,7 @@ function createCourse(root, ctx) {
     if (stars === 3 || newly.length || summary.dayDone) { ctx.audio.fanfare(); ctx.motion.confetti(); }
     else ctx.audio.beep(784, 0.2, 0.12);
     ctx.announce(stars + (stars > 1 ? ' étoiles' : ' étoile') + ' sur 3. ' + msgTxt);
-    safe(() => ctx.voice.say(msgTxt));
+    safe(() => ctx.voice.say(restTxt ? msgTxt + ' ' + restTxt : msgTxt));
     safe(() => boxEl.focus({ preventScroll: true }));
   }
 

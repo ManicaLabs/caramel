@@ -172,11 +172,11 @@ function checkBounds(it, A) {
     assert.equal(s, 'pron', where + ' CP : sujets pronoms');
     for (const c of it.choices) if (it.kind === 'sujet') assert.ok(PRONOUNS[c.value], where);
   }
-  if (t === 'imparfait') assert.ok(A >= 1.3, where);
+  if (t === 'imparfait') assert.ok(A >= 1.4, where);
   if (t === 'futur') assert.ok(A >= 1.6, where);
   if (t === 'passe_compose') assert.ok(A >= 1.8, where);
   if (t === 'passe_simple') assert.ok(A >= L.psPerson[p], where + ' passé simple');
-  if (t === 'plus_que_parfait') assert.ok(A >= 4.3, where);
+  if (t === 'plus_que_parfait') assert.ok(A >= 4.4, where);
   if (IRREG8.includes(v)) assert.ok(A >= 2, where + ' irréguliers au CE2');
   if (groupOf(v) === 2) assert.ok(A >= 3, where + ' 2e groupe au CM1');
   if (DERIVED.includes(v)) assert.ok(A >= 3.2, where);
@@ -464,6 +464,10 @@ test('conjug : la banque de phrases est cohérente (cadres, sujets, COD)', () =>
    moyenne de item.A − A ≥ −0,25 (ancien générateur : −0,34 à −0,98 selon A), sans jamais dépasser A ni
    les bornes du programme, en gardant de la variété (sous-types, structures, temps, verbes, clés). */
 const CALIB_A = [2, 2.5, 3, 3.5, 4, 4.5, 5];
+/* v2.5 (calendrier, décisions du parent du 07/10/2026) : la période 1 du CM2 (A de 4,0 à 4,2) n'apporte plus aucune
+   notion nouvelle — passé simple en P2, plus-que-parfait en P3 : on y révise les quatre temps du CM1 —, les items y sont
+   donc un peu sous A (tolérance −0,32 au lieu de −0,25 dans cette bande seulement) */
+const calibMin = A => (A >= 4 - 1e-9 && A < 4.2 - 1e-9 ? -0.32 : -0.25);
 test('conjug : calibrage — moyenne de item.A − A ≥ −0,25 pour A = 2 → 5 (1 000 graines), variété gardée', () => {
   const lines = [];
   for (const A of CALIB_A) {
@@ -481,7 +485,7 @@ test('conjug : calibrage — moyenne de item.A − A ≥ −0,25 pour A = 2 → 
     const topS = Math.max(...Object.values(structs)) / 1000, topT = Math.max(...Object.values(tenses)) / 1000;
     lines.push(`A=${A} : écart moyen ${mean.toFixed(3)}, ${Object.keys(structs).length} structures (max ${Math.round(100 * topS)} %), `
       + `${Object.keys(tenses).length} temps (max ${Math.round(100 * topT)} %), ${verbs.size} verbes, ${keys.size} clés`);
-    assert.ok(mean >= -0.25, `A=${A} : écart moyen item.A − A = ${mean.toFixed(3)} < −0,25`);
+    assert.ok(mean >= calibMin(A), `A=${A} : écart moyen item.A − A = ${mean.toFixed(3)} < ${calibMin(A)}`);
     /* variété : tous les sous-types du niveau, aucune structure ni aucun temps écrasant, assez de verbes et de clés */
     assert.equal(kinds.size, KINDS.filter(k => G.LEVELS.kind[k] <= A + 1e-9).length, `A=${A} : sous-types ${[...kinds]}`);
     assert.ok(Object.keys(structs).length >= 4 && topS <= 0.7, `A=${A} : structures ${JSON.stringify(structs)}`);
@@ -497,7 +501,7 @@ test('conjug : calibrage fin — moyenne ≥ −0,25 en tout point de la grille 
     const A = i / 10;
     let sum = 0;
     for (let s = 0; s < 200; s++) sum += G.gen(A, makeRng('fin:' + A + ':' + s)).A - A;
-    if (sum / 200 < -0.25) bad.push(`${A} : ${(sum / 200).toFixed(3)}`);
+    if (sum / 200 < calibMin(A)) bad.push(`${A} : ${(sum / 200).toFixed(3)}`);
   }
   assert.equal(bad.length, 0, 'moyennes < −0,25 : ' + bad.join(', '));
 });
@@ -514,9 +518,12 @@ test('conjug : progression dans l’année cohérente avec le programme (tables 
   }
   assert.ok(L.verbTense.irr.passe_compose + L.irrLate.offset < 3, '2e vague des irréguliers dans le CE2');
   for (const v of Object.values(L.variant)) assert.ok(v >= 3 && v < 4, 'variations du radical au CM1');
-  /* passé simple : il/ils, puis je/tu, puis nous/vous (francais.md §A.1), tout au CM2 */
+  /* passé simple : il/ils en P2 (v2.5, décision du parent), puis je/tu, puis nous/vous (francais.md §A.1), tout au CM2 ;
+     plus-que-parfait en P3 ; imparfait du CE1 en P3 (ordre du programme : présent, imparfait, futur, passé composé) */
   const ps = L.psPerson;
-  assert.ok(ps['3s'] === 4 && ps['3p'] === 4 && ps['1s'] < ps['2s'] && ps['2s'] < ps['1p'] && ps['1p'] < ps['2p'] && ps['2p'] + L.psLate <= 5);
+  assert.ok(ps['3s'] === 4.2 && ps['3p'] === 4.2 && ps['1s'] < ps['2s'] && ps['2s'] < ps['1p'] && ps['1p'] < ps['2p'] && ps['2p'] + L.psLate <= 5);
+  assert.ok(L.tense.passe_simple === 4.2 && L.tense.plus_que_parfait === 4.4 && L.tense.imparfait === 1.4);
+  assert.ok(L.tense.imparfait < L.tense.futur && L.tense.futur < L.tense.passe_compose && L.tense.passe_compose < 2);
   assert.ok(L.etreMasc >= 2 && L.etreFull >= 3 && L.etreFull < 4 && L.kind.participe >= 3 && L.kind.participe < 4, 'accord du participe avec être au CM1');
   assert.ok(L.struct.multiMixed > L.etreFull && L.struct.multiMixed < 4);
   assert.ok(L.combo.bonus <= 0.3 && L.combo.min >= 1.5, 'supplément de combinaison borné');

@@ -14,12 +14,12 @@ const isMult = (x, step) => Math.abs(x / step - Math.round(x / step)) < 1e-6;
 const decimalsOf = x => { const s = String(Math.round(x * 1e6) / 1e6); return s.includes('.') ? s.split('.')[1].length : 0; };
 
 /* ---------- bornes du programme (indépendantes du module) ----------
-   CP : de 1 en 1, ≤ 20 (P1) / 59 (P2) / 100 ; CE1 : ≤ 1 000 (≤ 500 en P1) ; CE2 : ≤ 10 000 (≤ 5 000 en P1) ;
+   CP : de 1 en 1, ≤ 20 (P1) / 59 (P2) / 100 (dès 0,45 : « au plus tard en P3 », v2.5) ; CE1 : ≤ 1 000 (≤ 500 en P1) ; CE2 : ≤ 10 000 (≤ 5 000 en P1) ;
    CM1 : ≤ 9 999 en P1-P2 puis ≤ 999 999 ; CM2 : ≤ 999 999 en P1-P2 puis ≤ 999 999 999 (jamais le milliard).
    Fractions : dès 2,6 (CE2 P3), < 1 et dénominateur ≤ 12 au CE2 ; ≤ 20 au CM1 ; 2 à 12 au CM2.
    Décimaux : dès 3,2 (CM1 P2) ; 1 décimale avant 3,6 ; 2 avant 4 ; 3 ensuite. */
 function bounds(A) {
-  const intMax = A < 0.35 ? 20 : A < 0.65 ? 59 : A < 1 ? 100 : A < 1.2 ? 500 : A < 2 ? 1000 : A < 2.2 ? 5000
+  const intMax = A < 0.35 ? 20 : A < 0.45 ? 59 : A < 1 ? 100 : A < 1.2 ? 500 : A < 2 ? 1000 : A < 2.2 ? 5000
     : A < 3 ? 10000 : A < 3.4 ? 9999 : A < 4.4 ? 999999 : 999999999;
   const maxDec = A < 3.2 ? 0 : A < 3.6 ? 1 : A < 4 ? 2 : 3;
   const frac = A < 2.6 ? null : A < 3 ? { maxDen: 12, improper: false } : A < 4 ? { maxDen: 20, improper: true } : { maxDen: 12, improper: true };
@@ -230,7 +230,7 @@ test('ligne : items bien formés et justes sur toute la grille (57 niveaux × 30
 test('ligne : bornes du programme par palier', () => {
   for (const A of GRID) for (let s = 0; s < SEEDS; s++) checkBounds(L.gen(A, makeRng(`b${A}|${s}`)), A, `A=${A} s=${s}`);
   /* bords de paliers */
-  for (const A of [0.34, 0.35, 0.64, 0.65, 0.99, 1.19, 1.2, 1.99, 2.19, 2.59, 2.6, 2.79, 2.99, 3.19, 3.2, 3.39, 3.4, 3.59, 3.6, 3.99, 4.39, 4.4, 4.99, 5.6]) {
+  for (const A of [0.34, 0.35, 0.44, 0.45, 0.64, 0.65, 0.99, 1.19, 1.2, 1.99, 2.19, 2.59, 2.6, 2.79, 2.99, 3.19, 3.2, 3.39, 3.4, 3.59, 3.6, 3.99, 4.39, 4.4, 4.99, 5.6]) {
     for (let s = 0; s < 200; s++) { const it = L.gen(A, makeRng(`e${A}|${s}`)); checkItem(it, A); checkBounds(it, A, `A=${A}`); }
   }
 });
@@ -282,7 +282,7 @@ test('ligne : QCM pédagogiques (graduation voisine, mauvais pas)', () => {
 });
 
 test('ligne : au moins 200 items distincts (clés) par palier', () => {
-  const ranges = [[0, 0.35], [0.35, 0.65], [0.65, 1], [1, 1.2], [1.2, 2], [2, 2.2], [2.2, 2.6], [2.6, 3], [3, 3.2],
+  const ranges = [[0, 0.35], [0.35, 0.45], [0.45, 1], [1, 1.2], [1.2, 2], [2, 2.2], [2.2, 2.6], [2.6, 3], [3, 3.2],
     [3.2, 3.4], [3.4, 3.6], [3.6, 4], [4, 4.4], [4.4, 5], [5, 5.6]];
   const report = [];
   for (const [a, b] of ranges) {

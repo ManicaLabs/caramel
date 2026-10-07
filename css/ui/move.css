@@ -1,0 +1,19 @@
+/* ============ « CARAMEL DÉMÉNAGE ! 🏡 » (#/demenagement, v2.4, js/ui/move.js) ============
+   Une colonne centrée : le compagnon devant sa nouvelle maison, sa phrase, UN gros bouton, une note pour l'adulte.
+   Couleurs : jetons du thème seulement. */
+.mv {
+  min-height: 100vh; min-height: 100dvh; width: 100%; max-width: 480px; margin: 0 auto;
+  display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 14px;
+  padding: 16px 4px calc(16px + var(--safe-b));
+}
+.mv-scene { position: relative; display: grid; place-items: center; min-height: 170px; }
+.mv-pet { display: grid; place-items: center; font-size: 5rem; line-height: 1; }
+.mv-house { position: absolute; right: 12%; bottom: 6px; font-size: 3.2rem; line-height: 1; filter: drop-shadow(0 3px 0 var(--pink-200)); }
+.mv-say-box { display: flex; align-items: center; gap: 10px; padding: 14px 16px; background: var(--card); border: 3px solid var(--amber-200); border-radius: var(--r-xl); box-shadow: var(--shadow-1); }
+.mv-say { flex: 1; margin: 0; font-family: var(--font-read); font-size: 1.25rem; line-height: 1.4; color: var(--ink); text-wrap: balance; }
+.mv-go { margin-top: 6px; gap: 14px; }
+.mv-go[disabled] { opacity: .7; }
+.mv-later, .mv-later2, .mv-again { align-self: center; }
+.mv-later[hidden], .mv-again[hidden] { display: none; }
+.mv-note { margin: 6px 4px 0; font-size: .86rem; line-height: 1.45; color: var(--ink-3); text-align: center; }
+.mv-parents { color: var(--ink-2); font-weight: 600; white-space: nowrap; }

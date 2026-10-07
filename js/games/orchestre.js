@@ -303,8 +303,27 @@ function createGame(root, ctx) {
     refreshEmphasis();
     const msg = kit.cheer('retry', ctx.rng);
     showHint(msg + '\n' + item.hint);
+    offerLater(item);
     ctx.announce(msg + ' ' + item.hint);
     say(msg + ' ' + item.hint);
+  }
+  /* « 🌱 Pas encore appris » (v2.5, ctx.later) : sous l'astuce de la 1re erreur ; confirmé → l'item n'est pas rapporté,
+     le compagnon le dit, puis la phrase suivante arrive (elle remplace celle-ci dans la partie) */
+  function offerLater(item) {
+    let chip = null;
+    try { chip = ctx.later ? ctx.later(item, { onSkip: s => skipItem(item, s) }) : null; } catch (e) { console.error(e); }
+    const b = help.querySelector('.kit-bubble');
+    if (chip && b) { (b.querySelector('.kit-bubble-body') || b).appendChild(chip); keepAnswersVisible(); }
+  }
+  function skipItem(item, s) {
+    if (!my.alive || my.item !== item || my.phase !== 'item' || my.locked) return;
+    my.locked = true;
+    my.phase = 'between';
+    va.pause(true);
+    if (my.grid) my.grid.disable();
+    showBubble(s.line, 'good', '🌱');
+    ctx.announce(s.line);
+    s.done.then(() => { if (my.alive && my.item === item) next(); });
   }
 
   function secondWrong(item, value, btn, ms) {

@@ -102,6 +102,20 @@ html.kit-lock { overflow: hidden; }
 .kit-confirm-ico { font-size: 2.6rem; line-height: 1; margin: 2px 0 10px; }
 .kit-confirm-text { font-size: 1.18rem; font-weight: 600; color: var(--ink); line-height: 1.35; }
 
+/* « 🌱 Pas encore appris » (v2.5) : pastille discrète sous l'indice, après une première erreur ; feuille avec le compagnon */
+.kit-later {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-top: 8px; padding: 6px 14px 6px 10px;
+  border-radius: 999px; border: 2px solid var(--ok-300); background: var(--ok-50); color: var(--ink-2);
+  font: 600 .95rem/1.2 var(--font-ui, inherit); white-space: nowrap; cursor: pointer;
+  transition: transform var(--dur-1) var(--ease-out);
+}
+.kit-later:active { transform: scale(.96); }
+.kit-later:focus-visible { outline: 3px solid var(--ok-300); outline-offset: 2px; }
+.kit-later-ico { font-size: 1.1rem; line-height: 1; }
+.kit-bubble-body .kit-later { display: flex; width: max-content; max-width: 100%; white-space: normal; }
+.kit-later-pet { display: flex; justify-content: center; margin: 0 0 8px; }
+.kit-later-pet svg { width: 72px; height: auto; }
+
 /* ---------- survol (souris uniquement) ---------- */
 @media (hover: hover) and (pointer: fine) {
   .kit-sheet-x:hover { background: var(--pink-100); }
