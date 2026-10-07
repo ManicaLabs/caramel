@@ -438,6 +438,9 @@ docs/CDC-v2.md
 
 ## 18. Journal de livraison
 
+### v2.5.2 (07/10/2026) — Caramel déménage
+**Accord du parent** (« gère l'invitation à migrer sur l'ancienne URL ») : sur l'ancienne adresse, l'écran « Caramel déménage ! 🏡 » invite à partir sur **caramel.manica.fr** ; un toucher emporte les progrès (profils, compagnons, pommes, code parent), rien n'est effacé ; un nouveau visiteur sans progrès y part directement. Sur iPhone avec Caramel sur l'écran d'accueil : passer par une sauvegarde (espace parents).
+
 ### Domaine (07/10/2026) — caramel.manica.fr
 Le dépôt est passé chez **ManicaLabs** (github.com/ManicaLabs/caramel) ; l'adresse de Caramel devient **https://caramel.manica.fr/** (fichier `CNAME`, DNS du parent). L'ancienne adresse (cdelalande38.github.io/caramel) reste en ligne grâce à un dépôt recréé à l'ancien nom : les progrès des enfants y vivent, et c'est là que s'allumera le déménagement (ARCHITECTURE §8.16) une fois le nouveau domaine vérifié en HTTPS.
 

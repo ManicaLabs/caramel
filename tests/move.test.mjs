@@ -55,8 +55,14 @@ test('poids : une famille de 4 enfants après une année tient dans une adresse 
 
 test('ancienne adresse : écran seulement si allumé (ou essai) ; « Plus tard » pour la séance ; rien n’est effacé', async () => {
   const ss = memoryStorage();
-  assert.equal(mv.MOVE_ON, false, 'éteint tant que caramel.manica.fr n’est pas vérifiée');
-  assert.equal(mv.wanted({ loc: OLD, ss }), false);
+  assert.equal(mv.MOVE_ON, true, 'allumé (2.5.2) : caramel.manica.fr vérifiée en HTTPS');
+  assert.equal(mv.wanted({ loc: OLD, ss, on: false }), false, 'éteint : rien');
+  assert.equal(mv.wanted({ loc: OLD, ss }), true);
+  /* nouveau visiteur sans progrès : direct à la nouvelle adresse (en ligne, rien de déjà déménagé) */
+  assert.equal(mv.jump({ loc: OLD, ss, ls: memoryStorage(), hasData: false, online: true }), true);
+  assert.equal(mv.jump({ loc: OLD, ss, ls: memoryStorage(), hasData: true, online: true }), false, 'des progrès : l’écran');
+  assert.equal(mv.jump({ loc: OLD, ss, ls: memoryStorage(), hasData: false, online: false }), false, 'hors ligne : l’écran');
+  assert.equal(mv.jump({ loc: NEW('#/'), ss, ls: memoryStorage(), hasData: false, online: true }), false, 'jamais sur la nouvelle');
   assert.equal(mv.wanted({ loc: OLD, ss, on: true }), true);
   assert.equal(mv.wanted({ loc: NEW('#/'), ss, on: true }), false, 'jamais sur la nouvelle adresse');
   mv.later(ss);

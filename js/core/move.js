@@ -23,7 +23,7 @@
 
 export const NEW_HOME = 'https://caramel.manica.fr/';
 export const OLD_HOSTS = Object.freeze(['cdelalande38.github.io']);
-export const MOVE_ON = false;                      /* allumé quand caramel.manica.fr est vérifiée */
+export const MOVE_ON = true;                       /* allumé le 07/10/2026 (2.5.2), caramel.manica.fr vérifiée en HTTPS */
 export const MOVE_KEYS = Object.freeze(['caramel-v3', 'caramel-parent', 'caramel-duel-prefs', 'caramel-battle-prefs']);
 export const MOVED_KEY = 'caramel-moved';          /* ancienne adresse : { at, id } — déménagement fait (rien d'effacé) */
 export const ARRIVED_KEY = 'caramel-arrived';      /* nouvelle adresse : identifiants des paquets déjà rangés */
@@ -59,6 +59,11 @@ export function wanted({ loc = G.location, ss = sessionStore(), on = MOVE_ON } =
   return !read(ss, LATER_KEY);
 }
 export function later(ss = sessionStore()) { write(ss, LATER_KEY, '1'); }
+/* nouveau visiteur de l'ancienne adresse (aucun progrès ici, rien de déjà déménagé) et en ligne : direct à la nouvelle
+   adresse, sans écran (il n'a rien à emporter) */
+export function jump({ hasData, online = !!(G.navigator && G.navigator.onLine), ls = localStore(), ...o } = {}) {
+  return wanted(o) && !hasData && online && !moved(ls);
+}
 export function moved(ls = localStore()) { const m = parse(read(ls, MOVED_KEY)); return isObj(m) ? m : null; }
 
 /* ---------- base64url ---------- */

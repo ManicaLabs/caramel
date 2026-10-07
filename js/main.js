@@ -221,6 +221,8 @@ async function boot() {
      (sauvegarde) ; « Plus tard » rend l'appli comme avant pour la séance */
   const moving = () => { try { return !!(mv && mv.wanted()); } catch (_) { return false; } };
   const MOVE_FREE = ['demenagement', 'parents'];
+  /* nouveau visiteur sans progrès : la nouvelle adresse tout de suite (rien à emporter) */
+  try { if (mv && store && mv.jump({ hasData: store.listProfiles().length > 0 })) { location.replace(mv.target()); return; } } catch (_) {}
   const initial = moving() && !MOVE_FREE.includes(String(location.hash || '').replace(/^#\/?/, '').split(/[/?]/)[0]) ? 'demenagement' : initialRoute(store);
   await router.start(ROUTES, { fallback: 'home', transition: vt, initial, beforeSwap });
   router.onChange(() => {
