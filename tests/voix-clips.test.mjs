@@ -36,7 +36,7 @@ const ok = (t, p) => {
   return r;
 };
 
-test('inventaire ↔ manifeste ↔ fichiers : chaque phrase a son clip à jour, rien d’orphelin, ≤ BUDGET (4,3 Mo)', () => {
+test('inventaire ↔ manifeste ↔ fichiers : chaque phrase a son clip à jour, rien d’orphelin, ≤ BUDGET (5 Mo)', () => {
   const ids = V.LINES.map(e => e.id);
   assert.equal(new Set(ids).size, ids.length, 'identifiants uniques');
   for (const id of ids) assert.match(id, /^[a-z0-9][a-z0-9.-]*$/, 'nom de fichier sûr : ' + id);
@@ -557,7 +557,7 @@ test('cache de la voix : préchargement en tâche de fond (phrases courantes), a
 
 test('règles inchangées : micro, son coupé, geste, arrière-plan ; course et moteur vocal non touchés', () => {
   const v = SRC('js/ui/voice.js').replace(/\/\*[\s\S]*?\*\//g, '');
-  assert.match(v, /if \(!force && !voiceOn\(\)\) return Promise\.resolve\(null\);\s*if \(micOpen\(\) \|\| !activated\(\)\) return Promise\.resolve\(null\);/);
+  assert.match(v, /if \(!force && !(?:voiceOn\(\)|\(content \? contentOn\(\) : voiceOn\(\)\))\) return Promise\.resolve\(null\);\s*if \(micOpen\(\) \|\| !activated\(\)\) return Promise\.resolve\(null\);/);
   assert.match(v, /if \(micOpen\(\)\) hush\(\);/, 'micro ouvert pendant un clip : silence');
   assert.match(v, /visibilitychange[\s\S]*?hush\(\)/);
   /* v2.2.2 : hush() coupe aussi la voix fluide et vide sa file */

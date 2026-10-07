@@ -12,6 +12,8 @@ import { thetaFromMclm } from './levels.js';
 import { MOUNTS, SHOP, PET } from '../content/companion-data.js';
 import { normalizeTheme, DEFAULT_THEME } from './themes.js';
 import { normDailyMin, DAILY_DEFAULT } from './playtime.js';
+import { normDictee } from './dictee.js';
+import { normPoems } from '../content/poems.js';
 
 export const DEFAULT_HERO = 'Léa';            /* héros par défaut de la v11 (defaultSave) */
 export const DEFAULT_MOUNT_NAME = 'Caramel';
@@ -146,10 +148,15 @@ export function normalizeProfile(p, today) {
   if (has(src, 'seen')) out.seen = normSeen(src.seen);                   /* facultatif (v2.2.1, « déjà vu ») */
   if (has(src, 'playBonus')) out.playBonus = normPlayBonus(src.playBonus); /* facultatif (v2.4) : minutes accordées en plus aujourd'hui */
   if (has(src, 'cal')) out.cal = normCal(src.cal);                       /* facultatif (v2.5) : reports « Pas encore appris », réglages du parent */
+  if (has(src, 'poems')) out.poems = normPoems(src.poems);               /* facultatif (v2.6) : « Mes poésies », tapées par un adulte (js/content/poems.js) */
   /* médailles gagnées (v2.1) : jamais retirées ; un profil d'avant la 2.1 (champ absent) garde celles que la v2.0
      lui montrait (legacyMedals), même si la nouvelle règle ne les donnerait plus (CDC §1 : aucune perte) */
   out.medals = has(src, 'medals') ? normMedals(src.medals) : legacyMedals(out);
-  return withExtras(out, src);
+  /* dictée de la semaine (v2.6, facultatif, js/core/dictee.js) : 1 à 20 mots tapés par un adulte ; vide ou illisible → absent */
+  if (has(src, 'dictee')) out.dictee = normDictee(src.dictee, d);
+  const res = withExtras(out, src);
+  if (has(res, 'dictee') && !res.dictee) delete res.dictee;
+  return res;
 }
 
 /* ---------- temps de jeu et soins du jour (v2.4) ----------

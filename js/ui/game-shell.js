@@ -39,7 +39,7 @@ import { createHeader } from './game-header.js';
 import { mountReady, avatarOf, setAvatar } from './companion.js';
 import { stepInfo, launchStep, openGamePicker } from './balade.js';
 import * as voice from './voice.js';
-import { timeUp, restLine, restNotice } from './play-limit.js';
+import { timeUp, restLine, restNotice, homeworkOpen } from './play-limit.js';
 
 const FROM_KEY = 'caramel-play-from';       /* écran d'où le jeu a été lancé ('#/home', '#/balade') */
 const WAIT_SHOW_MS = 160;                   /* l'écran d'attente n'apparaît que si le chargement traîne */
@@ -89,7 +89,8 @@ export default {
     const game = GAME_BY_ID[id];
     if (!game || !gamesFor(p.classe).some(g => g.id === id)) { router.go('home', { replace: true }); return; }
     /* temps de jeu du jour atteint (v2.4) : aucun nouveau jeu (lien direct, rechargement, relance) → l'accueil */
-    if (timeUp(p, today)) { restNotice(p); router.go('home', { replace: true }); return; }
+    /* v2.6 : les devoirs restent ouverts (la dictée avec sa liste ; la course, pour les poésies seulement) */
+    if (timeUp(p, today) && !homeworkOpen(p, id)) { restNotice(p); router.go('home', { replace: true }); return; }
 
     /* mode et bloc de balade (vérifiés : un lien périmé devient une partie libre) */
     let mode = query && query.mode === 'balade' ? 'balade' : 'libre';
@@ -161,7 +162,7 @@ export default {
         onChangeGame: () => changeGame(),
         onNextStep: () => nextStep(),
         /* ctx.again() (Revanche, Suite, Histoires de la course) : pas de nouvelle partie une fois le temps atteint */
-        canStart: () => !timeUp(store.getProfile() || p, today),
+        canStart: () => !timeUp(store.getProfile() || p, today) || id === 'dictee',   /* la dictée est un devoir (v2.6) ; la course le sait elle-même */
         onRest: () => { if (!my.leaving && st === my) restHome(); }
       });
     } catch (e) { fail(e); return; }
@@ -285,7 +286,9 @@ export default {
       /* une seule phrase : la phrase positive précise (« Tu as trouvé 7 réponses du premier coup ! ») sert de titre ;
          dernière étape : l'événement, c'est la balade finie (titre), ses +10 🍎 comptent dans le grand nombre */
       const finale = mode === 'balade' && !!s.dayDone;
-      const praiseTxt = frTypo(finale ? 'Ta balade du jour est finie !' : praise(s, q.g));
+      /* v2.6 : un jeu peut dire sa réussite avec ses mots (la dictée : « Tu as su écrire 5 mots du premier coup ! ») */
+      const own = my.mod && typeof my.mod.praise === 'function' ? (() => { try { return my.mod.praise(s, q.g); } catch (_) { return ''; } })() : '';
+      const praiseTxt = frTypo(finale ? 'Ta balade du jour est finie !' : own || praise(s, q.g));
       const lines = h('div', { class: 'gs-lines' });
       const bonuses = [];
       /* « +10 🍎 » ne se coupe jamais (pas de pomme seule à la ligne sur un petit écran) */
@@ -465,7 +468,7 @@ export default {
     }
     /* « Rejouer » : l'écran est remonté (nouvelle manche, nouveau jeu tout propre) */
     function replay() {
-      if (timeUp(store.getProfile() || p, today)) { restHome(); return; }
+      if (timeUp(store.getProfile() || p, today) && !homeworkOpen(store.getProfile() || p, id)) { restHome(); return; }   /* v2.6 : un devoir se refait */
       router.go('play/' + id, { replace: true });
     }
     /* temps de jeu du jour atteint pendant une relance : la phrase douce, puis l'accueil (le compagnon s'y repose) */

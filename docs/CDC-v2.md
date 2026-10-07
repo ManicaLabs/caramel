@@ -438,6 +438,35 @@ docs/CDC-v2.md
 
 ## 18. Journal de livraison
 
+### v2.6 (07/10/2026) — la dictée de la semaine, mes poésies
+**Demandes du parent** : un jeu autour de la dictée (« dicte à haute voix lentement ») ; « charger un texte libre pour renseigner leur poésie à apprendre ». Décisions : mots et poésies TAPÉS par l'adulte (pas d'OCR, souvent écrits à la main), dictée par la voix de Caramel, l'enfant compare et coche ; poésies dans la course, mode « par cœur » par paliers, sans Zip ni étoiles. Espace parents : rubrique « Devoirs de la semaine ». **Devoirs à part** (décision du 08/10/2026) : la dictée et les poésies ne comptent pas dans le temps de jeu du jour et restent possibles quand il est atteint (« 📝 Devoirs » sur l'accueil ; dans la course, les poésies seules).
+**La dictée** :
+- **§6, nouvelle ligne** (ou complément du jeu 6) : 6 bis, **La dictée de {N}** (v2.6), axe `fr.ortho` (sans mesure de θ).
+  - La liste de la semaine est tapée par l'adulte dans l'espace parents : 1 à 20 mots, phrase facultative.
+  - Dictée lente au rythme de la classe (« mot… phrase… mot »), voix fluide calculée d'avance.
+  - L'enfant écrit sur papier puis compare avec le mot juste : « ✓ Juste » ou « ✗ À revoir » puis recopie.
+  - Leitner ; les mots à revoir passent en tête la fois suivante. Dans la balade seulement si une liste existe.
+  - Motion : oreille qui ondule, ✍️, tampon ✓.
+  - Pas de photo ni de lecture de l'écriture (décisions du 07/10/2026).
+- **Journal, v2.6.** « La dictée de la semaine », demandée par le parent. Décisions du 07/10/2026 :
+  - mots tapés par l'adulte, sans OCR ;
+  - voix de Caramel (voix fluide, repli voix du téléphone), lente, « mot… phrase… mot » ;
+  - correction par l'enfant, mot par mot (✓ / à revoir puis recopie) ;
+  - écrans d'une action.
+  - La liste ne bouge pas θ de `fr.ortho` (déjà travaillée en classe, auto-correction).
+  - 🍎 aussi pour la recopie : l'honnêteté n'est jamais punie.
+  - Étude : rapport dictee-problemes §A.
+**Les poésies** (§6, la course : … + **« Mes poésies »** (v2.6) : la poésie de l'école tapée par l'adulte, lue puis apprise par cœur en 5 étapes (texte qui
+s'efface : mots, premières lettres, débuts de vers, rien), micro qui suit la récitation, sans Zip ni étoiles.) :
+**Demande du parent** (07/10/2026) : « charger un texte libre pour renseigner leur poésie à apprendre ; on leur ferait lire et ça
+les aide à l'apprendre ». **Livré** : dans l'espace parents, « 📜 Mes poésies » (par enfant, 12 au plus) : l'adulte tape ou colle
+le texte en vers ; Caramel lui dit aussitôt quels mots le micro ne connaît pas (lexique lu dans le modèle déjà sur l'appareil) —
+l'enfant peut les dire, ils sont acceptés comme un prénom. Dans la course, la poésie vient en tête : l'enfant la lit (le micro
+suit, le compagnon avance), puis l'apprend par cœur en 5 étapes où le texte s'efface ; « Montre-moi » montre le vers oublié.
+Ni Zip, ni chrono, ni étoiles : un entraînement ; 🍎 d'effort, minutes du compagnon, série. La grammaire du micro garde les
+apostrophes et traits d'union (« l'herbe », « dit-elle ») : beaucoup moins de mots impossibles à entendre. La photo de la
+poésie (OCR) est écartée.
+
 ### v2.5.2 (07/10/2026) — Caramel déménage
 **Accord du parent** (« gère l'invitation à migrer sur l'ancienne URL ») : sur l'ancienne adresse, l'écran « Caramel déménage ! 🏡 » invite à partir sur **caramel.manica.fr** ; un toucher emporte les progrès (profils, compagnons, pommes, code parent), rien n'est effacé ; un nouveau visiteur sans progrès y part directement. Sur iPhone avec Caramel sur l'écran d'accueil : passer par une sauvegarde (espace parents).
 

@@ -1,0 +1,158 @@
+/* ============ LA DICTÉE DE {N} (js/games/dictee.js) ============
+   Une colonne, une action par écran : le compagnon et sa bulle en haut, au milieu ce qu'il faut regarder (la barre de
+   préparation ; « Mot 3 », la grande oreille et 🔁 Encore ; puis le mot juste sur un papier), en bas UN bouton à portée
+   de pouce (ou les deux réponses « ✓ Juste » / « ✗ À revoir », jamais rouge : orange doux). Le mot juste en police de
+   lecture (Andika), aussi grand que la largeur le permet (selon sa longueur, --n), lettres espacées, jamais coupé.
+   Pendant que le compagnon dicte, la grande oreille 👂 ondule, puis devient ✍️ (à toi d'écrire) ; mouvement réduit :
+   les ondes restent immobiles.
+   Mobile d'abord (360-430 px), rien ne défile ; grand écran : la même colonne, plus large et plus grande. */
+
+/* pas de joker dans une dictée (rien à souffler) */
+.gs[data-game="dictee"] .gh-joker { display: none; }
+
+.dc {
+  --dc-paper: #fffdf6; --dc-paper-2: #fff6e2; --dc-line: var(--n-wood); --dc-outline: var(--n-outline);
+  --dc-pet: 176px;
+  flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 12px;
+  width: 100%; max-width: 560px; margin: 0 auto; padding: 10px 16px calc(12px + var(--safe-b));
+}
+
+/* ---------- le compagnon et sa bulle ---------- */
+.dc-top { flex: none; display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; }
+.dc-pet { position: relative; width: var(--dc-pet); display: grid; place-items: end center; line-height: 0; }
+.dc-pet-in svg { display: block; width: var(--dc-pet); height: auto; overflow: visible; }
+.dc-say {
+  position: relative; margin: 0; max-width: 100%; padding: 10px 16px; border-radius: 20px;
+  background: var(--card); border: 2px solid var(--pink-200); box-shadow: var(--shadow-1);
+  font-family: var(--font-read); font-size: clamp(1.12rem, 4.8vw, 1.32rem); line-height: 1.35; text-align: center;
+  color: var(--ink); text-wrap: balance;
+}
+.dc-say::before {
+  content: ''; position: absolute; left: 50%; top: -9px; width: 16px; height: 16px; transform: translateX(-50%) rotate(45deg);
+  background: var(--card); border-left: 2px solid var(--pink-200); border-top: 2px solid var(--pink-200);
+}
+
+.dc-nw { white-space: nowrap; }
+
+/* la grande oreille : elle ondule pendant que le compagnon dicte, puis devient ✍️ */
+.dc-disc {
+  position: relative; width: var(--dc-disc, 128px); height: var(--dc-disc, 128px); border-radius: 50%; display: grid; place-items: center;
+  background: radial-gradient(circle at 50% 40%, var(--card) 0%, var(--amber-50) 100%); border: 4px solid var(--amber-300);
+  box-shadow: var(--shadow-1); line-height: 1;
+}
+.dc-disc-ico { font-size: calc(var(--dc-disc, 128px) * .46); }
+.dc-disc i { position: absolute; inset: -4px; border-radius: 50%; border: 4px solid var(--amber-400); opacity: 0; pointer-events: none; }
+.dc.is-speaking .dc-disc i { animation: dc-wave 1.5s var(--ease-out) infinite; }
+.dc.is-speaking .dc-disc i + i { animation-delay: .75s; }
+@keyframes dc-wave { from { transform: scale(1); opacity: .7; } to { transform: scale(1.45); opacity: 0; } }
+
+/* ---------- milieu ---------- */
+.dc-mid { flex: 1 1 auto; min-height: 0; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+.dc-prep-ico { margin: 0; font-size: 2.2rem; line-height: 1; letter-spacing: .1em; }
+.dc-prep-ico.is-big { font-size: 3.4rem; }
+.dc-prep-t { margin: 0; font-family: var(--font-read); font-size: 1.15rem; color: var(--ink-2); text-align: center; }
+.dc-bar {
+  position: relative; width: min(100%, 360px); height: 18px; border-radius: var(--r-pill); overflow: hidden;
+  background: var(--card); border: 2px solid var(--amber-300);
+}
+.dc-bar-fill { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(90deg, var(--amber-300), var(--amber-400)); transition: width 260ms var(--ease-out); }
+.dc-bar.is-wait .dc-bar-fill { width: 34%; animation: dc-slide 1.3s ease-in-out infinite alternate; }
+@keyframes dc-slide { from { transform: translateX(-10%); } to { transform: translateX(210%); } }
+.dc-mute {
+  margin: 0; padding: 10px 14px; border-radius: var(--r-m); background: var(--orange-50); border: 2px solid var(--orange-300);
+  color: var(--soft-ink); font-family: var(--font-read); font-size: 1.08rem; line-height: 1.35; text-align: center;
+}
+.dc-adult {
+  margin: 0; padding: 10px 14px; border-radius: var(--r-m); background: var(--card); border: 2px dashed var(--pink-200);
+  color: var(--ink-2); font-size: .98rem; line-height: 1.4; text-align: left; max-width: 460px;
+}
+
+/* écouter : « Mot 3 » (pour numéroter la ligne sur la feuille) et 🔁 Encore */
+.dc-listen { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.dc-num {
+  margin: 0; padding: 4px 18px; border-radius: var(--r-pill); font-weight: 700; font-size: 1.35rem; letter-spacing: .01em;
+  background: var(--n-amber-100); color: var(--n-amber-900); border: 2px solid var(--n-amber-300);
+}
+.dc-again { min-height: 60px; padding: 10px 26px; font-size: 1.3rem; gap: 10px; }
+.dc-again span:first-child { font-size: 1.45rem; }
+
+/* le mot juste, sur un papier */
+.dc-card {
+  position: relative; width: 100%; padding: clamp(18px, 5vh, 34px) 14px; border-radius: var(--r-l); text-align: center;
+  background: linear-gradient(180deg, var(--dc-paper) 0%, var(--dc-paper-2) 100%);
+  border: 3px solid var(--dc-line); box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--dc-outline) 35%, transparent), var(--shadow-1);
+  transition: border-color var(--dur-2), background var(--dur-2);
+  container-type: inline-size;
+}
+.dc-card:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.dc-word {
+  margin: 0; font-family: var(--font-read); font-weight: 400; color: var(--n-ink);
+  font-size: clamp(1.9rem, calc(88cqi / (var(--n, 6) * .6)), 4.6rem); line-height: 1.15; letter-spacing: .06em;
+  overflow-wrap: normal; word-break: keep-all; text-wrap: balance;
+}
+.dc-card.is-right { border-color: var(--ok); background: linear-gradient(180deg, var(--ok-50) 0%, var(--dc-paper) 100%); }
+.dc-card.is-copy { border-color: var(--amber-400); border-style: dashed; }
+.dc-stamp {
+  position: absolute; top: -14px; right: -6px; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--ok-bg); color: var(--ok-ink); border: 3px solid var(--ok); font-size: 1.7rem; font-weight: 700;
+  transform: rotate(-8deg); box-shadow: var(--shadow-2);
+}
+
+/* ---------- bas : un bouton (ou les deux réponses) ---------- */
+.dc-acts { flex: none; width: 100%; display: flex; flex-direction: column; align-items: stretch; gap: 6px; min-height: 90px; justify-content: flex-end; }
+.dc-go { font-size: clamp(1.45rem, 6.4vw, 1.85rem); padding-left: 22px; gap: 12px; }
+.dc-write-ico { font-size: 1.6rem; margin-right: -4px; }
+.dc-go.is-hidden { visibility: hidden; }
+.dc-home { align-self: center; }
+.dc-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.dc-yes, .dc-no {
+  min-height: 80px; padding: 10px 8px; border-radius: 24px; font-size: clamp(1.25rem, 5.6vw, 1.5rem); font-weight: 700; gap: 10px;
+}
+.dc-yes { background: var(--ok-bg); color: var(--ok-ink); border: 3px solid var(--ok); box-shadow: 0 5px 0 color-mix(in srgb, var(--ok) 70%, transparent); }
+.dc-no { background: var(--orange-50); color: var(--soft-ink); border: 3px solid var(--orange-300); box-shadow: 0 5px 0 var(--orange-300); }
+.dc-yes:active, .dc-no:active { transform: translateY(3px); box-shadow: none; }
+.dc-mark { font-size: 1.6rem; line-height: 1; }
+
+/* comparer, recopier : le compagnon se fait petit, à côté de sa bulle ; le mot prend la place */
+.dc.is-compare, .dc.is-right, .dc.is-copy, .dc.is-copied { --dc-pet: 104px; }
+.dc.is-compare .dc-top, .dc.is-right .dc-top, .dc.is-copy .dc-top, .dc.is-copied .dc-top { flex-direction: row; align-items: center; justify-content: center; gap: 10px; }
+.dc.is-compare .dc-say, .dc.is-right .dc-say, .dc.is-copy .dc-say, .dc.is-copied .dc-say { text-align: left; flex: 0 1 auto; }
+.dc.is-compare .dc-say::before, .dc.is-right .dc-say::before, .dc.is-copy .dc-say::before, .dc.is-copied .dc-say::before {
+  left: -9px; top: 50%; transform: translateY(-50%) rotate(-45deg);
+}
+.dc.is-listen { --dc-pet: 150px; }
+
+/* ---------- petits écrans (360 × 640) ---------- */
+@media (max-height: 700px) {
+  .dc { --dc-pet: 136px; --dc-disc: 104px; gap: 8px; padding-top: 6px; }
+  .dc.is-listen { --dc-pet: 112px; }
+  .dc.is-compare, .dc.is-right, .dc.is-copy, .dc.is-copied { --dc-pet: 84px; }
+  .dc-listen { gap: 10px; }
+  .dc-say { padding: 8px 12px; }
+  .dc-prep-ico.is-big { font-size: 2.6rem; }
+  .dc-again { min-height: 56px; }
+  .dc-yes, .dc-no { min-height: 72px; }
+  .dc-acts { min-height: 84px; }
+}
+@media (max-width: 370px) {
+  .dc { padding-left: 12px; padding-right: 12px; }
+  .dc-word { letter-spacing: .04em; }
+}
+
+/* ---------- grand écran : la même colonne, plus grande ---------- */
+@media (min-width: 760px) and (min-height: 600px) {
+  .dc { max-width: 680px; --dc-pet: 210px; --dc-disc: 156px; gap: 18px; padding-top: 18px; }
+  .dc.is-listen { --dc-pet: 180px; }
+  .dc.is-compare, .dc.is-right, .dc.is-copy, .dc.is-copied { --dc-pet: 130px; }
+  .dc-say { font-size: 1.45rem; padding: 12px 22px; }
+  .dc-word { font-size: clamp(2.4rem, calc(88cqi / (var(--n, 6) * .6)), 5.4rem); }
+  .dc-acts { max-width: 560px; }
+}
+
+/* ---------- mouvement réduit ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .dc.is-speaking .dc-disc i { animation: none; opacity: .5; transform: scale(1.18); }
+  .dc-bar.is-wait .dc-bar-fill { animation: none; width: 100%; opacity: .5; }
+}
+html.motion-soft .dc.is-speaking .dc-disc i { animation: none; opacity: .5; transform: scale(1.18); }
+html.motion-soft .dc-bar.is-wait .dc-bar-fill { animation: none; width: 100%; opacity: .5; }

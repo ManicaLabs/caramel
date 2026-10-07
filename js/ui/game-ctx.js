@@ -23,6 +23,10 @@
      pendant ce préchargement l'attend (speech.ensureVosk) et reçoit en attendant le pourcentage du modèle, comme avant
      (attente « Je me prépare à t'écouter… 42 % » inchangée) ; moteur déjà sur l'appareil : plus aucune invitation à
      télécharger (micro impossible faute d'internet : la marche à suivre ne parle plus de téléchargement).
+   - v2.6, la dictée (js/games/dictee.js) : ctx.voice.say(texte, { slow, content, line }) — slow > 1 = plus lentement
+     (voix fluide : length_scale × slow ; téléphone : vitesse 0,95 / slow), content = le CONTENU du jeu (dit même si la
+     lecture des consignes est sur Non, jamais sons coupés), line = ce que 🔁 relira ; ctx.voice.prepareAll([{ text, slow
+     }], { onStep, waitMs }) calcule tout d'avance ; ctx.voice.free ('fluid' | 'soon' | 'tts' | null) ; ctx.voice.contentOn.
    - micro impossible (D1-01, D4-04) : ctx.mic.trouble(code) → phrase courte pour l'enfant (tutoiement) et marche à
      suivre pour l'adulte (vouvoiement, adaptée à l'appli installée) ; ctx.mic.help(code, { onRetry }) ouvre la feuille
      de l'adulte. ctx.changeGame() : la coquille remplace l'étape de balade par un autre jeu (partie libre : choix d'un
@@ -265,11 +269,14 @@ export function buildCtx({ game, makeManche, manche: first, mode = 'libre', head
       get on() { return voice.voiceOn(getProfile()); },
       /* → Promise<boolean> : true quand la phrase a été dite jusqu'au bout ; quiet : la phrase est seulement confiée à
          🔁 (le micro est demandé : le compagnon se tait) */
-      say(text, { quiet = false } = {}) {
+      say(text, { quiet = false, slow = 1, content = false, line } = {}) {
         const q = getProfile();
-        const on = voice.voiceOn(q);
-        if (header && header.setLine) header.setLine(text, voice.readAloud(q));   /* 🔁 : l'en-tête suit aussi 🔊 / 🔇 */
-        return on && !quiet ? voice.speak(text) : Promise.resolve(false);
+        /* v2.6 (la dictée) : content = le contenu du jeu (dit même si la lecture des consignes est sur Non, jamais sons
+           coupés) ; slow > 1 = plus lentement ; line = ce que 🔁 relira (défaut : text) */
+        const on = content ? voice.contentOn(q) : voice.voiceOn(q);
+        if (header && header.setLine) header.setLine(line || text, voice.readAloud(q));   /* 🔁 : l'en-tête suit aussi 🔊 / 🔇 */
+        if (!on || quiet) return Promise.resolve(false);
+        return slow > 1 || content ? voice.speak(text, { slow, content }) : voice.speak(text);
       },
       hush() { voice.hush(); },
       /* → Promise : la voix s'est tue et le moteur a repris son souffle (v2.2.1) — à attendre après hush() avant d'ouvrir
@@ -280,7 +287,12 @@ export function buildCtx({ game, makeManche, manche: first, mode = 'libre', head
       prepare(...texts) { voice.prepare(...texts); },
       /* ce qui sera dit dans moins d'une seconde (la question suivante) : calculé avant les astuces */
       prepareNext(...texts) { voice.prepareNext(...texts); },
-      get canPrepare() { return voice.canPrepare(); }
+      get canPrepare() { return voice.canPrepare(); },
+      /* v2.6 (la dictée) : tout calculer avant de commencer ([{ text, slow }], { onStep }) ; quelle voix dit un mot libre
+         ('fluid' | 'soon' | 'tts' | null) ; le contenu peut-il être dit (sons activés, une voix possible) */
+      prepareAll(list, opts) { return voice.prepareAll(list, opts); },
+      get free() { return voice.freeVoice(); },
+      get contentOn() { return voice.contentOn(getProfile()); }
     },
     get applesEl() { return header ? header.applesEl : null; },
     /* micro impossible : textes (enfant, adulte) et feuille d'aide pour l'adulte (onRetry : « Réessayer 🎤 ») */

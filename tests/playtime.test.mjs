@@ -206,14 +206,15 @@ test('garde-fous : chaque endroit qui lance un jeu vérifie le temps du jour (un
   /* accueil : le gros bouton ne lance rien et dit pourquoi */
   const hm = code('js/ui/home.js');
   assert.match(hm, /if \(timeUp\(q, today\)\) \{ renderPlay\(\); restNotice\(q, \{ el: go, kind: 'why' \}\); return; \}\s*audio\.tap\(\);\s*const cur = currentStep/);
-  assert.match(hm, /gamesBtn\.hidden = rest \|\| done \|\| !N;/);
+  assert.match(hm, /gamesBtn\.hidden = hw \? false : \(rest \|\| done \|\| !N\);/);   /* v2.6 : « 📝 Devoirs » s'il y en a */
   /* coquille : lien direct ou rechargement → l'accueil, avant toute manche ; relances internes */
   const gs = code('js/ui/game-shell.js');
-  const guard = gs.indexOf('if (timeUp(p, today)) { restNotice(p); router.go(\'home\', { replace: true }); return; }');
+  const guard = gs.indexOf('if (timeUp(p, today) && !homeworkOpen(p, id)) { restNotice(p); router.go(\'home\', { replace: true }); return; }');   /* v2.6 : sauf les devoirs */
   assert.ok(guard > 0 && guard < gs.indexOf('createManche({'), 'garde-fou avant la manche');
-  for (const fn of ['changeGame', 'pickMore', 'replay']) {
+  for (const fn of ['changeGame', 'pickMore']) {
     assert.match(gs, new RegExp('function ' + fn + '\\(\\) \\{[\\s\\S]{0,80}timeUp\\(store\\.getProfile\\(\\) \\|\\| p, today\\)\\) \\{ restHome\\(\\); return; \\}'), fn);
   }
+  assert.match(gs, /function replay\(\) \{\s*if \(timeUp\(store\.getProfile\(\) \|\| p, today\) && !homeworkOpen\(store\.getProfile\(\) \|\| p, id\)\) \{ restHome\(\); return; \}/, 'replay : sauf un devoir');
   assert.match(gs, /if \(next >= 0 && !timeUp\(q, today\)\) goStep\(next\); else exitTo\('home'\);/, 'nextStep (course en balade)');
   assert.match(gs, /canStart: \(\) => !timeUp\(/, 'ctx.again() de la course');
   /* bilan : Rejouer / Étape suivante / Encore un jeu ? remplacés par Accueil sous la phrase */
@@ -246,4 +247,24 @@ test('normDailyMin : une valeur vide ou abîmée ne lève jamais la limite', asy
   for (const v of [null, undefined, '', true, false, 'abc', 17]) assert.equal(P.normDailyMin(v), P.DAILY_DEFAULT, String(v));
   assert.equal(P.normDailyMin(0), 0, '0 explicite : sans limite (choisi par un parent)');
   assert.equal(P.normDailyMin('90'), 90);
+});
+
+test('devoirs (v2.6, décision du parent du 08/10/2026) : la dictée et les poésies ne comptent pas et restent ouvertes', async () => {
+  const PT = await import('../js/core/playtime.js');
+  const p = kid({ today: [50] });
+  p.history.push({ d: TODAY, t: 900, g: 'dictee', ax: 'fr.ortho', n: 8, ok: 7, hint: 1, ms: 20 * MIN, mode: 'libre' });
+  p.history.push({ d: TODAY, t: 901, g: 'course', mode: 'poesie', n: 1, ok: 1, hint: 0, ms: 15 * MIN });
+  assert.equal(PT.minutesToday(p, TODAY), 50, 'seules les parties de jeu comptent');
+  assert.equal(PT.homeworkOpen(p, 'dictee'), false, 'sans liste, pas de dictée');
+  p.dictee = { words: [{ w: 'maison' }], d: TODAY };
+  p.poems = [{ id: 'x', title: 'Le lièvre', text: 'Un vers' }];
+  assert.equal(PT.homeworkOpen(p, 'dictee'), true);
+  assert.equal(PT.homeworkOpen(p, 'course'), true, 'la course, pour les poésies');
+  assert.equal(PT.homeworkOpen(p, 'tables'), false);
+  assert.equal(PT.hasHomework(p), true);
+  const code = f => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
+  assert.match(code('js/ui/game-shell.js'), /timeUp\(p, today\) && !homeworkOpen\(p, id\)/, 'coquille : les devoirs démarrent');
+  assert.match(code('js/ui/balade.js'), /rest && !\(gid && homeworkOpen\(q, gid\)\)/, 'feuille des jeux : tuiles des devoirs ouvertes');
+  assert.match(code('js/games/course.js'), /if \(ctx\.timeUp\) \{ safe\(\(\) => ctx\.kit\.toast\(frTypo\(restStories\(\)\)\)\); return; \}/, 'course : les histoires attendent demain');
+  assert.match(code('js/ui/home.js'), /const hw = rest && hasHomework\(q\);/, 'accueil : « 📝 Devoirs »');
 });

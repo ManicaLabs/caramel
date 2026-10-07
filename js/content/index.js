@@ -12,6 +12,7 @@ const LOADERS = {
   'ma.operations': () => import('./maths/operations.js'),
   'ma.problemes': () => import('./maths/problemes.js'),
   'fr.conjug': () => import('./fr/conjug.js'),
+  'fr.ortho': () => import('./fr/dictee.js'),          /* v2.6 : la dictée de la semaine (liste tapée par un adulte) */
   'fr.fluence': () => import('./stories/index.js')
 };
 

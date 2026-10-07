@@ -42,7 +42,7 @@ function hellos() {
 test('1re partie : une phrase du compagnon pour chaque jeu qui ne se présente pas lui-même', () => {
   const H = hellos();
   const own = GAMES.filter(g => /intro:\s*true/.test(code('js/games/' + g.id + '.js'))).map(g => g.id);
-  assert.deepEqual(own, ['orchestre', 'missions'], 'l’orchestre et les missions ont leur propre intro (une fois par séance)');
+  assert.deepEqual(own, ['orchestre', 'missions', 'dictee'], 'l’orchestre, les missions et la dictée ont leur propre intro');
   for (const g of GAMES) {
     if (own.includes(g.id)) { assert.equal(H[g.id], undefined, g.id); continue; }
     const t = H[g.id];

@@ -335,6 +335,47 @@ const SRC = [
     { id: 'nuit', text: 'Tu as bien joué aujourd’hui ! {N} dort 🌙 On rejoue demain.', say: 'Tu as bien joué aujourd’hui ! Je vais dormir. On rejoue demain.' },
     'Tous les compagnons se reposent 💤 Un défi demain ?'
   ]),
+  /* v2.6 : la dictée de la semaine (js/core/dictee.js : LINES, bilanLine) — les mots de la liste, eux, sont dits par la voix
+     fluide (ou celle du téléphone) ; « le son est coupé » n'est jamais dit (sons coupés) */
+  ...grp('dictee', [
+    { id: 'prep', text: 'Je prépare ta dictée…' },
+    { id: 'pret', text: 'Prends une feuille et un crayon.' },
+    { id: 'ecoute', text: 'Écoute bien, puis écris le mot sur ta feuille.' },
+    { id: 'ecris', text: 'Écris le mot, puis touche « C’est écrit ».' },
+    { id: 'compare', text: 'Regarde ta feuille : as-tu écrit pareil ?' },
+    { id: 'recopie', text: 'Pas grave ! Regarde bien le mot, et recopie-le juste à côté.' },
+    { id: 'sans-liste', text: 'Pour la dictée, un adulte doit d’abord taper ta liste de mots.' },
+    { id: 'sans-voix', text: 'Je n’arrive pas à parler sur ce téléphone. Demande à un adulte de t’aider.' },
+    { id: 'tous', text: 'Tu as su écrire tous tes mots du premier coup, bravo !' },
+    { id: 'ton-mot', text: 'Tu as su écrire ton mot du premier coup, bravo !' },
+    { id: 'un-mot', text: 'Tu as su écrire un mot du premier coup !' },
+    { id: 'compare-bravo', text: 'Tu as bien comparé tes mots avec le modèle, bravo !' }
+  ]),
+  /* v2.6 : les poésies dans la course (js/content/poems.js : STAGES ; js/games/course.js : POEM) — le titre et les vers ne
+     sont jamais dits ; « Je t'écoute… » non plus (le micro écoute) */
+  ...grp('poesie', [
+    { id: 'choisis', text: 'Choisis ta poésie ou une histoire !' },
+    { id: 'e1', text: 'Lis ta poésie à voix haute !' },
+    { id: 'e2', text: 'Des mots se cachent : dis-les quand même !' },
+    { id: 'e3', text: 'Il ne reste que la première lettre des mots !' },
+    { id: 'e4', text: 'Seul le premier mot de chaque vers est écrit !' },
+    { id: 'e5', text: 'Plus rien n’est écrit : récite de mémoire !' },
+    { id: 'micro-lis', text: 'Appuie sur le micro et lis !' },
+    { id: 'micro-recite', text: 'Appuie sur le micro et récite !' },
+    { id: 'sue', text: 'Tu la sais par cœur ! Récite-la encore pour ne pas l’oublier.' },
+    { id: 'rythme', text: 'Lis à ton rythme, tout le texte est là 📖' },
+    { id: 'lue', text: '📖 Bravo, tu as lu toute ta poésie !' },
+    { id: 'etape', text: '🎉 Étape réussie, bravo !' },
+    { id: 'par-coeur', text: '🏆 Tu sais ta poésie par cœur !' },
+    { id: 'entrainement', text: '💪 Bel entraînement ! Chaque fois, ta poésie rentre un peu mieux.' },
+    { id: 'moins-aide', text: '💪 Bravo ! La prochaine fois, essaie avec un peu moins d’aide.' },
+    { id: 'refait', text: 'On refait cette étape quand tu veux.' },
+    { id: 'pas-entendu', text: 'Je ne t’ai pas entendu… On réessaie ? Parle bien fort ! 🎤' },
+    { id: 'suite-e2', text: 'Prochaine étape : 🙈 mots cachés' },
+    { id: 'suite-e3', text: 'Prochaine étape : 🔤 premières lettres' },
+    { id: 'suite-e4', text: 'Prochaine étape : 🗝️ débuts de vers' },
+    { id: 'suite-e5', text: 'Prochaine étape : 🧠 par cœur' }
+  ]),
   /* v2.4 : « Caramel déménage ! 🏡 » (js/ui/move.js, TEXT) — ancienne adresse */
   ...grp('move', [
     { id: 'go', text: 'Je déménage ! Viens avec moi : tes progrès et tes pommes viennent aussi.' },
@@ -632,6 +673,7 @@ const SRC = [
     'Le double de', 'La moitié de', 'Double de', 'Moitié de',
     /* phrases à nombre */
     'Il te manque', 'pommes.', 'pomme.', 'pommes', 'pomme', 'Tu as trouvé', 'réponses du premier coup !', 'J’ai entendu',
+    /* v2.6 : bilan de la dictée « Tu as su écrire 5 mots du premier coup ! » */ 'Tu as su écrire', 'mots du premier coup !',
     'Petit coup de pouce :', 'Petit coup de pouce !', 'Astuce :', 'Place', 'sur la clôture.',
     /* boutique : « Le chapeau remplace le foulard », « Les lunettes retournent dans le coffre » */
     'le foulard', 'le nœud', 'le chapeau', 'les lunettes', 'l’écharpe', 'la selle dorée', 'la couronne', 'les ailes de fée',

@@ -8,6 +8,8 @@
    - Limite par enfant : settings.dailyMin (minutes ; 0 = sans limite), DAILY_DEFAULT = 60 ; un parent peut accorder un
      peu plus pour la journée (profile.playBonus = { d, min }, BONUS_STEP minutes par toucher).
    - Une partie commencée se finit toujours : la limite se vérifie quand un jeu va démarrer.
+   v2.6 : les devoirs (dictée, poésies) ne comptent pas et restent ouverts (HOMEWORK_GAMES, isHomeworkEntry, homeworkOpen,
+   hasHomework).
    API : DAILY_OPTIONS, DAILY_DEFAULT, BONUS_STEP, NEAR_MIN, normDailyMin(v), minutesToday(profile, jour),
      bonusToday(profile, jour), playState(profile, jour) → { limit, used, bonus, left, over, near, unlimited },
      withBonus(profile, jour, minutes) → nouvelle valeur de playBonus, napOrNight(phase, nuit) → 'sieste' | 'nuit'. */
@@ -25,11 +27,25 @@ export function normDailyMin(v) {
 }
 const settingsOf = p => (p && p.settings && typeof p.settings === 'object' ? p.settings : {});
 
-/* minutes de jeu du jour (parties finies ou abandonnées, d'après l'historique) */
+/* v2.6 — DEVOIRS (décision du parent du 08/10/2026 : « les devoirs à part ») : la dictée de la semaine et les poésies ne
+   comptent pas dans le temps de jeu du jour, et restent possibles quand il est atteint (ce sont des devoirs). */
+export const HOMEWORK_GAMES = Object.freeze(['dictee']);
+export const isHomeworkEntry = e => !!e && (HOMEWORK_GAMES.includes(e.g) || e.mode === 'poesie');
+/* ce jeu peut-il démarrer comme devoir ? dictée : une liste existe ; course : des poésies existent (la course n'ouvre
+   alors que les poésies, les histoires attendent demain) */
+export function homeworkOpen(profile, gameId) {
+  if (!profile) return false;
+  if (gameId === 'dictee') return !!(profile.dictee && Array.isArray(profile.dictee.words) && profile.dictee.words.length);
+  if (gameId === 'course') return Array.isArray(profile.poems) && profile.poems.length > 0;
+  return false;
+}
+export const hasHomework = profile => homeworkOpen(profile, 'dictee') || homeworkOpen(profile, 'course');
+
+/* minutes de jeu du jour (parties finies ou abandonnées, d'après l'historique ; devoirs exclus) */
 export function minutesToday(profile, today) {
   const h = profile && Array.isArray(profile.history) ? profile.history : [];
   let ms = 0;
-  for (const e of h) if (e && e.d === today && Number.isFinite(e.ms) && e.ms > 0) ms += e.ms;
+  for (const e of h) if (e && e.d === today && Number.isFinite(e.ms) && e.ms > 0 && !isHomeworkEntry(e)) ms += e.ms;
   return ms / 60000;
 }
 /* minutes accordées en plus aujourd'hui par un parent */

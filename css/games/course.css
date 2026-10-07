@@ -413,3 +413,102 @@ html.motion-soft .cr-race .cr-mic::after, html.motion-soft .cr-mic[aria-busy="tr
 html.motion-soft .cr-q-think { animation: none !important; }
 html.motion-soft .cr-word.current { animation: none; transform: none; }
 html.motion-soft .cr-mic.listening { animation: none; box-shadow: 0 0 0 8px color-mix(in srgb, var(--pink-400) 22%, transparent); }
+
+/* ======================= MES POÉSIES (v2.6, js/content/poems.js) ======================= */
+/* carte de la liste : lilas, jamais d'étoile ni de cadenas */
+.cr-poem-card {
+  border-color: color-mix(in srgb, var(--violet) 55%, var(--card));
+  background: linear-gradient(160deg, color-mix(in srgb, var(--violet) 14%, var(--card)) 0%, var(--card) 62%);
+}
+.cr-poem-card.is-done { border-color: var(--amber-300); }
+.cr-poem-kick { font-weight: 600; color: var(--ink-3); }
+.cr-poem-sub { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; margin-top: 2px; }
+.cr-poem-sub > span:last-child { font-weight: 700; }
+
+/* les 5 étapes : réussie (vert + ✓), en cours (anneau doré qui respire), à venir (grisée) ; reliées par un trait */
+.cr-ladder { list-style: none; display: flex; align-items: center; justify-content: center; gap: 12px; margin: 10px 0 4px; padding: 4px 0; }
+.cr-rung {
+  position: relative; flex: none; width: 50px; height: 50px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 1.55rem; line-height: 1; background: var(--card); border: 3px solid var(--pink-100);
+}
+.cr-rung + .cr-rung::before {
+  content: ''; position: absolute; right: calc(100% + 3px); top: 50%; width: 12px; height: 3px; margin-top: -1.5px;
+  border-radius: 2px; background: var(--pink-200);
+}
+.cr-rung-e { filter: grayscale(1); opacity: .42; }
+.cr-rung.is-done { background: var(--ok-50); border-color: var(--ok); }
+.cr-rung.is-done + .cr-rung::before { background: var(--ok); }
+.cr-rung.is-done .cr-rung-e, .cr-rung.is-cur .cr-rung-e { filter: none; opacity: 1; }
+.cr-rung.is-done::after {
+  content: '✓'; content: '✓' / ''; position: absolute; right: -6px; bottom: -6px; width: 22px; height: 22px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--ok-ink); color: #fff; font-size: .78rem; font-weight: 700; border: 2px solid var(--card);
+}
+.cr-rung.is-cur { background: var(--amber-100); border-color: var(--amber-500); animation: cr-rung 1.8s ease-in-out infinite; }
+@keyframes cr-rung { 50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--amber-400) 32%, transparent); } }
+.cr-ladder.is-mini { justify-content: flex-start; gap: 4px; margin: 0; padding: 0; }
+.cr-ladder.is-mini .cr-rung { width: 26px; height: 26px; font-size: .82rem; border-width: 2px; animation: none; }
+.cr-ladder.is-mini .cr-rung + .cr-rung::before, .cr-ladder.is-mini .cr-rung.is-done::after { display: none; }
+.cr-ladder.is-res { margin: 2px 0 12px; }
+
+/* page d'une poésie (une action : le gros bouton) */
+.cr-poem { overflow-y: auto; overscroll-behavior: contain; gap: 8px; }
+.cr-poem-top { flex: none; display: flex; }
+.cr-poem-box {
+  margin: auto 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 16px 16px 18px;
+  text-align: center; background: var(--card); border-radius: var(--r-l); box-shadow: var(--shadow-2);
+}
+.cr-poem-pet { line-height: 0; }
+.cr-poem-t { font-size: 1.6rem; font-weight: 700; line-height: 1.25; color: var(--title); text-wrap: balance; overflow-wrap: anywhere; }
+.cr-poem-author { margin-top: -4px; font-size: 1rem; font-style: italic; color: var(--ink-3); }
+.cr-poem-kicker { margin-top: 2px; font-weight: 700; font-size: 1rem; color: var(--ink-2); }
+.cr-poem-line { font-size: 1.18rem; line-height: 1.4; color: var(--ink-2); text-wrap: balance; }
+.cr-poem-btns { display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 10px; }
+.cr-poem-btns .btn.play { min-height: 72px; font-size: clamp(1.3rem, 6.4vw, 1.7rem); white-space: nowrap; }
+.cr-poem-btns .btn-play-ico { padding-left: 0; }
+.cr-poem-btns .btn.white { min-height: 56px; }
+
+/* lecture en vers : l'étape à gauche, « 💡 Montre-moi » à droite (étapes par cœur) */
+.cr-poem-info { min-height: 48px; }
+.cr-stage {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 4px 12px; border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--violet) 16%, var(--card)); border: 2px solid color-mix(in srgb, var(--violet) 45%, var(--card));
+  color: var(--ink); font-weight: 700; font-size: .95rem;
+}
+.cr-helpme {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 48px; padding: 6px 16px; border-radius: var(--r-pill);
+  background: var(--amber-100); border: 2px solid var(--amber-300); color: var(--amber-900); font-weight: 700; font-size: 1rem;
+  transition: transform var(--dur-1) var(--ease-out);
+}
+.cr-helpme:active { transform: scale(.95); }
+.cr-helpme:focus-visible { border-radius: var(--r-pill); }
+.cr-helpme.is-nudge { border-color: var(--amber-500); box-shadow: 0 0 0 4px color-mix(in srgb, var(--amber-400) 35%, transparent); animation: cr-nudge 1.6s ease-in-out infinite; }
+@keyframes cr-nudge { 0%, 60%, 100% { transform: none; } 10%, 30% { transform: rotate(-5deg) scale(1.06); } 20%, 40% { transform: rotate(5deg) scale(1.06); } }
+.cr-poem-text { font-size: 1.55rem; line-height: 1.8; }
+.cr-poem-text.is-long { font-size: 1.4rem; line-height: 1.75; }
+/* un vers trop long pour la ligne continue en retrait (alinéa suspendu) : on voit où commence chaque vers */
+.cr-verse {
+  display: block; min-height: 1.8em; margin: 0 -8px; padding: 0 8px 0 calc(8px + 1.3em); text-indent: -1.3em;
+  border-radius: 14px; transition: background-color .25s;
+}
+.cr-verse > .cr-word { text-indent: 0; }
+.cr-verse.is-stanza-end { margin-bottom: .75em; }
+.cr-verse.is-cur { background: color-mix(in srgb, var(--amber-200) 38%, transparent); }
+.cr-verse.has-more::after { content: '⋯'; content: '⋯' / ''; margin-left: 4px; font-weight: 700; letter-spacing: 2px; color: var(--ink-4); }
+/* lettres cachées : la place du mot reste (un trait sous les lettres) ; elles reparaissent quand le mot est dit */
+.cr-word .cr-hid {
+  color: transparent; text-decoration-line: underline; text-decoration-thickness: 3px; text-underline-offset: 6px; text-decoration-skip-ink: none;
+  text-decoration-color: color-mix(in srgb, var(--ink-3) 60%, transparent); transition: color .3s;
+}
+.cr-word.is-shown .cr-hid { color: inherit; text-decoration-color: transparent; }
+.cr-word.m-gone:not(.is-shown) { display: none; }
+@media (min-width: 900px) {
+  .cr-poem-box { width: 100%; max-width: 560px; margin: auto; padding: 24px 28px 26px; }
+  .cr-poem-t { font-size: 1.9rem; }
+  .cr-rung { width: 58px; height: 58px; font-size: 1.8rem; }
+  .cr-poem-text { font-size: 2.05rem; line-height: 1.95; }
+  .cr-poem-text.is-long { font-size: 1.8rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cr-rung.is-cur, .cr-helpme.is-nudge { animation: none; }
+}
+html.motion-soft .cr-rung.is-cur, html.motion-soft .cr-helpme.is-nudge { animation: none; }

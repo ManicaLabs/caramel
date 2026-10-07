@@ -327,7 +327,7 @@ Retour d'une famille (07/10/2026 : « soumettre des questions et exercices par r
 **« 🌱 Pas encore appris »** (`ctx.later`, §7.2) : après une première erreur, sous l'astuce ; jamais au CP, ni en défi ni avec un copain (modes `libre` et `balade`), une fois par partie, 3 familles en attente au plus, 2 reports de suite au plus (ensuite seul un parent peut) ; jamais sur une notion d'une année passée. Effet jusqu'au 1er du mois suivant, au moins 14 jours ; aucun effet sur θ, le radar, les médailles, Leitner, les 🍎 : l'item n'est pas rapporté et ne compte pas (la partie garde sa longueur). `profile.cal` (familles `axe:nom`, dates, compte, exemple ≤ 80 car., 30 entrées au plus) est effacé au changement de classe. Espace parents : carte « 🌱 Au fil de l'année » (rythme ; reports avec « Remettre maintenant » et alerte au 2e report de suite ; programme de la classe période par période, chaque famille « Selon le calendrier / Déjà vu en classe / Pas encore vu en classe »). Tests : `tests/calendar.test.mjs`.
 
 ### 5.7 bis Temps de jeu du jour (`js/core/playtime.js`, pur ; `js/ui/play-limit.js`) — v2.4
-Retour du parent du 07/10/2026 (« certains enfants ont passé 3 heures sur Caramel ; une limite d'une heure par défaut ; passé la limite, les jeux sont grisés et Caramel s'endort, il fait la sieste s'il fait jour »). Temps compté = temps actif des parties du jour (`history[].ms` écrit par la manche à la fin ou à l'abandon de chaque partie, défi et « Avec un copain » compris ; soins du compagnon exclus). `playState(profil, jour) → { limit, used, bonus, left, over, near (≤ 5 min), unlimited }` ; `settings.dailyMin` (30, 45, 60 par défaut, 90, 120, 0 = sans limite ; `normDailyMin` : valeur vide ou abîmée → 60, jamais « sans limite ») ; `profile.playBonus = { d, min }` (« Encore 15 minutes aujourd'hui », espace parents, cumulable dans la journée). La limite se vérifie quand un jeu va DÉMARRER : une partie commencée se finit toujours. Limite atteinte : la feuille des jeux grise ses tuiles sous « {N} se repose 💤 À demain ! », `launchStep` ne lance rien, `#/play`, `#/battle` et `#/duel` ramènent à l'accueil (lien direct, rechargement, Rejouer), le bilan n'offre plus que « Accueil 🏠 », `ctx.again()` rend false (`ctx.timeUp`, `ctx.restLine()`) ; au défi, les enfants au bout sont grisés (au moins deux éveillés). Accueil : « ⏳ Encore 5 minutes de jeu aujourd'hui » près de la fin ; puis bouton grisé « À demain ! 💤 » (🌙 le soir) qui dit « Tu as bien joué aujourd'hui ! {N} fait la sieste 💤 On rejoue demain. », « 🎲 Jeux » masqué. Le compagnon s'endort : sieste le jour, nuit le soir (`napOrNight` + `skyAt().phase` ; `renderCompanionCard` → `napCheck()`, `nap` ; `bringToLife(…, { sleep })`) ; la 1re fois du jour il bâille et s'endort devant l'enfant ; un toucher le réveille ≈ 45 s ; les soins restent possibles. Phrases enregistrées : groupe `repos` de `js/content/voice-lines.js`. Tests : `tests/playtime.test.mjs`.
+Retour du parent du 07/10/2026 (« certains enfants ont passé 3 heures sur Caramel ; une limite d'une heure par défaut ; passé la limite, les jeux sont grisés et Caramel s'endort, il fait la sieste s'il fait jour »). Temps compté = temps actif des parties du jour (`history[].ms` écrit par la manche à la fin ou à l'abandon de chaque partie, défi et « Avec un copain » compris ; soins du compagnon exclus). `playState(profil, jour) → { limit, used, bonus, left, over, near (≤ 5 min), unlimited }` ; `settings.dailyMin` (30, 45, 60 par défaut, 90, 120, 0 = sans limite ; `normDailyMin` : valeur vide ou abîmée → 60, jamais « sans limite ») ; `profile.playBonus = { d, min }` (« Encore 15 minutes aujourd'hui », espace parents, cumulable dans la journée). La limite se vérifie quand un jeu va DÉMARRER : une partie commencée se finit toujours. Limite atteinte : la feuille des jeux grise ses tuiles sous « {N} se repose 💤 À demain ! », `launchStep` ne lance rien, `#/play`, `#/battle` et `#/duel` ramènent à l'accueil (lien direct, rechargement, Rejouer), le bilan n'offre plus que « Accueil 🏠 », `ctx.again()` rend false (`ctx.timeUp`, `ctx.restLine()`) ; au défi, les enfants au bout sont grisés (au moins deux éveillés). Accueil : « ⏳ Encore 5 minutes de jeu aujourd'hui » près de la fin ; puis bouton grisé « À demain ! 💤 » (🌙 le soir) qui dit « Tu as bien joué aujourd'hui ! {N} fait la sieste 💤 On rejoue demain. », « 🎲 Jeux » masqué. Le compagnon s'endort : sieste le jour, nuit le soir (`napOrNight` + `skyAt().phase` ; `renderCompanionCard` → `napCheck()`, `nap` ; `bringToLife(…, { sleep })`) ; la 1re fois du jour il bâille et s'endort devant l'enfant ; un toucher le réveille ≈ 45 s ; les soins restent possibles. Phrases enregistrées : groupe `repos` de `js/content/voice-lines.js`. Tests : `tests/playtime.test.mjs`. **v2.6 — devoirs à part** (décision du parent du 08/10/2026) : la dictée et les poésies ne comptent pas (`isHomeworkEntry` : `g: 'dictee'`, `mode: 'poesie'`) et restent ouvertes quand la limite est atteinte (`homeworkOpen(profil, jeu)` : la dictée si une liste existe, la course si des poésies existent) — accueil : « 📝 Devoirs » à la place de « 🎲 Jeux » ; feuille des jeux : seules ces tuiles restent ouvertes ; coquille : mount et « Rejouer » permis ; la course n'ouvre plus que les poésies (« Les histoires reviennent demain ; ta poésie, elle, est toujours là 📜 »), les histoires attendent demain.
 
 ### 5.8 Radar (`js/core/radar-model.js`, pur) — CDC §4.2, §9
 ```js
@@ -425,6 +425,75 @@ export const axis = 'fr.fluence'
 export function gen(A, rng, opts) → item { kind: 'story', storyId, key: 'fr.fluence:<id>', A: story.lvl }
 ```
 Ids v11 **inchangés** (les ⭐ migrées y sont attachées). Mondes : « Premiers galops 🐣 », « Petit trot 🌱 », « Grand galop 🐎 », « Champion 🏆 », « Cavalier émérite 🎖️ », « Légende du ranch 🌟 ».
+
+### 6.3 bis Mes poésies (`js/content/poems.js`, pur) — v2.6
+Poésies tapées (ou collées) par un adulte dans l'espace parents (`js/ui/poems-parents.js`), lues puis apprises par cœur dans
+la course (§7). `profile.poems = [{ id, title, author?, text, created, stage (1-5), best (0-5), runs, last, done?, oov?, lex? }]`,
+facultatif : ≤ 12 poésies (la plus récente en tête), ≤ 3 000 caractères, ≤ 60 lignes, ≤ 400 mots (coupé en fin de vers) ;
+`normPoems` (dans `normalizeProfile`, idempotent, clés inconnues gardées) ; dans la sauvegarde du profil. `oov` (mots inconnus
+du micro) n'existe qu'avec `lex` (modèle Vosk du calcul, `LEX_ID`) : un autre modèle → revérifié par l'espace parents.
+`cleanPoemText` (un vers par ligne, une ligne vide entre strophes, ’, « », …, frTypo) ; `poemLayout(text)` → mots affichés,
+vers, strophes et `engineText` tel que `tokenize(engineText)` donne exactement un jeton par mot affiché (`layoutMatches`) ;
+`poemGrammar` : forme à apostrophe / trait d'union (« l'herbe », « dit-elle ») + forme collée v11 (« lherbe »), Vosk ignore
+celles qu'il ne connaît pas et `normalize` ramène sa réponse au mot attendu ; `oovWords(text, has)`, `poemProper(layout, oov)`
+(majuscule de début de vers ≠ prénom ; mots hors lexique validés par [unk]) ; étapes `STAGES` (📖 tout · 🙈 ≈ 1 mot sur 3, rimes
+d'abord · 🔤 premières lettres · 🗝️ 1er mot du vers · 🧠 rien), `maskFor` → 'show' | 'blank' | 'initial' | 'gone', `wordParts` ;
+`runVerdict` (≥ 85 % des mots et ≤ max(1, ⌈vers/8⌉) aides ; l'étape 1 ne compte pas les aides) ; `applyPoemRun(profile, id, run,
+today)` (dans `store.mutateProfile`) : progression (étape suivante si réussie, jamais de recul, `done` à la 5e), 🍎 d'effort
+(≈ 1 par vers dit, ≤ 10), minutes (compagnon, stats, semaine), série 🔥 (≥ moitié des mots), entrée d'historique
+`{ d, t, g: 'course', mode: 'poesie', n: 1, ok, hint, ms }` SANS `ax` ni `th` (temps de jeu du jour, « Cette semaine » ; aucun
+effet sur θ, radar, balade) ; aucun mot dit → rien. Tests : `tests/poesies.test.mjs`.
+
+Moteur vocal (§8.1) : **Lexique du micro sur l'appareil (`js/core/lexicon.js`, v2.6)** : Vosk ne reconnaît jamais un mot absent du lexique de son
+modèle. Pour une poésie tapée par l'adulte, le lexique est lu dans le modèle déjà sur l'appareil, sans rien télécharger : c'est
+la table de symboles OpenFst de `graph/Gr.fst` (octets 65 → 2,83 Mo du fichier, 135 769 mots), lue au fil de l'eau dans
+l'archive du cache 'vosk-model-v1' (DecompressionStream, arrêt dès la table lue, ≈ 29 Mo décompressés, ≈ 0,8 s sur PC), repli :
+Gr.fst extrait par vosk-browser dans IndexedDB ; jamais de réseau ni de base créée ; `null` si le modèle n'est pas encore là.
+Oublié 2 min après usage. `parseSymbols` / `lexiconFromTar` testés contre `tests/lexicon.mjs`. speech.js et course-engine.js
+ne changent pas.
+
+La course (§7) : Course (v2.6) : en mode libre, les poésies de `profile.poems` viennent en tête de la liste (« 📜 Ma poésie : <titre> », jamais
+d'étoile ni de cadenas). Page de la poésie (échelle des 5 étapes, un gros bouton), puis l'écran de lecture de la course en vers
+(`createRace(engineText)` ; fins de vers = pauses ; obstacles aux fins de strophe à l'étape 1 ; `proper` = `poemProper`),
+SANS Zip, chrono, combo, question, MCLM ni rapport à la manche ; masques selon l'étape, un mot caché reparaît quand il est dit ;
+« 💡 Montre-moi » (et le joker, jamais dépensé) montre le vers en cours ; 6 s sans mot nouveau → le bouton fait signe, sans
+voix. Fin : `applyPoemRun` puis bilan doux (« Étape suivante ▶ » ou « Encore une fois 🔄 », « 📚 Histoires »).
+
+### 6.3 ter La dictée de la semaine (`js/core/dictee.js`, pur ; `js/games/dictee.js`) — v2.6
+- **§1, arborescence**
+  - `js/core/dictee.js` : v2.6, la dictée de la semaine (module pur). Saisie de l'adulte → liste ; normalisation de `profile.dictee` ; ordre « à revoir d'abord » ; rituel « mot… phrase… mot » ; bilan.
+  - `js/content/fr/dictee.js` : générateur `fr.ortho` (le mot demandé, `measure: false`).
+  - `js/games/dictee.js` (avec `css/games/dictee.css`) : « La dictée de {N} ».
+  - `js/ui/dictee-parents.js` : carte « 📝 La dictée de la semaine » de l'espace parents.
+- **§2, données.** `dictee: { words: [{ w, s? }], d }` (v2.6, facultatif).
+  - `w` : 40 caractères au plus (lettres, ’, -, espaces) ; `s` : phrase facultative, 160 caractères au plus, avec majuscule et point ; `d` : jour de saisie.
+  - 1 à 20 mots, sans doublon (même mot en minuscules). Une liste vide fait disparaître le champ (`normDictee`).
+  - Le champ est dans les sauvegardes du profil, jamais dans le Défi ni dans « Avec un copain ».
+- **§5.5, Leitner.** Clé `fr.ortho:<mot en minuscules, accents gardés>`. « ✓ Juste » = juste du premier coup ; « ✗ À revoir » = boîte 1.
+- **§5.6, balade.** Le registre peut déclarer :
+  - `ready(profil)` : le jeu n'est éligible que si c'est vrai (la dictée : une liste existe) ;
+  - `due(profil, jour)` : nombre d'éléments à travailler, compté comme des clés Leitner dues pour la révision (au moins 4) ;
+  - `measure: false` : le jeu ne mesure pas son axe, il n'est donc pas exigé sur le radar.
+- **§5.7, manche.** Avec `item.measure === false`, θ ne bouge pas et il n'y a pas de filet (ni `adj` ni `assist`). Leitner, 🍎, minutes, historique et bloc de balade fonctionnent comme pour tout item.
+- **§7.1 et §7.2, jeux.**
+  - Un module de jeu peut exporter `praise(summary, g)`, la phrase du bilan (la coquille l'emploie à la place de la sienne).
+  - `ctx.voice.say(texte, { slow, content, line })` :
+    - `slow > 1` : plus lent ;
+    - `content` : le contenu du jeu, dit même si la lecture des consignes est sur Non, jamais sons coupés ;
+    - `line` : ce que 🔁 relit.
+  - `ctx.voice.prepareAll([{ text, slow }], { onStep, waitMs })` → `{ ok, done, total, why }`.
+  - `ctx.voice.free` vaut 'fluid', 'soon', 'tts' ou null.
+  - `ctx.voice.contentOn`.
+- **§7.4, tableau des jeux.** Ligne `dictee` : « La dictée de {N} », fr.ortho (sans mesure).
+  - La liste de la semaine est tapée par un adulte. Le jeu dicte « mot… phrase… mot » lentement, avec tout calculé d'avance par la voix fluide (sinon la voix du téléphone).
+  - L'enfant écrit sur papier et se corrige mot par mot (« ✓ Juste » ou « ✗ À revoir » puis recopie).
+  - Leitner ; à revoir en tête. Balade : 6, 8 ou 10 mots ; « 🎲 Jeux » : toute la liste.
+- **§8.8, voix.**
+  - `speak(t, { slow, content })` : `slow` donne voix fluide `length_scale` × `slow` et téléphone `rate` 0,95 / `slow` ; un clip garde son débit.
+  - `contentOn(profil)` ; `freeVoice()` ; `prepareAll` (avec une attente de la voix fluide qui démarre, au plus `waitMs`).
+  - `voice-fluid.request(texte, prio, lenteur)` : même texte à une autre lenteur = un autre son en cache.
+
+Espace parents (v2.6) : rubrique « Devoirs de la semaine » (`section('devoirs')`, entrée « Devoirs » de la barre) — cartes « 📝 La dictée de la semaine » (`js/ui/dictee-parents.js`) puis « 📜 Mes poésies » (`js/ui/poems-parents.js`).
 
 ## 7. Jeux
 

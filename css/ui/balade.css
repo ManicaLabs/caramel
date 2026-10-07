@@ -91,6 +91,8 @@
 .bl-pick-tile.is-rest { position: relative; filter: grayscale(.85); opacity: .6; box-shadow: none; }
 .bl-pick-tile.is-rest:active { transform: none; }
 .bl-pick-zz { position: absolute; top: 6px; right: 8px; font-size: 1.1rem; line-height: 1; }
+/* v2.6 : jeu qui attend un contenu de l'adulte (la dictée sans liste) : visible, un peu pâle, 🔒 dans le coin */
+.bl-pick-tile.is-wait { position: relative; opacity: .72; border-style: dashed; }
 .btn.play.is-rest {
   background: color-mix(in srgb, var(--ink-5) 20%, var(--card)); color: var(--ink-2); filter: none; opacity: 1;
   box-shadow: 0 6px 0 color-mix(in srgb, var(--ink-5) 55%, var(--card)), var(--shadow-1);

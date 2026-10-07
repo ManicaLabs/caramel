@@ -19,7 +19,7 @@
    - Rappels quotidiens (periodicsync 'caramel-daily', enregistré par js/core/notifs.js) et notificationclick. */
 
 /* ASSETS:START */
-const VERSION = '2.5.3';
+const VERSION = '2.6.0';
 const ASSETS = [
   'index.html',
   'manifest.webmanifest',
@@ -38,6 +38,7 @@ const ASSETS = [
   'css/base.css',
   'css/games/cloture.css',
   'css/games/course.css',
+  'css/games/dictee.css',
   'css/games/missions.css',
   'css/games/operations.css',
   'css/games/orchestre.css',
@@ -69,6 +70,7 @@ const ASSETS = [
   'js/content/calendar.js',
   'js/content/companion-data.js',
   'js/content/fr/conjug.js',
+  'js/content/fr/dictee.js',
   'js/content/fr/verbs.js',
   'js/content/index.js',
   'js/content/maths/faits.js',
@@ -76,6 +78,7 @@ const ASSETS = [
   'js/content/maths/operations.js',
   'js/content/maths/problemes.js',
   'js/content/maths/procedures.js',
+  'js/content/poems.js',
   'js/content/stories/cm2.js',
   'js/content/stories/index.js',
   'js/content/stories/legacy.js',
@@ -88,12 +91,14 @@ const ASSETS = [
   'js/core/battle-voice.js',
   'js/core/care.js',
   'js/core/debuglog.js',
+  'js/core/dictee.js',
   'js/core/duel.js',
   'js/core/economy.js',
   'js/core/family.js',
   'js/core/install.js',
   'js/core/leitner.js',
   'js/core/levels.js',
+  'js/core/lexicon.js',
   'js/core/manche.js',
   'js/core/mic-worklet.js',
   'js/core/migrate.js',
@@ -122,6 +127,7 @@ const ASSETS = [
   'js/games/cloture.js',
   'js/games/course-engine.js',
   'js/games/course.js',
+  'js/games/dictee.js',
   'js/games/index.js',
   'js/games/missions-logic.js',
   'js/games/missions.js',
@@ -142,6 +148,7 @@ const ASSETS = [
   'js/ui/companion-life.js',
   'js/ui/companion.js',
   'js/ui/diag.js',
+  'js/ui/dictee-parents.js',
   'js/ui/duel.js',
   'js/ui/famille.js',
   'js/ui/game-ctx.js',
@@ -156,6 +163,7 @@ const ASSETS = [
   'js/ui/onboarding.js',
   'js/ui/parents.js',
   'js/ui/play-limit.js',
+  'js/ui/poems-parents.js',
   'js/ui/preload.js',
   'js/ui/profiles.js',
   'js/ui/progres.js',

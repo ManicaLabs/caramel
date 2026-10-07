@@ -37,7 +37,7 @@ test('« une pomme », « un‿œuf », « neuf‿ans » : accords et liaisons p
 });
 
 test('branché : voix du téléphone (agree puis bigNumbers) et voix fluide (agree dans fluidText)', () => {
-  assert.match(SRC('js/ui/voice.js'), /tts\.speakResult\(bigNumbers\(agree\(t\)\)\)/);
+  assert.match(SRC('js/ui/voice.js'), /tts\.speakResult\(bigNumbers\(agree\(t\)\)(?:, opts)?\)/);
   assert.match(SRC('js/content/voice-lines.js'), /t = agree\(t\);/);
 });
 

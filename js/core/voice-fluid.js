@@ -36,8 +36,10 @@
    API :
      init({ version }) ; onRoute(route) ; onChange(fn) ; status() ; refresh() → Promise<status>
      download({ by: 'parent' | 'auto' }) → Promise<boolean> ; cancelDownload({ byParent }) ; retry() ; remove() ; boot()
-     autoCheck() ; ready() ; micWillStart() ; holdBoot(promesse) ; setMicProbe(fn) ; request(texte, prio) ; prepare(texte)
-     cancelQueue()
+     autoCheck() ; ready() ; micWillStart() ; holdBoot(promesse) ; setMicProbe(fn) ; request(texte, prio, lenteur?) ;
+     prepare(texte, prio?, lenteur?) ; cancelQueue()
+     v2.6 (la dictée) : lenteur > 1 = débit ralenti (length_scale × lenteur, 2 au plus) ; un segment { kind: 'piper', text,
+     slow } de play() est calculé à cette lenteur ; même texte à une autre lenteur = un autre son en cache.
      play(segments, { clipBuffer }) → Promise<{ ok, reason, heard }> ; stop() ; playing() ; settle()
      pur (testé) : supported, lowMemory, modest, connectionOf, deviceOf, autoDownload, calibrationVerdict,
        needsCalibration, sentencesOf, segmentsOf, routeOf, readState, writeState */
@@ -519,7 +521,9 @@ function pump() {
   const it = inflight = queue.shift();
   const p = engine;
   it.start = tnow();
-  Promise.resolve().then(() => p.synth(it.text)).then(r => {
+  /* v2.6 : débit ralenti (dictée) — length_scale × lenteur ; sinon les réglages du moteur (PARAMS) */
+  const opts = it.slow > 1 && lib && lib.PARAMS ? { params: { ...lib.PARAMS, length_scale: lib.PARAMS.length_scale * it.slow } } : undefined;
+  Promise.resolve().then(() => p.synth(it.text, opts)).then(r => {
     if (!r.sentences.length) throw new Error('rien à dire');
     it.pcm = joinPcm(r.sentences);
     it.rate = r.sentences[0].sampleRate;
@@ -533,36 +537,40 @@ function pump() {
     keptSec += it.dur;
     trim();
     it.resolve(it);
-  }, e => { if (items.get(it.text) === it) items.delete(it.text); it.reject(e); })
+  }, e => { if (items.get(it.key) === it) items.delete(it.key); it.reject(e); })
     .then(() => { if (inflight === it) inflight = null; if (it.prio !== LATER) lastUrgent = tnow(); pump(); });
 }
 /* texte pour Piper (fluidText) → Promise<morceau calculé> ; NOW : va être dit ; LATER : préparé à l'avance */
-export function request(text, prio = NOW) {
-  let it = items.get(text);
+/* v2.6 : slow > 1 = débit ralenti (la dictée : le mot dit lentement) ; même texte, autre lenteur = autre son */
+const slowOf = v => { const x = Number(v); return Number.isFinite(x) && x > 1 ? Math.min(2, Math.round(x * 100) / 100) : 1; };
+const keyOf = (text, slow) => (slow > 1 ? text + '\u0001' + slow : text);
+export function request(text, prio = NOW, slow = 1) {
+  const sl = slowOf(slow), key = keyOf(text, sl);
+  let it = items.get(key);
   if (it) {
-    items.delete(text); items.set(text, it);              /* le plus récent en dernier */
+    items.delete(key); items.set(key, it);                /* le plus récent en dernier */
     if (!it.done && prio < it.prio) it.prio = prio;
     if (prio !== LATER) lastUrgent = tnow();
     pump();
     return it.promise;
   }
   if (!engine) return Promise.reject(Object.assign(new Error('voix fluide pas prête'), { code: 'fluid' }));
-  it = { text, prio, seq: ++n, done: false, asked: tnow() };
+  it = { text, key, slow: sl, prio, seq: ++n, done: false, asked: tnow() };
   it.promise = new Promise((res, rej) => { it.resolve = res; it.reject = rej; });
   it.promise.catch(() => {});
-  items.set(text, it);
+  items.set(key, it);
   queue.push(it);
   if (prio !== LATER) lastUrgent = tnow();
   pump();
   return it.promise;
 }
-export function prepare(text, prio = LATER) {
+export function prepare(text, prio = LATER, slow = 1) {
   if (!ready() || !text) return;
   if (prio !== NEXT) {
     const s = readState();
     if (Number(s.rtf) > LIMITS.laterRtf) return;
   }
-  request(text, prio === NEXT ? NEXT : LATER);
+  request(text, prio === NEXT ? NEXT : LATER, slow);
 }
 /* vide la file (hush, changement d'écran) ; keepLater : garde ce qui est préparé à l'avance */
 export function cancelQueue({ keepLater = false } = {}) {
@@ -570,7 +578,7 @@ export function cancelQueue({ keepLater = false } = {}) {
     const it = queue[i];
     if (keepLater && it.prio !== NOW) continue;
     queue.splice(i, 1);
-    if (items.get(it.text) === it) items.delete(it.text);
+    if (items.get(it.key) === it) items.delete(it.key);
     it.reject(cancelled());
   }
 }
@@ -639,11 +647,11 @@ export function play(segments, { clipBuffer = null } = {}) {
       my.ac = ac;
       /* tout est demandé d'un coup, TOUT DE SUITE (avant ce que l'appelant prépare ensuite) : la file calcule dans l'ordre
          pendant que le début joue */
-      const calc = txt => request(txt, NOW).then(it => ({ buf: bufferOf(ac, it), a: it.a, b: it.b }));
+      const calc = (txt, slow) => request(txt, NOW, slow).then(it => ({ buf: bufferOf(ac, it), a: it.a, b: it.b }));
       /* un clip introuvable (hors ligne, jamais entendu) : sa phrase est calculée */
       const parts = list.map(sg => (sg.kind === 'clip'
         ? Promise.resolve().then(() => clipBuffer(sg.id)).catch(() => calc(fluidText(sg.text)))
-        : calc(sg.text)));
+        : calc(sg.text, sg.slow)));
       parts.forEach(p => p.catch(() => {}));
       if (!await resumeCtx(ac)) { my.finish(R(false, 'not-allowed')); return; }
       if (my.cancelled) return;

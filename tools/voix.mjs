@@ -54,7 +54,7 @@ export const MANIFEST = 'js/content/voice-manifest.js';
    ranch » (162 phrases, ≈ 1,5 Mo) et le déménagement — des phrases longues (≈ 10 Ko chacune), JAMAIS téléchargées
    d'avance (commonIds ne les compte pas) : chacune n'est chargée que la première fois qu'elle est dite. Hors précache,
    téléchargé phrase par phrase */
-export const BUDGET = 4.3 * 1024 * 1024;
+export const BUDGET = 5 * 1024 * 1024;   /* v2.6 : + la dictée et les poésies (≈ 35 phrases, ≈ 330 Ko), jamais téléchargées d'avance */
 const RATE = 22050;
 const ENC = Object.freeze(['-q:a', '9', '-cutoff', String(Math.round(7000 * YOUTH))]);   /* LAME V9, passe-bas 9,3 kHz */
 /* réglages Piper de l'échantillon validé par le parent (voix/1-siwis.mp3), voix d'enfant comprise (PARAMS.youth) */

@@ -29,5 +29,5 @@ test('🔊 / 🔇 posé en haut de l’accueil et de chaque jeu ; « Écouter en
   assert.match(SRC('js/ui/home.js'), /h\('header', \{ class: 'hm-head' \}, avaWrap, hello, soundBtn, themeBtn, lockBtn\)/);
   assert.match(SRC('js/ui/game-header.js'), /h\('div', \{ class: 'gh-row' \}, back, mid, listen, joker, sound\)/);
   assert.match(SRC('js/ui/voice.js'), /class: 'vx-ico', 'aria-hidden': 'true' \}, '🔁'\)/);
-  assert.match(SRC('js/ui/game-ctx.js'), /header\.setLine\(text, voice\.readAloud\(q\)\)/, '🔁 revient quand le son revient');
+  assert.match(SRC('js/ui/game-ctx.js'), /header\.setLine\((?:line \|\| )?text, voice\.readAloud\(q\)\)/, '🔁 revient quand le son revient');
 });

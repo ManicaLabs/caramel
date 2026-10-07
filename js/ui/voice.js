@@ -47,7 +47,16 @@
      test(texte?, { profile }) → Promise<{ ok, reason, diag, rec, tts }> : essai explicite pour l'espace parents — la voix
        enregistrée puis celle du téléphone (rec / tts : { ok, reason } ; diag : tts.diagnose()) ; profile : l'enfant
        nommé dans le texte (défaut : l'enfant actif)
-     listenButton(get, { label }) → bouton 🔁 rond de 48 px qui relit get() ; classe is-speaking pendant la lecture */
+     listenButton(get, { label }) → bouton 🔁 rond de 48 px qui relit get() ; classe is-speaking pendant la lecture
+   v2.6 — LA DICTÉE (js/games/dictee.js) : des mots libres, dits lentement, qui sont le CONTENU du jeu (pas une consigne) :
+     speak(texte, { slow, content }) : slow > 1 = débit ralenti (voix fluide : length_scale × slow ; voix du téléphone :
+       vitesse 0,95 / slow ; un clip garde son débit) ; content = dit même si « Lire les consignes » est sur Non, jamais
+       sons coupés (contentOn)
+     contentOn(profil) → booléen : sons activés et une voix possible
+     freeVoice() → 'fluid' (voix fluide prête) | 'soon' (en cache, elle démarre) | 'tts' (voix du téléphone) | null
+       (aucune voix ne sait dire un mot libre : la voix enregistrée n'a que des phrases fixes)
+     prepareAll([{ text, slow }], { onStep(fait, total), waitMs }) → Promise<{ ok, done, total, why }> : calcule TOUT à
+       l'avance par la voix fluide (« Je prépare ta dictée… »), en attendant au plus waitMs qu'elle démarre */
 
 import { h, frTypo } from '../core/util.js';
 import * as tts from '../core/tts.js';
@@ -70,6 +79,10 @@ const soundOn = profile => !(profile && profile.settings && profile.settings.sou
 const canSpeak = () => clips.supported() || tts.ttsAvailable();
 export function voiceOn(profile = getProfile()) {
   try { return readAloud(profile) && soundOn(profile) && !audio.isMuted() && canSpeak(); } catch (_) { return false; }
+}
+/* v2.6 : le CONTENU d'un jeu (les mots de la dictée) se dit même si la lecture des consignes est sur Non ; jamais sons coupés */
+export function contentOn(profile = getProfile()) {
+  try { return soundOn(profile) && !audio.isMuted() && canSpeak(); } catch (_) { return false; }
 }
 /* 🔁 montré : la lecture est activée, les sons aussi, et une voix est possible (v2.4 : sons coupés, le 🔇 du haut de
    l'écran dit « silence » ; avant, 🔊 lisait quand même) */
@@ -185,12 +198,13 @@ function trace(via, text, ids) {
 let speakingBtn = null;
 let seq = 0;
 const stopFluid = () => { try { fluid.stop(); } catch (_) {} };
-function viaTts(t) {
+function viaTts(t, slow = 1) {
   trace('téléphone', t);
   clips.stop();
   stopFluid();
   let p;
-  try { p = tts.speakResult(bigNumbers(agree(t))); } catch (_) { p = Promise.resolve({ ok: false, reason: 'error:speak', heard: false }); }   /* « une pomme », « un‿œuf », « mille » */
+  const opts = slow > 1 ? { rate: Math.max(0.5, 0.95 / slow) } : undefined;   /* v2.6 : la dictée, plus lente */
+  try { p = tts.speakResult(bigNumbers(agree(t)), opts); } catch (_) { p = Promise.resolve({ ok: false, reason: 'error:speak', heard: false }); }   /* « une pomme », « un‿œuf », « mille » */
   return Promise.resolve(p).then(r => { ttsDown = failed(r); if (r && r.ok) said.tts++; return r; });
 }
 /* clips (un seul, composés, ou phrases couvertes seules) */
@@ -203,11 +217,12 @@ function viaClips(pl, via, t) {
   return p.then(r => { if (r.ok) said[via === 'partiel' ? 'partial' : 'rec']++; return r; });
 }
 /* voix fluide : chaque phrase qu'un clip couvre reste ce clip, les autres sont calculées (ou déjà prêtes) */
-function viaFluid(text, t) {
+function viaFluid(text, t, slow = 1) {
   try { if (tts.isSpeaking()) tts.stopSpeaking(); } catch (_) {}
   clips.stop();
   let segs = [];
   try { segs = fluid.segmentsOf(text, { has: clips.has, clipsOk: clips.supported() }); } catch (_) { segs = []; }
+  if (slow > 1) segs = segs.map(sg => (sg.kind === 'piper' ? { ...sg, slow } : sg));
   trace('fluide', t, segs.map(sg => (sg.kind === 'clip' ? sg.id : '≈')));
   try { fluid.cancelQueue({ keepLater: true }); } catch (_) {}      /* la phrase d'avant, coupée, ne passe plus devant */
   const p = fluid.play(segs, { clipBuffer: clips.buffer });
@@ -217,11 +232,12 @@ function viaFluid(text, t) {
 const stopped = r => !!r && (r.ok || r.reason === 'cancelled');
 const NO = { ok: false, reason: 'cancelled', heard: false };
 /* → Promise<résultat { ok, reason, heard } | null> (null : rien n'a été tenté) */
-function attempt(text, { force = false } = {}) {
+function attempt(text, { force = false, slow = 1, content = false } = {}) {
   const t = speakable(text);
   if (!t) return Promise.resolve(null);
-  if (!force && !voiceOn()) return Promise.resolve(null);
+  if (!force && !(content ? contentOn() : voiceOn())) return Promise.resolve(null);
   if (micOpen() || !activated()) return Promise.resolve(null);
+  const sl = Number(slow) > 1 ? Math.min(2, Number(slow)) : 1;
   watchPage();
   const my = ++seq;
   const pl = planFor(text);
@@ -230,23 +246,23 @@ function attempt(text, { force = false } = {}) {
   const how = fluid.routeOf({ plan: pl, named: namedIn(pl), fluid: fluidOk(), tts: ttsOk(), whole: wholeIn(pl) });
   const live = () => my === seq && !micOpen();
   /* sans voix du téléphone : les clips (composés, ou les phrases couvertes seules), sinon un dernier essai du téléphone */
-  const lastResort = () => (pl && pl.ok ? viaClips(pl, 'clips', t) : pl && pl.clips.length ? viaClips(pl, 'partiel', t) : viaTts(t));
+  const lastResort = () => (pl && pl.ok ? viaClips(pl, 'clips', t) : pl && pl.clips.length ? viaClips(pl, 'partiel', t) : viaTts(t, sl));
   let run;
   if (how === 'clip') {
     /* clip introuvable (hors ligne, jamais entendu) : la voix fluide le calcule (même voix), sinon le téléphone */
-    const tel = r => (stopped(r) || my !== seq ? r : !live() ? NO : viaTts(t));
-    run = viaClips(pl, 'clip', t).then(r => (stopped(r) || my !== seq ? r : !live() ? NO : fluidOk() ? viaFluid(text, t).then(tel) : viaTts(t)));
+    const tel = r => (stopped(r) || my !== seq ? r : !live() ? NO : viaTts(t, sl));
+    run = viaClips(pl, 'clip', t).then(r => (stopped(r) || my !== seq ? r : !live() ? NO : fluidOk() ? viaFluid(text, t, sl).then(tel) : viaTts(t, sl)));
   } else if (how === 'fluid') {
-    run = viaFluid(text, t).then(r => (stopped(r) || my !== seq ? r : !live() ? NO : ttsOk() ? viaTts(t) : lastResort()));
+    run = viaFluid(text, t, sl).then(r => (stopped(r) || my !== seq ? r : !live() ? NO : ttsOk() ? viaTts(t, sl) : lastResort()));
   } else if (how === 'tts') {
-    run = viaTts(t).then(r => (!failed(r) || !live() || !pl || !pl.clips.length ? r : viaClips(pl, pl.ok ? 'clips' : 'partiel', t)));
+    run = viaTts(t, sl).then(r => (!failed(r) || !live() || !pl || !pl.clips.length ? r : viaClips(pl, pl.ok ? 'clips' : 'partiel', t)));
   } else {
     run = viaClips(pl, how === 'partial' ? 'partiel' : 'clips', t).then(r => (stopped(r) || my !== seq ? r : !live() ? NO
-      : how === 'clips' ? viaTts(t) : r));                 /* clip introuvable : la voix du téléphone, si elle revient */
+      : how === 'clips' ? viaTts(t, sl) : r));             /* clip introuvable : la voix du téléphone, si elle revient */
   }
   return run.then(judge, () => null);
 }
-export function speak(text, opts) {
+export function speak(text, opts) {   /* opts : { force, slow, content } */
   const my = seq + 1;
   return attempt(text, opts).then(r => !!(r && r.ok && my === seq));
 }
@@ -295,6 +311,51 @@ function prep(texts, prio) {
 }
 export function prepare(...texts) { prep(texts, fluid.LATER); }
 export function prepareNext(...texts) { prep(texts, fluid.NEXT); }
+
+/* ---------- v2.6 : la dictée (des mots libres, dits lentement, préparés d'avance) ---------- */
+/* quelle voix sait dire un mot libre ? */
+export function freeVoice() {
+  try {
+    if (fluidOk()) return 'fluid';
+    const st = fluid.status();
+    if (['cached', 'starting', 'calibrating'].includes(st.state) && !st.parked && audio.audioSupported()) return 'soon';
+    if (tts.ttsAvailable() && !ttsDown) return 'tts';
+  } catch (_) {}
+  return null;
+}
+/* attend que la voix fluide soit prête (au plus ms) → booléen */
+function fluidWithin(ms) {
+  if (fluidOk()) return Promise.resolve(true);
+  return new Promise(res => {
+    let done = false, off = () => {};
+    const end = v => { if (done) return; done = true; clearTimeout(t); try { off(); } catch (_) {} res(v); };
+    const t = setTimeout(() => end(fluidOk()), Math.max(0, ms));
+    try { off = fluid.onChange(st => { if (fluidOk()) end(true); else if (!['cached', 'starting', 'calibrating'].includes(st.state)) end(false); }); } catch (_) {}
+    try { if (fluid.status().state === 'cached' && typeof fluid.boot === 'function') fluid.boot(); } catch (_) {}
+  });
+}
+/* tout calculer avant de commencer : list = [{ text, slow }] ; onStep(fait, total) à chaque phrase prête
+   → { ok, done, total, why: '' | 'not-ready' | 'off' | 'error' } (sans voix fluide : rien à préparer, la voix du
+   téléphone parlera en direct) */
+export async function prepareAll(list, { onStep, waitMs = 15000 } = {}) {
+  const items = (Array.isArray(list) ? list : []).filter(x => x && x.text);
+  if (!contentOn()) return { ok: false, done: 0, total: 0, why: 'off' };
+  if (!fluidOk() && !(await fluidWithin(waitMs))) return { ok: false, done: 0, total: 0, why: 'not-ready' };
+  const jobs = [];
+  for (const x of items) {
+    const sl = Number(x.slow) > 1 ? Math.min(2, Number(x.slow)) : 1;
+    let segs = [];
+    try { segs = fluid.segmentsOf(x.text, { has: clips.has, clipsOk: clips.supported() }); } catch (_) { segs = []; }
+    for (const sg of segs) if (sg.kind === 'piper') jobs.push([sg.text, sl]);
+  }
+  const total = jobs.length;
+  let done = 0, bad = 0;
+  const step = () => { try { if (typeof onStep === 'function') onStep(done, total); } catch (_) {} };
+  step();
+  await Promise.all(jobs.map(([txt, sl]) => fluid.request(txt, fluid.NEXT, sl).then(() => {}, () => { bad++; })
+    .then(() => { done++; step(); })));
+  return { ok: !bad, done, total, why: bad ? 'error' : '' };
+}
 
 /* essai explicite (espace parents) : la phrase est dite même si le réglage ou les sons de l'enfant l'interdisent —
    d'abord par la voix enregistrée (sans le prénom), puis par la voix du téléphone. profile : l'enfant dont le prénom et

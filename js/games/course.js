@@ -27,15 +27,27 @@
    v2.2.3 (retour terrain : le micro décroche) : santé du micro (js/core/speech.js, onHealth) : micro muet (le moteur le
    rouvre lui-même, sans perdre la lecture) ou moteur en retard (téléphone lent) qui dure 1,5 s → micro barré et une
    phrase sous le micro ; journal de diagnostic (début, arrivée, erreurs).
+   v2.6 — « 📜 Mes poésies » (demande du parent du 07/10/2026 ; js/content/poems.js) : en mode libre, les poésies tapées
+   par l'adulte (espace parents) viennent en tête de la liste (« 📜 Ma poésie : <titre> ») ; une poésie a sa page (titre,
+   échelle des 5 étapes, UN gros bouton) puis se lit comme une histoire, en vers (le compagnon avance, obstacles aux fins
+   de strophe à l'étape 1 seulement), SANS Zip, chrono, étoiles, question, MCLM ni θ : c'est un entraînement. Étapes
+   « par cœur » 2 à 5 : le texte s'efface (mots cachés, premières lettres, débuts de vers, rien), chaque mot reparaît
+   quand l'enfant le dit ; « 💡 Montre-moi » (et le joker, sans le dépenser) montre le vers en cours ; un vers resté
+   bloqué 6 s fait signe au bouton, sans un mot (le micro écoute : Caramel se tait). Même moteur (course-engine.js,
+   inchangé) : grammaire poemGrammar (formes avec apostrophe et trait d'union), mots hors lexique et noms propres
+   validables par [unk] (poemProper). Fin : applyPoemRun dans store.mutateProfile (progression de la poésie, 🍎 d'effort,
+   minutes, série, historique sans axe) — pas de rapport à la manche ; bilan doux, puis étape suivante ou « Encore ».
    Styles : css/games/course.css (préfixe .cr-). */
 
-import { h, clear, frTypo, buzz } from '../core/util.js';
+import { h, clear, frTypo, buzz, dayStr } from '../core/util.js';
 import * as dl from '../core/debuglog.js';
+import * as store from '../core/store.js';
 import { mclmTarget } from '../core/levels.js';
 import { MOUNTS, inWater } from '../content/companion-data.js';
 import {
   STORIES, WORLDS, OOV, storyById, storyIndex, storiesOf, isUnlocked, totalStarsOf, classBonus, itemFor
 } from '../content/stories/index.js';
+import * as PO from '../content/poems.js';
 import * as E from './course-engine.js';
 
 const NNBSP = '\u202f';                                    /* espace fine insécable */
@@ -68,6 +80,30 @@ const TXT = {
   /* attente du moteur vocal (1er téléchargement, ≈ 48 Mo, normalement fait dès la 1re ouverture : js/core/preload.js) : une phrase d'enfant, la jauge montre l'avancée (D1-10) */
   dl: p => (p < 99 ? frTypo('Je me prépare à t’écouter… ') + p + NNBSP + '%' : frTypo('Presque prêt…'))
 };
+/* v2.6 — poésies : phrases fixes (dites par le compagnon : clips à enregistrer) */
+const POEM = {
+  pick: frTypo('Choisis ta poésie ou une histoire !'),
+  on1: frTypo('Je t’écoute… lis ta poésie ! 🎧'),
+  on: frTypo('Je t’écoute… récite ta poésie ! 🎧'),
+  mastered: frTypo('Tu la sais par cœur ! Récite-la encore pour ne pas l’oublier.'),
+  help: frTypo('Montre-moi'),
+  joker: frTypo('Lis à ton rythme, tout le texte est là 📖'),
+  read: frTypo('Bravo, tu as lu toute ta poésie !'),
+  passed: frTypo('Étape réussie, bravo !'),
+  top: frTypo('Tu sais ta poésie par cœur !'),
+  again: frTypo('Bel entraînement ! Chaque fois, ta poésie rentre un peu mieux.'),
+  lessHelp: frTypo('Bravo ! La prochaine fois, essaie avec un peu moins d’aide.'),
+  next: frTypo('Prochaine étape : '),
+  retry: frTypo('On refait cette étape quand tu veux.'),
+  empty: frTypo('Je ne t’ai pas entendu… On réessaie ? Parle bien fort ! 🎤')
+};
+/* piste des poésies : ciel lilas, pré fleuri ; aucun papillon (Zip est un papillon : il ne court pas ici) ; les tulipes 🌷
+   sont les obstacles des fins de strophe (étape 1) */
+const POEM_THEME = Object.freeze({
+  sky: ['#e9d5ff', '#faf5ff'], ground: ['#bbf7d0', '#86efac'], obstacle: '🌷',
+  decos: [{ e: '☁️', s: 1.7, top: 6, drift: 46 }, { e: '🎵', s: 1, top: 16, x: 70 }, { e: '🌼', s: 1.05, bot: 4, x: 24 }, { e: '🌱', s: 1, bot: 3, x: 58 }]
+});
+const POEM_STUCK_MS = 6000;                                /* vers bloqué : le bouton « Montre-moi » fait signe */
 const DL_HEAD = 'Je me prépare';
 const isDlText = t => String(t).startsWith(DL_HEAD) || t === TXT.dl(100);
 /* erreurs du micro sans remède pour l'enfant : écran « micro » (le réseau seulement avant le moindre mot entendu ;
@@ -159,13 +195,19 @@ function createCourse(root, ctx) {
   }
 
   /* ======================= CARTE DES HISTOIRES (mode libre) ======================= */
+  /* « Caramel se repose 💤 À demain ! Les histoires reviennent demain ; ta poésie, elle, est toujours là 📜 » */
+  function restStories() {
+    const base = typeof ctx.restLine === 'function' ? ctx.restLine() : '';
+    return (base ? base + ' ' : '') + 'Les histoires reviennent demain ; ta poésie, elle, est toujours là 📜';
+  }
   function showList(focusId) {
     endRace();
     const v = setView('list');
     const p = prof();
     ctx.setTitle(fill('La course de {N}'));
     ctx.onJoker(() => { ctx.kit.toast(frTypo('Choisis d’abord une histoire 📚')); return false; });
-    safe(() => ctx.voice.say(frTypo('Choisis une histoire !')));                 /* v2.2.1 : 🔊 jamais muet */
+    const poems = PO.poemsOf(p);                                                    /* v2.6 : ses poésies, en tête */
+    safe(() => ctx.voice.say(poems.length ? POEM.pick : frTypo('Choisis une histoire !')));   /* v2.2.1 : 🔊 jamais muet */
 
     const total = totalStarsOf(p);
     const have = total + classBonus(p && p.classe);
@@ -206,9 +248,22 @@ function createCourse(root, ctx) {
       sections.set(w.id, sec);
       return sec;
     });
+    /* v2.6 : « Mes poésies » avant les mondes (et avant leur barre) : jamais d'étoile ni de cadenas */
+    const poemSec = poems.length ? h('section', { class: 'cr-world cr-poems', 'data-world': 'poems', 'aria-label': 'Mes poésies' },
+      poems.length > 1 ? h('div', { class: 'cr-world-head' }, h('h2', { class: 'cr-world-title' }, 'Mes poésies ', ico('📜'))) : null,
+      h('div', { class: 'cr-cards' }, poems.map(x => {
+        const c = poemCard(x);
+        cards.set(x.id, c);
+        return c;
+      }))) : null;
     const status = h('p', { class: 'cr-engine' });
     const navWrap = h('div', { class: 'cr-nav-wrap' }, nav);
-    const scroller = h('div', { class: 'cr-list-scroll' }, intro, navWrap, worlds, status);
+    /* v2.6 : temps de jeu du jour atteint → les poésies seules (des devoirs, décision du parent du 08/10/2026), les histoires
+       attendent demain (cachées, une phrase le dit) */
+    const restP = ctx.timeUp ? h('p', { class: 'cr-rest cr-rest-list' }, frTypo(restStories())) : null;
+    if (ctx.timeUp) { navWrap.style.display = 'none'; for (const sec of worlds) sec.style.display = 'none'; if (poemSec) intro.style.display = 'none'; }
+    const scroller = h('div', { class: 'cr-list-scroll' }, intro, poemSec, restP, navWrap, worlds, status);
+    const above = poemSec || intro;
     v.appendChild(scroller);
 
     /* statut du moteur vocal en mots d'enfant, seulement pendant qu'il se prépare (rempli dès qu'une histoire a été
@@ -226,7 +281,7 @@ function createCourse(root, ctx) {
       let cur = WORLDS[0].id;
       for (const w of WORLDS) if (sections.get(w.id).offsetTop - scroller.scrollTop <= navH() + 24) cur = w.id;
       for (const [id, b] of navBtns) { b.classList.toggle('on', id === cur); b.setAttribute('aria-current', id === cur ? 'true' : 'false'); }
-      navWrap.classList.toggle('is-stuck', scroller.scrollTop > intro.offsetTop + intro.offsetHeight - 2);
+      navWrap.classList.toggle('is-stuck', scroller.scrollTop > above.offsetTop + above.offsetHeight - 2);
     };
     const onScroll = () => { if (!raf) raf = requestAnimationFrame(spy); };
     scroller.addEventListener('scroll', onScroll, { passive: true });
@@ -241,7 +296,9 @@ function createCourse(root, ctx) {
     /* point de départ : l'histoire qu'on vient de lire, sinon la dernière lue, sinon le monde de sa classe */
     const last = p && Array.isArray(p.mclm) && p.mclm.length ? p.mclm[p.mclm.length - 1].s : null;
     const fw = (focusId && worldOf(focusId)) || (last && worldOf(last)) || WORLDS.find(w => w.id === CLASS_WORLD[p && p.classe]) || WORLDS[0];
-    if (fw && fw !== WORLDS[0]) scroller.scrollTop = topOf(fw);
+    /* v2.6 : avec des poésies, on part du haut (elles sont en tête), sauf au retour d'une histoire */
+    const atPoems = poems.length && !(focusId && worldOf(focusId));
+    if (fw && fw !== WORLDS[0] && !atPoems) scroller.scrollTop = topOf(fw);
     spy();
     /* entrée en cascade des cartes visibles ; l'histoire qu'on vient de lire fait un petit « pop » */
     const visible = [...cards.values()].filter(c => {
@@ -279,8 +336,335 @@ function createCourse(root, ctx) {
     return card;
   }
 
+  /* ======================= MES POÉSIES (v2.6) ======================= */
+  /* les 5 étapes : réussies (vertes), en cours (anneau), à venir (grisées) ; popN : étape qui vient d'être réussie */
+  function ladder(x, cls = '', popN = 0) {
+    const pr = PO.progressOf(x);
+    return h('ol', { class: 'cr-ladder' + (cls ? ' ' + cls : ''), 'aria-label': pr.mastered ? 'Toutes les étapes sont réussies' : 'Étape ' + pr.stage + ' sur ' + PO.STAGE_MAX },
+      PO.STAGES.map(st => {
+        const done = st.n <= pr.best, cur = !pr.mastered && st.n === pr.stage;
+        return h('li', { class: 'cr-rung' + (done ? ' is-done' : cur ? ' is-cur' : '') + (st.n === popN ? ' is-new' : ''),
+          'aria-label': st.label + (done ? ', réussie' : cur ? ', en cours' : '') }, h('span', { class: 'cr-rung-e', 'aria-hidden': 'true' }, st.emoji));
+      }));
+  }
+  const stepTxt = pr => (pr.mastered ? 'par cœur !' : 'étape ' + pr.stage + ' sur ' + PO.STAGE_MAX);
+  /* carte « 📜 Ma poésie : <titre> » (liste des histoires) */
+  function poemCard(x) {
+    const pr = PO.progressOf(x);
+    return h('button', { type: 'button', class: 'cr-card cr-poem-card' + (pr.mastered ? ' is-done' : ''), 'data-poem': x.id,
+      'aria-label': frTypo('Ma poésie : ' + x.title + ', ' + stepTxt(pr)),
+      on: { click: () => { ctx.audio.tap(); showPoem(x.id); } } },
+      h('span', { class: 'cr-card-emoji', 'aria-hidden': 'true' }, '📜'),
+      h('span', { class: 'cr-card-mid' },
+        h('span', { class: 'cr-card-title' }, h('span', { class: 'cr-poem-kick' }, frTypo('Ma poésie : ')), x.title),
+        h('span', { class: 'cr-card-sub cr-poem-sub', 'aria-hidden': 'true' }, ladder(x, 'is-mini'), h('span', null, stepTxt(pr)))));
+  }
+
+  /* la page d'une poésie : titre, auteur, les 5 étapes, UN gros bouton (et « relire » dès l'étape 2) */
+  function showPoem(id) {
+    endRace();
+    const p = prof();
+    const x = PO.poemById(p, id);
+    if (!x) { showList(); return; }
+    const v = setView('poem');
+    const pr = PO.progressOf(x);
+    const st = PO.stageOf(pr.stage);
+    const line = pr.mastered ? POEM.mastered : frTypo(st.kid);
+    ctx.setTitle(frTypo('📜 ' + x.title));
+    ctx.progress(0, 0);
+    ctx.onJoker(() => { ctx.kit.toast(frTypo('Touche le gros bouton pour commencer 📜')); return false; });
+    const back = h('button', { type: 'button', class: 'cr-change cr-poem-back', on: { click: () => { ctx.audio.tap(); showList(x.id); } } },
+      h('span', { 'aria-hidden': 'true' }, '📚'), 'Histoires');
+    const go = h('button', { type: 'button', class: 'btn play block cr-poem-go', 'data-stage': String(pr.stage) },
+      h('span', null, pr.stage === 1 ? 'Je lis ma poésie' : 'Je récite'), h('span', { class: 'btn-play-ico', 'aria-hidden': 'true' }, '▶'));
+    go.addEventListener('click', () => { ctx.audio.tap(); openPoemRace(x.id, pr.stage); });
+    const reread = pr.stage > 1
+      ? h('button', { type: 'button', class: 'btn white block cr-poem-reread', on: { click: () => { ctx.audio.tap(); openPoemRace(x.id, 1); } } },
+        ico('📖'), ' Relire avec tout le texte')
+      : null;
+    const card = h('div', { class: 'cr-poem-box', role: 'group', 'aria-labelledby': 'cr-poem-t' },
+      h('div', { class: 'cr-poem-pet', 'aria-hidden': 'true', html: ctx.petSVG(wide() ? 118 : 92, pr.mastered ? 'joy' : '') }),
+      h('h2', { class: 'cr-poem-t read', id: 'cr-poem-t' }, x.title),
+      x.author ? h('p', { class: 'cr-poem-author' }, x.author) : null,
+      ladder(x),
+      h('p', { class: 'cr-poem-kicker' }, pr.mastered ? frTypo('🏆 Toutes les étapes sont réussies') : frTypo('Étape ' + pr.stage + ' sur ' + PO.STAGE_MAX + ' : ' + st.label.toLowerCase())),
+      h('p', { class: 'cr-poem-line' }, line),
+      h('div', { class: 'cr-poem-btns' }, go, reread));
+    v.append(h('div', { class: 'cr-poem-top' }, back), card);
+    ctx.motion.enter(card, { from: 'scale', dur: 320 });
+    ctx.announce(frTypo(x.title + '. ' + line));
+    safe(() => ctx.voice.say(line));
+    safe(() => go.focus({ preventScroll: true }));
+  }
+
+  /* une poésie à l'étape `stage` : l'écran de lecture de la course, en vers, sans Zip ni chrono */
+  function openPoemRace(id, stage) {
+    endRace();
+    const p = prof();
+    const x = PO.poemById(p, id);
+    if (!x || !p) { showList(); return; }
+    const L = PO.poemLayout(x.text);
+    const st = E.createRace(L.engineText);
+    if (!st.target.length) { showList(); return; }
+    const verseMode = PO.layoutMatches(L, st.target);      /* toujours vrai par construction ; sinon : texte entier, sans vers */
+    const sN = verseMode ? PO.stageOf(stage).n : 1;
+    const stg = PO.stageOf(sN);
+    const oov = x.lex && Array.isArray(x.oov) ? x.oov : [];
+    const n = st.target.length;
+    if (verseMode) {
+      for (const vv of L.verses) if (vv.to < n - 1) st.target[vv.to].pause = true;      /* fin de vers : une pause (diction) */
+      st.hurdles = new Set(sN === 1 ? L.verses.filter(vv => vv.stanzaEnd && vv.to < n - 1).map(vv => vv.to) : []);
+      st.proper = PO.poemProper(L, oov);                   /* majuscule de début de vers ≠ prénom ; mots hors lexique : [unk] */
+    } else {
+      st.hurdles = new Set();
+      for (const w of oov) st.proper.add(E.normalize(w));
+    }
+    const v = setView('race');
+    v.classList.add('is-poem', 'stage-' + sN);
+    micSaid = false;
+    const m = mountOf(p);
+    const r = race = {
+      kind: 'poem', poemId: x.id, stage: sN, layout: L, verseMode, mask: verseMode ? PO.maskFor(L, sN) : null,
+      helped: new Set(), shown: new Set(), revealAll: false, stuckAt: 0, lastProgress: 0,
+      s: { id: 'poesie', title: x.title, theme: POEM_THEME }, text: L.engineText, st, item: null, zip: 0, m, size: wide() ? 72 : 46,
+      timers: { race: 0, noResult: 0, finish: 0, quiz: 0 }, wake: null, starting: false, done: false,
+      dlShown: false, els: {}, wordEls: [], verseEls: [], hurdleEls: {}, view: v,
+      txt: { idle: frTypo(stg.mic), on: sN === 1 ? POEM.on1 : POEM.on },
+      grammar: () => PO.poemGrammar(st.target),
+      reopen: () => openPoemRace(id, sN)
+    };
+    safe(() => ctx.voice.say(frTypo(stg.mic)));         /* la consigne : 🔊 la relit tant que le micro n'est pas ouvert */
+    ctx.setTitle(frTypo('📜 ' + x.title));
+    ctx.progress(0, 0);
+    ctx.onJoker(() => {                                   /* le joker montre le vers, sans jamais être dépensé */
+      if (r.done) return false;
+      if (sN === 1) ctx.kit.toast(POEM.joker); else showVerse(r);
+      return false;
+    });
+
+    const change = h('button', { type: 'button', class: 'cr-change', on: { click: () => { ctx.audio.tap(); showPoem(id); } } },
+      h('span', { 'aria-hidden': 'true' }, '📜'), 'Ma poésie');
+    const { bar, mic, label, dlBar, dlFill, heard } = micBar(r, change);
+    const track = buildTrack(r);
+    if (r.els.fly) { r.els.fly.remove(); r.els.fly = null; }   /* pas de Zip */
+    const chip = h('span', { class: 'cr-stage' }, h('span', { 'aria-hidden': 'true' }, stg.emoji + ' '),
+      sN === 1 ? stg.label : frTypo('Étape ' + sN + ' sur ' + PO.STAGE_MAX));
+    const help = sN > 1
+      ? h('button', { type: 'button', class: 'cr-helpme', on: { click: () => { ctx.audio.tap(); showVerse(r); } } },
+        h('span', { 'aria-hidden': 'true' }, '💡 '), POEM.help)
+      : null;
+    const info = h('div', { class: 'cr-info cr-poem-info' }, chip, help);
+    const textEl = h('div', { class: 'cr-text read cr-poem-text' + (n > 120 ? ' is-long' : ''), tabindex: '0', role: 'region',
+      'aria-label': 'Texte de la poésie' });
+    buildPoemText(r, textEl);
+    const done = h('button', { type: 'button', class: 'btn cr-done', hidden: true, on: { click: () => finishRace(r) } }, 'J’ai fini ✓');
+    const textWrap = h('div', { class: 'cr-textwrap' }, textEl, done);
+    v.append(bar, track, info, textWrap);
+    Object.assign(r.els, { mic, label, dlBar, dlFill, heard, change, track, text: textEl, done, help });
+
+    prepareEngine(r);
+    renderPoem(r);
+    scrollPoem(r, false);
+    moveActor(r, 'pony', 0);
+    ctx.motion.enter(v, { from: 'fade', dur: 260 });
+    ctx.announce(frTypo(x.title + '. ' + stg.mic));
+  }
+  /* le texte en vers : une ligne par vers, un écart entre deux strophes ; lettres cachées selon l'étape (aria-hidden) */
+  function buildPoemText(r, textEl) {
+    const T = r.st.target;
+    if (!r.verseMode) {
+      r.wordEls = T.map(w => { const sp = h('span', { class: 'cr-word pending' }, w.raw); textEl.append(sp, ' '); return sp; });
+      return;
+    }
+    const L = r.layout;
+    r.wordEls = new Array(T.length);
+    r.verseEls = L.verses.map((vv, vi) => {
+      const line = h('div', { class: 'cr-verse' });
+      line.dataset.base = 'cr-verse' + (vv.stanzaEnd && vi < L.verses.length - 1 ? ' is-stanza-end' : '');
+      for (let i = vv.from; i <= vv.to; i++) {
+        const sp = h('span', { class: 'cr-word pending' }, PO.wordParts(L.tokens[i].raw, r.mask[i])
+          .map(pt => (pt.hid ? h('span', { class: 'cr-hid', 'aria-hidden': 'true' }, pt.t) : pt.t)));
+        r.wordEls[i] = sp;
+        line.append(sp);
+        if (i < vv.to) line.append(' ');
+      }
+      textEl.appendChild(line);
+      return line;
+    });
+  }
+  /* vers où se trouve le mot k (k = nombre de mots : le dernier vers) */
+  function verseAt(r, k) {
+    const V = r.layout ? r.layout.verses : [];
+    for (let i = 0; i < V.length; i++) if (k <= V[i].to) return i;
+    return Math.max(0, V.length - 1);
+  }
+  const poemShown = (r, i) => r.revealAll || r.mask[i] === 'show' || r.st.status[i] !== 'pending' || r.shown.has(i);
+  function renderPoem(r) {
+    const st = r.st, n = st.target.length;
+    if (!r.verseMode) {
+      for (let i = 0; i < n; i++) {
+        const cls = 'cr-word ' + st.status[i] + (i === st.progress && st.running ? ' current' : '');
+        if (r.wordEls[i].className !== cls) r.wordEls[i].className = cls;
+      }
+      return;
+    }
+    for (let i = 0; i < n; i++) {
+      let cls = 'cr-word ' + st.status[i] + ' m-' + r.mask[i] + (poemShown(r, i) ? ' is-shown' : '');
+      if (i === st.progress && st.running) cls += ' current';
+      if (r.wordEls[i].className !== cls) r.wordEls[i].className = cls;
+    }
+    const cur = st.running && !r.done ? verseAt(r, st.progress) : -1;
+    r.verseEls.forEach((el, vi) => {
+      const vv = r.layout.verses[vi];
+      let more = false;
+      for (let i = vv.from; i <= vv.to && !more; i++) if (r.mask[i] === 'gone' && !poemShown(r, i)) more = true;
+      const cls = el.dataset.base + (vi === cur ? ' is-cur' : '') + (more ? ' has-more' : '');
+      if (el.className !== cls) el.className = cls;
+    });
+  }
+  /* défilement : le vers en cours au tiers de la hauteur (mots invisibles des étapes 4-5 : pas de position propre) */
+  function scrollPoem(r, smooth = true) {
+    const boxEl = r.els.text;
+    if (!boxEl) return;
+    let el = null, top = 0;
+    if (r.verseMode) {
+      el = r.verseEls[verseAt(r, r.st.progress)];
+      if (!el) return;
+      top = el.offsetTop - boxEl.clientHeight / 3;
+    } else {
+      el = r.wordEls[Math.min(r.st.progress, r.wordEls.length - 1)];
+      if (!el) return;
+      top = el.offsetTop - boxEl.clientHeight / 2 + el.clientHeight / 2;
+    }
+    try { boxEl.scrollTo({ top, behavior: smooth && !reduced() ? 'smooth' : 'auto' }); } catch (_) { boxEl.scrollTop = top; }
+  }
+  /* « 💡 Montre-moi » : le vers en cours apparaît en entier (une aide par vers, comptée pour l'étape) */
+  function showVerse(r) {
+    if (!alive || race !== r || r.done || !r.verseMode) return;
+    const vi = verseAt(r, r.st.progress);
+    const vv = r.layout.verses[vi];
+    if (!vv) return;
+    let any = false;
+    for (let i = vv.from; i <= vv.to; i++) if (!poemShown(r, i)) { r.shown.add(i); any = true; }
+    if (r.els.help) r.els.help.classList.remove('is-nudge');
+    r.stuckAt = Date.now();
+    if (!any) { ctx.kit.toast(frTypo('Tout le vers est déjà là 🙂')); return; }
+    r.helped.add(vi);
+    renderPoem(r);
+    scrollPoem(r);
+    const el = r.verseEls[vi];
+    if (el) ctx.motion.pop(el, { scale: 1.03 });
+    ctx.announce(r.layout.tokens.slice(vv.from, vv.to + 1).map(t => t.raw).join(' '));
+  }
+  /* toutes les 250 ms pendant la récitation : un vers bloqué depuis POEM_STUCK_MS → « Montre-moi » fait signe (sans voix) */
+  function tickPoem(r) {
+    if (!alive || race !== r || closedUnderUs(r)) return;
+    if (r.done || !r.els.help) return;
+    const now = Date.now();
+    if (r.st.progress !== r.lastProgress || !r.stuckAt) {
+      r.lastProgress = r.st.progress;
+      r.stuckAt = now;
+      r.els.help.classList.remove('is-nudge');
+      return;
+    }
+    if (now - r.stuckAt >= POEM_STUCK_MS && r.st.progress < r.st.target.length) r.els.help.classList.add('is-nudge');
+  }
+  /* arrivée (ou « J'ai fini ») : progression écrite tout de suite, tout le texte montré, puis le bilan */
+  function finishPoem(r) {
+    if (!alive || race !== r || !r.st.running) return;
+    stopAll(r);
+    r.done = true;
+    r.timers.finish = drop(r.timers.finish);
+    const res = r.res = E.raceResult(r.st, Date.now());
+    const run = { stage: r.stage, read: res.correct, total: r.st.target.length, helps: r.helped.size,
+      verses: r.layout.verses.length, ms: res.elapsedMs };
+    dl.dlog('course', 'poésie : fin', { étape: r.stage, mots: run.total, lus: run.read, aides: run.helps });
+    const pid = prof() && prof().id;
+    let out = null;
+    try { store.mutateProfile(q => { out = PO.applyPoemRun(q, r.poemId, run, dayStr()); }, pid); }
+    catch (e) { console.error('course : poésie', e); }
+    r.poemRes = out || { ...PO.runVerdict(run), apples: 0 };
+    r.revealAll = true;
+    renderPoem(r);
+    r.els.done.hidden = true;
+    if (r.els.help) r.els.help.hidden = true;
+    setLabel(r, frTypo('🏁 Arrivée !'));
+    r.els.heard.textContent = '';
+    r.trot = drop(r.trot);
+    r.els.pony.innerHTML = ctx.petSVG(r.size, 'joy');
+    r.els.track.appendChild(h('div', { class: 'cr-arrival' }, h('span', null, frTypo('Arrivée !'))));
+    r.view.classList.add('is-done');
+    ctx.audio.success(4);
+    ctx.announce(frTypo('Arrivée !'));
+    r.timers.quiz = later(() => showPoemResults(r), reduced() ? 600 : 1400);
+  }
+  /* bilan doux : ce qui a été fait, jamais une note ; étape suivante, ou « Encore une fois » */
+  function showPoemResults(r) {
+    if (!alive || race !== r || r.resultsShown) return;
+    r.resultsShown = true;
+    r.timers.quiz = 0;
+    closeSheet();
+    const out = r.poemRes || {};
+    const res = r.res;
+    const x = PO.poemById(prof(), r.poemId);
+    const sN = r.stage;
+    const ok = !!out.ok;
+    const v = setView('res');
+    v.classList.add('is-poem');
+    ctx.onJoker(() => { ctx.kit.toast(frTypo('Bravo pour ton entraînement ! 🎉')); return false; });
+    const msg = out.empty ? POEM.empty
+      : out.mastered ? '🏆 ' + POEM.top
+      : ok && sN === 1 ? '📖 ' + POEM.read
+        : ok ? '🎉 ' + POEM.passed
+          : (out.ratio || 0) >= PO.PASS ? '💪 ' + POEM.lessHelp : '💪 ' + POEM.again;
+    const nx = x ? PO.stageOf(x.stage) : null;
+    const sub = ok && !out.mastered && nx && x.stage > sN ? POEM.next + nx.emoji + ' ' + nx.label.toLowerCase()
+      : !ok && !out.empty ? POEM.retry : '';
+    let applesTxt = '🍎 +' + (out.apples || 0) + ((out.apples || 0) > 1 ? ' pommes' : ' pomme');
+    if (out.streakBonus) {
+      const c = Number.isFinite(out.streakCount) ? out.streakCount : 0;
+      applesTxt += ' · ' + (c > 1 ? '🔥 ' + c + ' jours de suite : +' : '🔥 Premier jour de ta série : +') + out.streakBonus + NBSP + '🍎';
+    }
+    const clean = w => String(w).replace(/^[^\p{L}0-9]+|[^\p{L}0-9]+$/gu, '') || String(w);
+    const missed = res.missed.length
+      ? [frTypo('Mots à revoir : '), h('b', null, res.missed.slice(0, 6).map(clean).join(' · '))]
+      : frTypo('💯 Tu as dit tous les mots !');
+    const boxEl = h('div', { class: 'cr-res-box cr-poem-res', tabindex: '-1', role: 'group', 'aria-label': 'Fin de la poésie' },
+      h('div', { class: 'cr-res-mount', 'aria-hidden': 'true', html: ctx.petSVG(wide() ? 120 : 84, 'joy') }),
+      x ? ladder(x, 'is-res', out.passed ? sN : 0) : null,
+      h('p', { class: 'cr-res-msg' }, frTypo(msg)),
+      sub ? h('p', { class: 'cr-res-race' }, frTypo(sub)) : null,
+      out.apples || out.streakBonus ? h('p', { class: 'cr-res-apples' }, frTypo(applesTxt)) : null,
+      res.correct > 0 ? h('div', { class: 'cr-stats' }, h('div', { class: 'cr-stat' },
+        h('div', { class: 'cr-stat-v' }, String(res.correct)), h('div', { class: 'cr-stat-l' }, res.correct > 1 ? 'mots retrouvés' : 'mot retrouvé'))) : null,
+      out.empty ? null : h('p', { class: 'cr-res-missed read' }, missed));
+    const id = r.poemId;
+    let actions;
+    {                                               /* v2.6 : une poésie est un devoir, jamais arrêtée par le temps de jeu */
+      const main = ok && !out.mastered
+        ? h('button', { type: 'button', class: 'btn play wide cr-next', on: { click: () => { ctx.audio.tap(); showPoem(id); } } },
+          h('span', null, 'Étape suivante'), h('span', { class: 'btn-play-ico', 'aria-hidden': 'true' }, '▶'))
+        : h('button', { type: 'button', class: 'btn play wide cr-next', on: { click: () => { ctx.audio.tap(); openPoemRace(id, sN); } } },
+          h('span', null, out.mastered ? 'Réciter encore' : 'Encore une fois'), h('span', { class: 'btn-play-ico', 'aria-hidden': 'true' }, '🔄'));
+      actions = [main, h('button', { type: 'button', class: 'btn pink wide', on: { click: () => { ctx.audio.tap(); showList(id); } } }, '📚 Histoires')];
+    }
+    v.append(boxEl, h('div', { class: 'cr-actions' }, actions));
+    ctx.motion.enter(boxEl, { from: 'bottom', dist: 16, dur: 420 });
+    const rung = boxEl.querySelector('.cr-rung.is-new');
+    if (rung) later(() => ctx.motion.pop(rung, { scale: 1.3 }), 380);
+    if (out.mastered) { ctx.audio.fanfare(); ctx.motion.confetti(); }
+    else if (out.passed) { ctx.audio.fanfare(); }
+    else ctx.audio.beep(784, 0.2, 0.12);
+    const said = frTypo(msg + (sub ? ' ' + sub : ''));
+    ctx.announce(said);
+    safe(() => ctx.voice.say(said));
+    safe(() => boxEl.focus({ preventScroll: true }));
+  }
+
   /* ======================= LA COURSE (écran de lecture v11) ======================= */
   function openStory(s, item) {
+    /* v2.6 : temps de jeu du jour atteint → seules les poésies (des devoirs) s'ouvrent ; une histoire attend demain */
+    if (ctx.timeUp) { safe(() => ctx.kit.toast(frTypo(restStories()))); return; }
     endRace();
     const p = prof();
     if (!s || !p) { showList(); return; }
@@ -292,9 +676,13 @@ function createCourse(root, ctx) {
     micSaid = false;
     safe(() => ctx.voice.say(TXT.go));                /* la consigne (v2.2.1) : 🔊 la relit tant que la lecture n'a pas commencé */
     const r = race = {
-      s, text, st, item: item || itemFor(s), zip: zipFor(s, p), m, size: wide() ? 72 : 46,
+      kind: 'story', s, text, st, item: item || itemFor(s), zip: zipFor(s, p), m, size: wide() ? 72 : 46,
       timers: { race: 0, noResult: 0, finish: 0, quiz: 0 }, wake: null, starting: false, done: false,
-      dlShown: false, els: {}, wordEls: [], hurdleEls: {}, view: v
+      dlShown: false, els: {}, wordEls: [], hurdleEls: {}, view: v,
+      /* v2.6 : ce qui diffère d'une poésie (libellés du micro, grammaire, réouverture après l'écran « micro ») */
+      txt: { idle: TXT.idle, on: TXT.on },
+      grammar: () => E.grammarOf(st.target).concat(E.elisionsOf(st.target)),   /* v2.5 : « l'ours » (monture élidée) */
+      reopen: () => openStory(s, item)
     };
     ctx.setTitle(fill(s.title));
     ctx.progress(0, 0);
@@ -304,18 +692,10 @@ function createCourse(root, ctx) {
     });
 
     /* barre du micro */
-    const mic = h('button', { type: 'button', class: 'cr-mic', 'aria-label': 'Micro : commencer à lire', 'aria-pressed': 'false',
-      on: { click: () => micTap(r) } }, h('span', { 'aria-hidden': 'true' }, '🎤'));
-    const label = h('p', { class: 'cr-mic-label' }, TXT.idle);
-    /* jauge du 1er téléchargement du moteur (D1-10) : visible seulement pendant l'attente */
-    const dlFill = h('span', { class: 'cr-dl-fill' });
-    const dlBar = h('span', { class: 'cr-dl', role: 'progressbar', 'aria-label': 'Je me prépare à t’écouter', 'aria-valuemin': '0', 'aria-valuemax': '100', hidden: true }, dlFill);
-    const heard = h('p', { class: 'cr-heard', 'aria-hidden': 'true' });
     const change = ctx.mode === 'balade' ? null
       : h('button', { type: 'button', class: 'cr-change', on: { click: () => { ctx.audio.tap(); showList(s.id); } } },
         h('span', { 'aria-hidden': 'true' }, '📚'), 'Changer d’histoire');
-    if (change) heard.hidden = true;
-    const bar = h('div', { class: 'cr-bar' }, mic, h('div', { class: 'cr-bar-txt' }, label, dlBar, heard, change));
+    const { bar, mic, label, dlBar, dlFill, heard } = micBar(r, change);
 
     /* piste, infos, texte */
     const track = buildTrack(r);
@@ -336,7 +716,31 @@ function createCourse(root, ctx) {
     v.append(bar, track, info, textWrap);
     Object.assign(r.els, { mic, label, dlBar, dlFill, heard, change, track, streak, timer, zip, text: textEl, done });
 
-    /* le moteur se prépare dès l'ouverture de l'histoire (v11 : openStory → ensureVosk) */
+    prepareEngine(r);
+    renderText(r);
+    scrollToCurrent(r, false);
+    moveActor(r, 'pony', 0);
+    moveActor(r, 'fly', 0);
+    ctx.motion.enter(v, { from: 'fade', dur: 260 });
+    ctx.announce(frTypo(fill(s.title) + '. Touche le micro, puis lis l’histoire à voix haute.'));
+  }
+
+  /* barre du micro (v11) : bouton, libellé, jauge du 1er téléchargement du moteur (D1-10, visible seulement pendant
+     l'attente), ligne 👂 (cachée tant que le bouton « changer » est là) */
+  function micBar(r, change) {
+    const mic = h('button', { type: 'button', class: 'cr-mic', 'aria-label': 'Micro : commencer à lire', 'aria-pressed': 'false',
+      on: { click: () => micTap(r) } }, h('span', { 'aria-hidden': 'true' }, '🎤'));
+    const label = h('p', { class: 'cr-mic-label' }, r.txt.idle);
+    const dlFill = h('span', { class: 'cr-dl-fill' });
+    const dlBar = h('span', { class: 'cr-dl', role: 'progressbar', 'aria-label': 'Je me prépare à t’écouter', 'aria-valuemin': '0', 'aria-valuemax': '100', hidden: true }, dlFill);
+    const heard = h('p', { class: 'cr-heard', 'aria-hidden': 'true' });
+    if (change) heard.hidden = true;
+    const bar = h('div', { class: 'cr-bar' }, mic, h('div', { class: 'cr-bar-txt' }, label, dlBar, heard, change));
+    return { bar, mic, label, dlBar, dlFill, heard };
+  }
+  /* le moteur se prépare dès l'ouverture du texte (v11 : openStory → ensureVosk) ; permission du micro déjà refusée, ou
+     aucune reconnaissance possible ici : l'écran « micro » tout de suite */
+  function prepareEngine(r) {
     try {
       const pr = ctx.speech.ensureVosk(pct => {
         if (!alive || race !== r || r.st.running) return;
@@ -347,18 +751,10 @@ function createCourse(root, ctx) {
       if (pr && typeof pr.then === 'function') pr.then(() => {
         if (!alive || race !== r) return;
         showDl(r, null);
-        if (r.dlShown && !r.st.running && !r.starting && !r.done) setLabel(r, TXT.idle);
+        if (r.dlShown && !r.st.running && !r.starting && !r.done) setLabel(r, r.txt.idle);
       }, () => { if (alive && race === r) showDl(r, null); });
     } catch (_) {}
-    /* permission du micro déjà refusée, ou aucune reconnaissance possible ici : l'écran « micro » tout de suite */
     precheckMic().then(code => { if (code && alive && race === r && !r.st.running && !r.starting && !r.done) showMicProblem(r, code); });
-
-    renderText(r);
-    scrollToCurrent(r, false);
-    moveActor(r, 'pony', 0);
-    moveActor(r, 'fly', 0);
-    ctx.motion.enter(v, { from: 'fade', dur: 260 });
-    ctx.announce(frTypo(fill(s.title) + '. Touche le micro, puis lis l’histoire à voix haute.'));
   }
 
   /* décor thématique de la piste (applyTheme v11) + obstacles + acteurs */
@@ -419,6 +815,7 @@ function createCourse(root, ctx) {
     if (which === 'pony' && r.els.spark) r.els.spark.style.left = left;
   }
   function scrollToCurrent(r, smooth = true) {
+    if (r.kind === 'poem') { scrollPoem(r, smooth); return; }
     const el = r.wordEls[Math.min(r.st.progress, r.wordEls.length - 1)];
     const boxEl = r.els.text;
     if (!el || !boxEl) return;
@@ -426,6 +823,7 @@ function createCourse(root, ctx) {
     try { boxEl.scrollTo({ top, behavior: smooth && !reduced() ? 'smooth' : 'auto' }); } catch (_) { boxEl.scrollTop = top; }
   }
   function renderText(r) {
+    if (r.kind === 'poem') { renderPoem(r); return; }
     const st = r.st;
     for (let i = 0; i < st.target.length; i++) {
       let cls = 'cr-word ' + st.status[i];
@@ -489,7 +887,7 @@ function createCourse(root, ctx) {
     let res = null;
     try {
       res = await ctx.speech.startListening({
-        grammar: E.grammarOf(r.st.target).concat(E.elisionsOf(r.st.target)),   /* v2.5 : « l'ours » (monture élidée) */
+        grammar: r.grammar(),                         /* histoire : grammaire v11 + élisions (v2.5) ; poésie : poemGrammar (v2.6) */
         keepVoice: true,                              /* v2.2.3 : moteur en retard, la voix lue n'est jamais écartée */
         onText: t => ingest(r, t),
         onError: (code, msg) => {
@@ -512,13 +910,13 @@ function createCourse(root, ctx) {
     if (!res || !res.engine) {
       if (r.micErr && isHard(r.micErr, r)) { showMicProblem(r, r.micErr); return; }
       const t = r.els.label.textContent;
-      if (t === TXT.prep || t === TXT.idle || isDlText(t)) { setLabel(r, TXT.fail); ctx.announce(TXT.fail); safe(() => ctx.voice.say(TXT.fail)); }
+      if (t === TXT.prep || t === r.txt.idle || isDlText(t)) { setLabel(r, TXT.fail); ctx.announce(TXT.fail); safe(() => ctx.voice.say(TXT.fail)); }
       return;
     }
     showDl(r, null);
     r.st.running = true;
-    setLabel(r, TXT.on);
-    ctx.announce(TXT.on);
+    setLabel(r, r.txt.on);
+    ctx.announce(r.txt.on);
     r.view.classList.add('is-on');
     r.els.mic.classList.add('listening');
     r.els.mic.setAttribute('aria-pressed', 'true');
@@ -531,7 +929,7 @@ function createCourse(root, ctx) {
       r.timers.noResult = 0;
       if (alive && race === r && r.st.running && !r.st.gotAnyResult) { setLabel(r, TXT.deaf); ctx.announce(TXT.deaf); }
     }, 7000);
-    r.timers.race = setInterval(() => tickZip(r), 250);
+    r.timers.race = setInterval(() => (r.kind === 'poem' ? tickPoem(r) : tickZip(r)), 250);
     r.trouble = { kind: '', since: 0, shown: '' };
     r.offHealth = safe(() => (ctx.speech.onHealth ? ctx.speech.onHealth(hh => courseHealth(r, hh)) : null));
     dl.dlog('course', 'lecture', { histoire: r.s && r.s.id, mots: r.st.target.length, moteur: res.engine });
@@ -551,7 +949,7 @@ function createCourse(root, ctx) {
     r.els.mic.classList.toggle('is-trouble', !!bad);
     dl.dlog('course', bad ? 'micro barré (' + bad + ')' : 'micro de nouveau normal', { retard: hh.lagMs, réouvertures: hh.reopens });
     if (bad) { const t = bad === 'deaf' ? TXT.lost : TXT.slow; setLabel(r, t); ctx.announce(t); }
-    else if (r.els.label.textContent === TXT.lost || r.els.label.textContent === TXT.slow) setLabel(r, TXT.on);
+    else if (r.els.label.textContent === TXT.lost || r.els.label.textContent === TXT.slow) setLabel(r, r.txt.on);
   }
 
   /* ======================= MICRO IMPOSSIBLE (D1-01, D4-04) =======================
@@ -571,6 +969,7 @@ function createCourse(root, ctx) {
   function showMicProblem(r, code) {
     if (!alive || !r) return;
     const s = r.s, item = r.item;
+    const reopen = typeof r.reopen === 'function' ? r.reopen : () => openStory(s, item);
     if (race === r) endRace();
     const v = setView('nomic');
     const t = ctx.mic.trouble(code);
@@ -585,7 +984,7 @@ function createCourse(root, ctx) {
       ctx.audio.tap();
       closeSheet();
       const api = ctx.mic.help(code, {
-        onRetry: () => { if (!alive) return; openStory(s, item); if (race) micTap(race); },
+        onRetry: () => { if (!alive) return; reopen(); if (race) micTap(race); },
         onClose: () => { if (sheet === api) sheet = null; }
       });
       sheet = api;
@@ -611,7 +1010,7 @@ function createCourse(root, ctx) {
         if (pm && typeof pm.query === 'function') {
           pm.query({ name: 'microphone' }).then(perm => {
             if (!alive || !perm || box.dataset.view !== 'nomic' || typeof perm.addEventListener !== 'function') return;
-            const back = () => { if (perm.state !== 'denied' && alive && box.dataset.view === 'nomic') openStory(s, item); };
+            const back = () => { if (perm.state !== 'denied' && alive && box.dataset.view === 'nomic') reopen(); };
             perm.addEventListener('change', back);
             cleanups.add(() => { try { perm.removeEventListener('change', back); } catch (_) {} });
           }, () => {});
@@ -628,7 +1027,7 @@ function createCourse(root, ctx) {
     if (String(allText ?? '').trim()) {
       r.st.gotAnyResult = true;
       if (r.timers.noResult) { clearTimeout(r.timers.noResult); r.timers.noResult = 0; }
-      if (r.els.label.textContent === TXT.deaf) setLabel(r, TXT.on);
+      if (r.els.label.textContent === TXT.deaf) setLabel(r, r.txt.on);
     }
     const tail = E.heardTail(allText);
     r.els.heard.textContent = tail ? '👂 ' + tail : '';
@@ -639,8 +1038,10 @@ function createCourse(root, ctx) {
     for (const f of fx) {
       switch (f.t) {
         case 'streak':
-          r.els.streak.textContent = '⚡ ' + f.n;
-          r.els.streak.setAttribute('aria-label', 'Combo : ' + f.n);
+          if (r.els.streak) {                          /* poésie : pas de combo */
+            r.els.streak.textContent = '⚡ ' + f.n;
+            r.els.streak.setAttribute('aria-label', 'Combo : ' + f.n);
+          }
           r.els.spark.style.display = f.n >= 5 ? 'block' : 'none';
           break;
         case 'move': moveActor(r, 'pony', f.pct); trot(r); break;
@@ -724,6 +1125,7 @@ function createCourse(root, ctx) {
 
   /* ---------- arrivée (finishExercise v11) : rapport de course, puis la petite question ---------- */
   function finishRace(r) {
+    if (r && r.kind === 'poem') { finishPoem(r); return; }
     if (!alive || race !== r || !r.st.running) return;
     dl.dlog('course', 'arrivée', { histoire: r.s && r.s.id });
     stopAll(r);

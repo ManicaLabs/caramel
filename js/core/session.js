@@ -18,6 +18,9 @@
    n'est pas évalué mais Pommes express a un palier CP (+1/−1, +10 : CDC §5.1) → CP = course,
    clôture, tables, pommes ; jamais orchestre ni opérations.
    « Pratiqué » = une manche jouée (profile.history), pas un import d'évaluation.
+   v2.6 : la dictée (axe fr.ortho) n'est éligible que si un adulte a tapé une liste (registre : ready(profil)) ; ses mots à
+   travailler (à revoir, jamais dictés, dus : registre due(profil, jour)) comptent comme des clés Leitner dues pour la
+   révision (≥ 4 → candidate, après les axes non pratiqués depuis 6 jours).
    Calendrier (v2.5, js/content/calendar.js) : les clés Leitner dues d'une notion pas encore vue en classe ou repoussée
    ne comptent pas pour choisir la révision (dès que le générateur de l'axe a été chargé une fois : notionOfKey).
    ensureToday / completeBlock / finishDay modifient le profil reçu : à appeler dans store.mutateProfile. */
@@ -42,8 +45,10 @@ function eligible(profile) {
   const out = [], seen = new Set();
   for (const g of gamesFor(profile && profile.classe)) {
     if (!g.primary || seen.has(g.primary)) continue;
+    /* v2.6 : un jeu qui n'a de sens qu'avec un contenu de l'adulte (la dictée : une liste de mots) n'entre pas sinon */
+    if (typeof g.ready === 'function' && !g.ready(profile)) continue;
     seen.add(g.primary);
-    out.push({ axis: g.primary, game: g.id });
+    out.push(typeof g.due === 'function' ? { axis: g.primary, game: g.id, dueOf: g.due } : { axis: g.primary, game: g.id });
   }
   return out;
 }
@@ -137,7 +142,7 @@ export function planDay(profile, today = dayStr()) {
     w: axisWeight(profile, c.axis, today),
     unseen: daysUnseen(profile, c.axis, today),
     unseenLevel: daysUnseenAtLevel(profile, c.axis, today),
-    due: LEITNER_AXES.includes(c.axis) ? dueCount(profile, c.axis, today) : 0
+    due: LEITNER_AXES.includes(c.axis) ? dueCount(profile, c.axis, today) : c.dueOf ? Math.max(0, Number(c.dueOf(profile, today)) || 0) : 0
   }));
   const byWeight = (a, b) => desc(a.w, b.w) || asc(a.theta, b.theta) || a.i - b.i;
   const block = (kind, c, offset = 0) =>

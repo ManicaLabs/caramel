@@ -58,7 +58,7 @@ import * as voice from './voice.js';
 import * as inst from './install.js';
 import * as preload from '../core/preload.js';
 import { preloadBar, cssReady as preloadCSS } from './preload.js';
-import { playNow, timeUp, restLine, restNotice, restKind, nearLine, REST_TEXT } from './play-limit.js';
+import { playNow, timeUp, restLine, restNotice, restKind, nearLine, REST_TEXT, hasHomework } from './play-limit.js';
 import { soundButton } from './sound-toggle.js';
 
 const FROM_KEY = 'caramel-play-from';
@@ -152,8 +152,8 @@ const HOME = {
     const play = h('section', { class: 'hm-play', 'aria-label': 'Ma balade du jour' }, near, go, path);
 
     /* ----- secondaire : jeux libres, progrès ----- */
-    const gamesBtn = h('button', { type: 'button', class: 'hm-alt-btn hm-games-btn' },
-      h('span', { class: 'hm-alt-ico', 'aria-hidden': 'true' }, '🎲'), h('span', null, 'Jeux'));
+    const gamesIco = h('span', { class: 'hm-alt-ico', 'aria-hidden': 'true' }, '🎲'), gamesTxt = h('span', null, 'Jeux');
+    const gamesBtn = h('button', { type: 'button', class: 'hm-alt-btn hm-games-btn' }, gamesIco, gamesTxt);
     gamesBtn.addEventListener('click', () => { audio.tap(); openGames(frTypo('Choisis ton jeu')); });
     const progressBtn = h('button', { type: 'button', class: 'hm-alt-btn hm-progress' },
       h('span', { class: 'hm-alt-ico', 'aria-hidden': 'true' }, '📈'), h('span', null, 'Mes progrès'));
@@ -267,7 +267,12 @@ const HOME = {
       go.classList.toggle('is-rest', rest);
       if (rest) go.setAttribute('aria-disabled', 'true'); else go.removeAttribute('aria-disabled');
       go.classList.toggle('is-done', !rest && (done || !N));
-      gamesBtn.hidden = rest || done || !N;             /* le gros bouton fait déjà « encore un jeu ? » */
+      /* v2.6 : temps de jeu atteint, mais des devoirs à faire (dictée, poésie) : « 📝 Devoirs » ouvre la feuille des jeux,
+         où seuls les devoirs restent ouverts */
+      const hw = rest && hasHomework(q);
+      gamesBtn.hidden = hw ? false : (rest || done || !N);   /* le gros bouton fait déjà « encore un jeu ? » */
+      gamesIco.textContent = hw ? '📝' : '🎲';
+      gamesTxt.textContent = hw ? 'Devoirs' : 'Jeux';
       progressBtn.hidden = !hasRadar(q);                /* enfant tout neuf : rien à voir encore, « Jouer ▶ » suffit */
       alt.hidden = gamesBtn.hidden && progressBtn.hidden;
       if (rest) {

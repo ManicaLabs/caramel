@@ -100,3 +100,28 @@
 - **Qui joue ? (v2.1, feuille ouverte depuis l'accueil)** : les enfants de l'appareil (compagnon vivant + prénom) ; toucher = bascule immédiate (transition, thème de l'enfant, toast « À toi de jouer, … ! ») ; « Ajouter un enfant » ; « En famille ».
 - **En famille (`famille`, v2.1)** : lancer un défi ; classements de la semaine en 5 onglets (⏱️ minutes, 🍎 pommes, 🔥 série, ⭐ étoiles, 🏅 défis) en podiums, « Bravo aussi à… » pour les autres, message d'encouragement si personne n'a encore joué ; carte du concours de compagnons et son spectacle (`#/famille/concours` : les trois juges notent, rubans, trophée de la semaine).
 - **Défi en famille (`battle`, v2.1)** : réglages (joueurs 2 à 4, type de défi, 3 ou 5 manches) → arène (piste où avancent les compagnons) → passage de main (« À toi, … ! », « Passe l’appareil à … », aux couleurs du thème du joueur) → question à son niveau (pavé ou QCM, une seule réponse, pas de joker) → points qui s'envolent ; « Je m’arrête là 💤 » sans perdre ses points ; résultats (podium, pommes, trophée ; deux colonnes sur grand écran), « Revanche 🔄 » (un autre commence) ; « Reprendre le défi » après un rechargement. Arène resserrée à 4 joueurs sur petit écran ; en mouvement réduit, fondus à la place des déplacements.
+
+## 9. La dictée de {N} (`dictee`), fr.ortho — v2.6
+- **Préparer.** Le compagnon et « Je prépare ta dictée… », la barre (voix fluide : tout est calculé d'avance, du dernier mot au premier) et « 📄✏️ Prends une feuille et un crayon. ». Puis UN bouton « C'est parti ▶ ». Avec la voix du téléphone, pas de barre. Sans aucune voix pour un mot libre : un écran pour l'adulte.
+- **Écouter.**
+  - « Mot 3 » (pour numéroter la ligne sur la feuille) et la grande oreille 👂, qui ondule pendant la dictée puis devient ✍️.
+  - Au premier mot, la consigne « Écoute bien, puis écris le mot sur ta feuille. ».
+  - Le rituel : le mot (lent), la phrase, le mot. Le mot n'est jamais affiché.
+  - « 🔁 Encore » redit tout, sans que ce soit jamais compté.
+  - « ✍️ C'est écrit ▶ » apparaît une fois la dictée dite.
+  - Sons coupés : « Le son est coupé : touche 🔇 en haut pour m'entendre. », et la dictée repart quand le son revient.
+- **Comparer.** Le compagnon en petit et « Regarde ta feuille : as-tu écrit pareil ? » ; le mot juste en très grand sur un papier (Andika, lettres espacées, taille selon la longueur) ; « ✓ Juste » (vert) / « ✗ À revoir » (orange doux).
+  - Juste : tampon ✓, paillettes, 🍎, encouragement, mot suivant.
+  - À revoir : « Pas grave ! Regarde bien le mot, et recopie-le juste à côté. », puis « C'est recopié ▶ » (🍎 aussi, pastille orange, boîte Leitner 1).
+- **Fin.** Bilan de la coquille : « Tu as su écrire N mots du premier coup ! ». Ni joker ni « Pas encore appris ». Pas de micro.
+- **Sans liste.** La tuile de « 🎲 Jeux » est en pointillés avec un 🔒 ; un toucher fait dire « Pour la dictée, un adulte doit d'abord taper ta liste de mots. ». Écran du jeu équivalent, avec « Un autre jeu ▶ ».
+- **Espace parents, carte « 📝 La dictée de la semaine » (rubrique « Devoirs de la semaine »).** Saisie (un mot par ligne ou des virgules, « mot : phrase »), compteur, puis la liste (date, ▶ par mot, « à revoir »), « Modifier » et « Vider ».
+
+## La course : mes poésies — v2.6
+- **Mes poésies (v2.6)** : l'adulte tape la poésie de l'école (espace parents › Progrès › « 📜 Mes poésies » : titre, auteur
+  facultatif, texte en vers ; modifier, supprimer ; Caramel dit quels mots le micro ne connaît pas). Dans la course, elle vient en
+  tête (« 📜 Ma poésie : … ») ; sa page montre les 5 étapes et UN bouton. Étape 1 📖 : lecture suivie au micro, en vers, le
+  compagnon avance (pas de Zip, ni chrono, ni étoiles). Étapes « par cœur » : 🙈 mots cachés (les rimes d'abord, ≈ 1 sur 3) →
+  🔤 premières lettres → 🗝️ débuts de vers → 🧠 rien ; chaque mot réapparaît quand il est dit ; « 💡 Montre-moi » montre le vers ;
+  étape réussie avec 85 % des mots et peu d'aide → la suivante s'ouvre ; 🏆 « sue par cœur ». Bilan : ce qui a été dit, les mots à
+  revoir, 🍎 d'effort ; jamais de note.

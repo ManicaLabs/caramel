@@ -67,6 +67,8 @@ import * as voice from './voice.js';
 import { parentsRow as installRow } from './install.js';
 import { parentsRow as fluidRow } from './voice-fluid.js';
 import { diagCard } from './diag.js';
+import { poemsCard } from './poems-parents.js';
+import { dicteeCard } from './dictee-parents.js';
 import * as wipe from './wipe.js';
 import { DAILY_OPTIONS, normDailyMin, withBonus, BONUS_STEP } from '../core/playtime.js';
 import { playNow, parentLine, dailyLabel, BONUS_LABEL } from './play-limit.js';
@@ -688,7 +690,7 @@ function renderContent({ entering = false, keepScroll = false, nudge = false, fo
   const navBox = h('nav', { class: 'pa-nav', 'aria-label': 'Rubriques' },
     /* boutons (et non ancres #pa-…) : le routeur hash ne doit jamais voir ces cibles ; « À revoir », seule partie qui
        propose quoi faire, juste après « Progrès » */
-    [['progres', 'Progrès'], ['revoir', 'À revoir'], ['annee', 'Au fil de l’année'], ['evals', 'Évaluations'], ['reglages', 'Réglages'], ['sauvegardes', 'Sauvegardes'], ['profils', 'Profils'], ['apropos', 'À propos']]
+    [['progres', 'Progrès'], ['revoir', 'À revoir'], ['annee', 'Au fil de l’année'], ['devoirs', 'Devoirs'], ['evals', 'Évaluations'], ['reglages', 'Réglages'], ['sauvegardes', 'Sauvegardes'], ['profils', 'Profils'], ['apropos', 'À propos']]
       .map(([id, label]) => h('button', { type: 'button', class: 'pa-nav-a', 'aria-controls': 'pa-' + id, 'data-fk': 'nav-' + id, on: { click: () => {
         audio.tap();
         const t = globalThis.document.getElementById('pa-' + id);
@@ -757,6 +759,8 @@ function renderContent({ entering = false, keepScroll = false, nudge = false, fo
 
   const blocks = [
     section('progres', 'Progrès ' + deNom(p.name), ...progressBlocks(p)),
+    /* v2.6 : ce que l'adulte tape pour la semaine — la dictée, les poésies à apprendre */
+    section('devoirs', 'Devoirs de la semaine', dicteeCard(p), poemsCard(p)),
     section('evals', 'Évaluations', evalsCard(p)),
     section('reglages', 'Réglages', settingsCard(p), deviceCard()),
     section('sauvegardes', 'Sauvegardes', backupCard(p)),

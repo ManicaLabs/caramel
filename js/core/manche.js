@@ -17,7 +17,9 @@
    venir d'un tirage au niveau de l'enfant. Une clé Leitner due dont la notion n'est pas encore vue (ou verrouillée)
    reste en attente, intacte. « 🌱 Pas encore appris » : canLater(item) / postpone(item) — l'item n'est pas rapporté
    (θ, Leitner, 🍎, compteurs inchangés), la manche garde sa longueur (un autre item le remplace), une fois par manche ;
-   l'historique de la manche garde skip (nombre d'items repoussés). */
+   l'historique de la manche garde skip (nombre d'items repoussés).
+   v2.6 — item.measure === false (la dictée de la semaine, js/content/fr/dictee.js) : θ de l'axe inchangé et pas de filet
+   de sécurité (ni adj ni item aidé imposé) ; Leitner, 🍎, minutes, historique et balade comme pour tout item. */
 
 import { clamp, dayStr } from './util.js';
 import { makeRng } from './rng.js';
@@ -251,7 +253,9 @@ export function createManche({
     const res = write(p => {
       const b = isNum(item.b) ? item.b
         : isNum(item.A) ? relLevel(p.classe, item.A, levelDay(p, today)) : targetB(skillOf(p, ax).t, off + adj);
-      const th = applyResult(p, ax, b, r, today);
+      /* item.measure === false (v2.6, la dictée de la semaine) : pas une mesure de l'axe, θ inchangé ; Leitner, 🍎 et
+         compteurs comme partout */
+      const th = item.measure === false ? (t => ({ before: t, after: t }))(skillOf(p, ax).t) : applyResult(p, ax, b, r, today);
       if (item.leitner && item.key) review(p, item.key, correct && !hinted, today);
       if (correct) addApples(p, 1, today);
       return th;
@@ -265,7 +269,10 @@ export function createManche({
       if (n) cleanFams.add(n.fam);                     /* pas de « Pas encore appris » sur une famille déjà réussie */
     }
     if (hinted) nHinted++;
-    if (r >= 0.8) {
+    if (item.measure === false) {
+      /* la dictée de la semaine : ni niveau à ajuster ni item « aidé » à imposer (la liste est fixée par l'adulte) */
+      if (r >= 0.8) { okRun++; failRun = 0; } else { failRun++; okRun = 0; }
+    } else if (r >= 0.8) {
       okRun++; failRun = 0;
       if (okRun % OKS_UP === 0) adj = clamp(adj + ADJ_UP, ADJ_MIN, ADJ_MAX);
     } else {

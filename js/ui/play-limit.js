@@ -10,7 +10,8 @@
 
 import { dayStr, frTypo, frList, deNom } from '../core/util.js';
 import { fillTemplate } from '../core/profiles.js';
-import { playState, napOrNight, BONUS_STEP } from '../core/playtime.js';
+import { playState, napOrNight, BONUS_STEP, homeworkOpen, hasHomework } from '../core/playtime.js';
+export { homeworkOpen, hasHomework };
 import { skyAt, isNight } from './companion-life.js';
 import * as store from '../core/store.js';
 import * as motion from '../core/motion.js';

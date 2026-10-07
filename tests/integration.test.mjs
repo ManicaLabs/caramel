@@ -23,7 +23,8 @@ test('chaque jeu : générateur, module, CSS et identifiant cohérents', async (
     const gen = await loadGenerator(g.primary);
     assert.equal(gen.axis, g.primary);
     assert.equal(typeof gen.gen, 'function');
-    const it = gen.gen(3, makeRng(1), {});
+    /* la dictée dicte la liste tapée par l'adulte : son générateur reçoit le mot (sans mot ni liste : rien) */
+    const it = gen.gen(3, makeRng(1), g.id === 'dictee' ? { word: { w: 'maison' } } : {});
     assert.ok(it && it.axis === g.primary && it.key, g.id);
     const src = readFileSync('js/games/' + g.id + '.js', 'utf8');
     assert.match(src, new RegExp("id:\\s*'" + g.id + "'"), 'id du module ' + g.id);
@@ -34,7 +35,7 @@ test('chaque jeu : générateur, module, CSS et identifiant cohérents', async (
 });
 test('axes par classe : tous connus, et chaque axe entraîné figure sur un radar', () => {
   for (const c of CLASSES) for (const s of ['fr', 'ma']) for (const ax of CLASS_AXES[c][s]) assert.ok(AXES[ax], ax);
-  for (const g of GAMES) for (const c of CLASSES.slice(g.minGrade)) {
+  for (const g of GAMES.filter(x => x.measure !== false)) for (const c of CLASSES.slice(g.minGrade)) {   /* la dictée ne mesure pas son axe */
     const all = [...CLASS_AXES[c].fr, ...CLASS_AXES[c].ma];
     assert.ok(all.includes(g.primary), g.primary + ' absent du radar ' + c);
   }

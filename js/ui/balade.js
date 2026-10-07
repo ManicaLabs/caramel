@@ -23,8 +23,9 @@ import { fillTemplate } from '../core/profiles.js';
 import { ensureToday } from '../core/session.js';
 import { gamesFor, GAME_BY_ID } from '../games/index.js';
 import { mountReady, avatarOf, setAvatar } from './companion.js';
-import { timeUp, restLine, restNotice, restKind, REST_TEXT } from './play-limit.js';
+import { timeUp, restLine, restNotice, restKind, REST_TEXT, homeworkOpen, hasHomework } from './play-limit.js';
 import { inWater } from '../content/companion-data.js';
+import * as voice from './voice.js';
 
 /* étapes : libellés enfant (jamais de niveau scolaire) — JEUX.md §8 */
 export const STEP_KIND = Object.freeze({
@@ -57,6 +58,19 @@ export function currentStep(profile, today = dayStr()) {
   return plan.blocks.findIndex(b => !b.done);
 }
 
+/* v2.6 : jeux qui attendent un contenu de l'adulte (registre : ready(profil) faux) — la phrase de la tuile */
+const WAIT_TEXT = Object.freeze({
+  dictee: 'Pour la dictée, un adulte doit d’abord taper ta liste de mots 🔒.'   /* même phrase (clip) que l'écran du jeu */
+});
+function waitSheet(q, why) {
+  const pet = h('div', { class: 'kit-later-pet', 'aria-hidden': 'true' });
+  setAvatar(pet, avatarOf(q, 84, ''));
+  const s = kit.sheet({ label: why, content: h('div', { class: 'kit-confirm' }, pet, h('p', { class: 'kit-confirm-text' }, why)),
+    actions: [{ label: 'D’accord', kind: 'white' }] });
+  try { voice.speak(why); } catch (_) {}
+  return s;
+}
+
 /* feuille « Choisis ton jeu » : tuiles (icône + nom court), aucune description ; exclude = jeu(x) à éviter
    (jamais deux fois le même jeu de suite ; jeu remplacé faute de micro) ; onPick(id) appelé une fois la feuille
    refermée ; onCancel(raison) si l'enfant la referme sans choisir (croix, fond, glissé, Échap) → api de la feuille ;
@@ -73,8 +87,8 @@ export function openGamePicker({ title = 'Choisis ton jeu', exclude = null, onPi
   const rest = timeUp(q);
   const restTxt = rest ? restLine(q) : '';
   let s = null;
-  const tile = (t, label, go) => {
-    if (rest) {
+  const tile = (t, label, go, gid) => {
+    if (rest && !(gid && homeworkOpen(q, gid))) {          /* v2.6 : les devoirs (dictée, poésies) restent ouverts */
       t.classList.add('is-rest');
       t.setAttribute('aria-disabled', 'true');
       t.setAttribute('aria-label', label + ' : ' + restTxt);
@@ -93,7 +107,18 @@ export function openGamePicker({ title = 'Choisis ton jeu', exclude = null, onPi
       h('span', { class: 'bl-pick-ico', 'aria-hidden': 'true' }, g.icon),
       h('span', { class: 'bl-pick-t', 'aria-hidden': 'true' }, fillTemplate(g.short || g.title, q)));
     t.style.setProperty('--tint', 'var(--tile-' + g.id + ', ' + (g.tint || 'var(--card)') + ')');
-    tile(t, label, () => { if (typeof onPick === 'function') onPick(g.id); });
+    /* v2.6 : un jeu qui attend un contenu de l'adulte (la dictée : sa liste de mots) — tuile visible mais en attente,
+       un toucher dit gentiment pourquoi (le compagnon, sa phrase, « D'accord ») */
+    if (!rest && typeof g.ready === 'function' && !g.ready(q)) {
+      const why = frTypo(WAIT_TEXT[g.id] || 'Ce jeu attend qu’un adulte le prépare.');
+      t.classList.add('is-wait');
+      t.setAttribute('aria-label', label + ' : ' + why);
+      t.appendChild(h('span', { class: 'bl-pick-zz', 'aria-hidden': 'true' }, '🔒'));
+      t.addEventListener('click', () => { audio.tap(); waitSheet(q, why); });
+      grid.appendChild(t);
+      continue;
+    }
+    tile(t, label, () => { if (typeof onPick === 'function') onPick(g.id); }, g.id);
     grid.appendChild(t);
   }
   for (const x of Array.isArray(extras) ? extras : []) {
@@ -105,7 +130,7 @@ export function openGamePicker({ title = 'Choisis ton jeu', exclude = null, onPi
     tile(t, label, () => { try { x.onPick(); } catch (e) { console.error(e); } });
     grid.appendChild(t);
   }
-  const content = rest ? h('div', { class: 'bl-pick-wrap' }, h('p', { class: 'bl-rest' }, restTxt), grid) : grid;
+  const content = rest ? h('div', { class: 'bl-pick-wrap' }, h('p', { class: 'bl-rest' }, restTxt + (hasHomework(q) ? ' ' + frTypo('Les devoirs, eux, restent ouverts 📝') : '')), grid) : grid;
   s = kit.sheet({
     title: frTypo(title), content, label: 'Choisis ton jeu',
     onClose: reason => { if (!['action', 'nav', 'api'].includes(reason) && typeof onCancel === 'function') onCancel(reason); }

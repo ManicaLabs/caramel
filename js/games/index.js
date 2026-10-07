@@ -1,9 +1,10 @@
-/* ============ REGISTRE DES JEUX (v2.0 : 6 jeux ; v2.5 : 7 avec les Missions du ranch) ============
+/* ============ REGISTRE DES JEUX (v2.0 : 6 jeux ; v2.5 : 7 avec les Missions du ranch ; v2.6 : 8 avec la dictée) ============
    Module pur (aucun import de jeu au chargement : chaque jeu est chargé à la demande).
    title peut contenir des jetons de template ({N} = nom du compagnon) → fillTemplate.
    Icônes : emoji d'Emoji 12 ou avant (Android anciens : pas de carré vide), d'où 📏 pour la clôture (D3-17). */
 
 import { gradeIndex } from '../core/levels.js';
+import { hasList as hasDictee, toWork as dicteeDue } from '../core/dictee.js';
 
 export const GAMES = [
   { id: 'course', title: 'La course de {N}', short: 'La course', icon: '🏁',
@@ -27,7 +28,17 @@ export const GAMES = [
   /* v2.5 : un problème ≈ 40 à 90 s → manche courte (CDC §6 jeu 18, étude « problèmes » du 07/10/2026) */
   { id: 'missions', title: 'Les Missions du ranch', short: 'Les missions', icon: '🧭',
     blurb: 'Lis le problème du ranch et trouve la réponse.', axes: ['ma.problemes'],
-    primary: 'ma.problemes', minGrade: 0, tint: '#fef9c3', manche: { 10: 4, 15: 5, 20: 6 } }
+    primary: 'ma.problemes', minGrade: 0, tint: '#fef9c3', manche: { 10: 4, 15: 5, 20: 6 } },
+  /* v2.6 : la dictée de la semaine (liste tapée par un adulte, js/core/dictee.js). ready(profil) : le jeu n'a de sens
+     qu'avec une liste — sans elle, il n'entre pas dans la balade (js/core/session.js) et sa tuile de « 🎲 Jeux » dit
+     qu'un adulte doit la taper (js/ui/balade.js). manche = plafond : le jeu fixe lui-même le nombre de mots (balade :
+     6, 8 ou 10 selon la séance ; partie libre : toute la liste, 20 au plus) ; due(profil, jour) : mots à travailler,
+     comptés comme des clés Leitner dues pour le bloc de révision de la balade ; measure: false : le jeu ne mesure pas son
+     axe (θ de fr.ortho inchangé, item.measure === false), il n'a donc pas besoin de figurer sur le radar de chaque classe
+     (CP : « Écrire des mots » n'est pas sur la fiche) */
+  { id: 'dictee', title: 'La dictée de {N}', short: 'La dictée', icon: '📝',
+    blurb: 'Écoute le mot, écris-le sur ta feuille, puis compare.', axes: ['fr.ortho'],
+    primary: 'fr.ortho', minGrade: 0, tint: '#e0e7ff', manche: { 10: 20, 15: 20, 20: 20 }, ready: hasDictee, due: dicteeDue, measure: false }
 ];
 
 export const GAME_BY_ID = Object.fromEntries(GAMES.map(g => [g.id, g]));
@@ -53,7 +64,8 @@ const LOADERS = {
   pommes: () => import('./pommes.js'),
   orchestre: () => import('./orchestre.js'),
   operations: () => import('./operations.js'),
-  missions: () => import('./missions.js')
+  missions: () => import('./missions.js'),
+  dictee: () => import('./dictee.js')
 };
 /* charge le module du jeu → son export default { id, title, axes, css?, mount, unmount } */
 export async function loadGame(id) {
