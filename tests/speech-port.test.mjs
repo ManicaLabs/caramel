@@ -83,7 +83,11 @@ test('fonctions v11 généralisées : toutes les autres lignes sont intactes', (
   if (!v11) return;
   /* lignes v11 remplacées par la généralisation (interface, grammaire en paramètre, ingest → emit) */
   const CHANGED = [/^(async )?function (ensureVosk|startVoskEngine)\(/, /document\.getElementById/, /^if\(l && !state\.running\)/,
-    /state\.target/, /^\.filter\(Boolean\);$/, /^\/\* Grammaire/, /ingest\(/, /showCompat/];
+    /state\.target/, /^\.filter\(Boolean\);$/, /^\/\* Grammaire/, /ingest\(/, /showCompat/,
+    /* 2.2.3 (retour terrain : le micro décroche) : modèle extrait une fois sous une adresse fixe, puis seulement en repli
+       la voie v11 du blob (getModelBlob(progress)) ; createModel borné dans le temps (openModel : sa promesse ne finissait
+       jamais si le chargement échouait) */
+    /^const blob = await getModelBlob\(p=>\{$/, /^(try|catch\(e1\))\{ voskModel = await Vosk\.createModel\((blobUrl|MODEL_URL)\); \}$/];
   const rename = l => l.replace(/state\.running/g, 'running').replace(/state\.finalTranscript/g, 'finalTranscript');
   for (const name of ['ensureVosk', 'startVoskEngine', 'startWebSpeech']) {
     const ref = fnText(v11, name);

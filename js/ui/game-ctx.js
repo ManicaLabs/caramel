@@ -19,6 +19,10 @@
      doute dit (question suivante, astuce, explication) ; ctx.speech est js/core/speech.js tel quel (jamais modifié), sauf
      que ensureVosk et startListening préviennent d'abord la voix (voice.micWillStart : le moteur de la voix fluide ne
      démarre jamais en même temps que le micro, et sur un appareil à mémoire faible il est libéré).
+     v2.2.3 : le moteur du micro se télécharge dès la première ouverture (js/core/preload.js) ; un jeu qui le demande
+     pendant ce préchargement l'attend (speech.ensureVosk) et reçoit en attendant le pourcentage du modèle, comme avant
+     (attente « Je me prépare à t'écouter… 42 % » inchangée) ; moteur déjà sur l'appareil : plus aucune invitation à
+     télécharger (micro impossible faute d'internet : la marche à suivre ne parle plus de téléchargement).
    - micro impossible (D1-01, D4-04) : ctx.mic.trouble(code) → phrase courte pour l'enfant (tutoiement) et marche à
      suivre pour l'adulte (vouvoiement, adaptée à l'appli installée) ; ctx.mic.help(code, { onRetry }) ouvre la feuille
      de l'adulte. ctx.changeGame() : la coquille remplace l'étape de balade par un autre jeu (partie libre : choix d'un
@@ -35,6 +39,7 @@ import { MOUNTS } from '../content/companion-data.js';
 import { mountSVG, mountAnchors } from './mount-svg.js';
 import { stageOf } from './companion.js';
 import * as voice from './voice.js';
+import * as preload from '../core/preload.js';
 
 /* compagnon d'un profil → { type, worn, stage, name } (espèce inconnue → poney ; un seul objet par emplacement :
    mountSVG s'en charge) */
@@ -48,18 +53,25 @@ function petOf(p) {
   };
 }
 
-/* ctx.speech : js/core/speech.js tel quel, mais le micro prévient la voix avant de démarrer (voix fluide, v2.2.2) */
+/* ctx.speech : js/core/speech.js tel quel, mais le micro prévient la voix avant de démarrer (voix fluide, v2.2.2) ;
+   v2.2.3 : préchargement en cours → le pourcentage du modèle arrive au jeu qui attend (followVosk) */
+function withPreloadPct(onPct, p) {
+  const off = preload.followVosk(onPct);
+  Promise.resolve(p).then(off, off);
+  return p;
+}
 const speechCtx = Object.freeze(Object.assign({}, speech, {
-  ensureVosk(...a) { voice.micWillStart(); return speech.ensureVosk(...a); },
+  ensureVosk(...a) { voice.micWillStart(); return withPreloadPct(a[0], speech.ensureVosk(...a)); },
   startListening(...a) { voice.micWillStart(); return speech.startListening(...a); }
 }));
 
 /* ---------- micro impossible : textes (D1-01, D4-04) ----------
    code (js/core/speech.js, onError) : 'not-allowed' | 'service-not-allowed' | 'audio-capture' | 'network' |
-   'unsupported' | 'language-not-supported' ; env = { standalone (appli installée), host, ios }.
+   'unsupported' | 'language-not-supported' ; env = { standalone (appli installée), host, ios, voskReady (v2.2.3 : moteur
+   vocal déjà sur l'appareil) }.
    → { code, hard (rien à faire sans un adulte), title et sub (enfant), adultTitle, adult (adulte, vouvoiement) } */
 const MIC_HARD = new Set(['not-allowed', 'service-not-allowed', 'audio-capture', 'network', 'unsupported', 'language-not-supported']);
-export function micTrouble(code, { standalone = false, host = '', ios = false } = {}) {
+export function micTrouble(code, { standalone = false, host = '', ios = false, voskReady = false } = {}) {
   const c = String(code || '');
   const sub = frTypo('Demande à un adulte de t’aider.');
   const retry = frTypo(' Revenez ensuite dans Caramel et touchez 🎤.');
@@ -80,7 +92,9 @@ export function micTrouble(code, { standalone = false, host = '', ios = false } 
   } else if (c === 'network') {
     title = frTypo('Il me faut internet pour t’écouter 📶');
     adultTitle = 'Connexion nécessaire';
-    adult = frTypo('Pour écouter la lecture, Caramel télécharge une seule fois son moteur vocal (environ 45 Mo). Connectez l’appareil à internet, en Wi-Fi de préférence.') + retry;
+    adult = voskReady
+      ? frTypo('Le moteur vocal est déjà sur l’appareil, mais il n’a pas pu démarrer ; la reconnaissance de secours du navigateur, elle, a besoin d’internet. Fermez puis rouvrez Caramel, ou connectez l’appareil à internet.') + retry
+      : frTypo('Pour écouter la lecture, Caramel télécharge une seule fois son moteur vocal (environ 52 Mo). Connectez l’appareil à internet, en Wi-Fi de préférence.') + retry;
   } else {
     title = frTypo('Ici, je ne peux pas t’écouter 😕');
     adultTitle = 'Reconnaissance vocale indisponible';
@@ -96,7 +110,9 @@ function micEnv() {
   try { standalone = !!(G.matchMedia && G.matchMedia('(display-mode: standalone)').matches) || G.navigator.standalone === true; } catch (_) {}
   try { const n = G.navigator; ios = /iPad|iPhone|iPod/.test(n.userAgent) || (n.platform === 'MacIntel' && n.maxTouchPoints > 1); } catch (_) {}
   try { host = G.location.host; } catch (_) {}
-  return { standalone, host, ios };
+  let voskReady = false;
+  try { voskReady = preload.micReady(); } catch (_) {}
+  return { standalone, host, ios, voskReady };
 }
 
 /* makeManche() → nouvelle manche ; onEnd(summary, extra) ; onQuit(summary|null) ; onLeave(summary|null) ;

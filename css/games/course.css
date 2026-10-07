@@ -124,6 +124,12 @@
 .cr-mic[aria-busy="true"] > span { animation: cr-wait 1.1s ease-in-out infinite; }
 @keyframes cr-wait { 50% { transform: scale(.86); opacity: .75; } }
 .cr-race.is-done .cr-mic { filter: saturate(.55); opacity: .7; }
+/* v2.2.3 : micro muet ou moteur en retard qui dure : micro barré, plus de pulsation */
+.cr-mic.is-trouble { animation: none; background: var(--ink-4); box-shadow: none; }
+.cr-mic.is-trouble::before {
+  content: ''; position: absolute; left: 50%; top: 50%; width: 70%; height: 5px; margin: -2.5px 0 0 -35%;
+  border-radius: 3px; background: #fff; box-shadow: 0 0 0 2px var(--ink-4); transform: rotate(-45deg); pointer-events: none;
+}
 
 .cr-bar-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .cr-mic-label { font-size: 1rem; font-weight: 700; line-height: 1.3; color: var(--ink-3); }

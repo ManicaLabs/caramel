@@ -24,9 +24,13 @@
      (D1-01, D4-04). Le moteur (speech.js, course-engine.js) n'est pas touché : seul l'affichage de ses erreurs change ;
    - attente du moteur : « Je me prépare à t'écouter… » et une jauge, plus de « Téléchargement du moteur » (D1-10) ;
    - balade : après les résultats, « Étape suivante ▶ » lance l'étape suivante (comme le bilan des autres jeux).
+   v2.2.3 (retour terrain : le micro décroche) : santé du micro (js/core/speech.js, onHealth) : micro muet (le moteur le
+   rouvre lui-même, sans perdre la lecture) ou moteur en retard (téléphone lent) qui dure 1,5 s → micro barré et une
+   phrase sous le micro ; journal de diagnostic (début, arrivée, erreurs).
    Styles : css/games/course.css (préfixe .cr-). */
 
 import { h, clear, frTypo, buzz } from '../core/util.js';
+import * as dl from '../core/debuglog.js';
 import { mclmTarget } from '../core/levels.js';
 import { MOUNTS } from '../content/companion-data.js';
 import {
@@ -58,7 +62,10 @@ const TXT = {
   on: frTypo('Je t’écoute… lis l’histoire ! 🎧'),
   deaf: frTypo('Je ne t’entends pas 🤔 Parle plus fort, tout près du téléphone !'),
   fail: frTypo('Le micro n’a pas démarré 😕 Touche-le pour réessayer.'),
-  /* attente du moteur vocal (1er téléchargement, ≈ 45 Mo) : une phrase d'enfant, la jauge montre l'avancée (D1-10) */
+  /* v2.2.3 : micro muet, ou moteur en retard, qui dure */
+  lost: frTypo('Je ne t’entends plus 😕 Parle tout près du téléphone…'),
+  slow: frTypo('🐢 Ton téléphone est un peu lent… continue de lire !'),
+  /* attente du moteur vocal (1er téléchargement, ≈ 52 Mo, normalement fait dès la 1re ouverture : js/core/preload.js) : une phrase d'enfant, la jauge montre l'avancée (D1-10) */
   dl: p => (p < 99 ? frTypo('Je me prépare à t’écouter… ') + p + NNBSP + '%' : frTypo('Presque prêt…'))
 };
 const DL_HEAD = 'Je me prépare';
@@ -483,10 +490,12 @@ function createCourse(root, ctx) {
     try {
       res = await ctx.speech.startListening({
         grammar: E.grammarOf(r.st.target),
+        keepVoice: true,                              /* v2.2.3 : moteur en retard, la voix lue n'est jamais écartée */
         onText: t => ingest(r, t),
         onError: (code, msg) => {
           if (!alive || race !== r) return;
           r.micErr = String(code || '');
+          dl.dlog('course', 'erreur du micro : ' + r.micErr);
           /* micro impossible : écran « micro » (au démarrage, une fois startListening revenu) */
           if (isHard(r.micErr, r)) {
             if (r.st.running) { stopAll(r); showMicProblem(r, r.micErr); }
@@ -523,8 +532,26 @@ function createCourse(root, ctx) {
       if (alive && race === r && r.st.running && !r.st.gotAnyResult) { setLabel(r, TXT.deaf); ctx.announce(TXT.deaf); }
     }, 7000);
     r.timers.race = setInterval(() => tickZip(r), 250);
+    r.trouble = { kind: '', since: 0, shown: '' };
+    r.offHealth = safe(() => (ctx.speech.onHealth ? ctx.speech.onHealth(hh => courseHealth(r, hh)) : null));
+    dl.dlog('course', 'lecture', { histoire: r.s && r.s.id, mots: r.st.target.length, moteur: res.engine });
     renderText(r);
     ctx.motion.enter(r.els.done, { from: 'scale', dur: 300 });
+  }
+
+  /* v2.2.3 : santé du micro (4 fois par seconde pendant la lecture) : micro muet ou moteur en retard depuis 1,5 s → micro
+     barré et une phrase ; retour à la normale → « Je t'écoute » */
+  function courseHealth(r, hh) {
+    if (!alive || race !== r || !r.st.running || !hh || !r.trouble) return;
+    const kind = hh.state === 'deaf' || hh.state === 'slow' ? hh.state : '';
+    if (kind !== r.trouble.kind) { r.trouble.kind = kind; r.trouble.since = kind ? Date.now() : 0; }
+    const bad = kind && Date.now() - r.trouble.since >= 1500 ? kind : '';
+    if (bad === r.trouble.shown) return;
+    r.trouble.shown = bad;
+    r.els.mic.classList.toggle('is-trouble', !!bad);
+    dl.dlog('course', bad ? 'micro barré (' + bad + ')' : 'micro de nouveau normal', { retard: hh.lagMs, réouvertures: hh.reopens });
+    if (bad) { const t = bad === 'deaf' ? TXT.lost : TXT.slow; setLabel(r, t); ctx.announce(t); }
+    else if (r.els.label.textContent === TXT.lost || r.els.label.textContent === TXT.slow) setLabel(r, TXT.on);
   }
 
   /* ======================= MICRO IMPOSSIBLE (D1-01, D4-04) =======================
@@ -657,6 +684,8 @@ function createCourse(root, ctx) {
     r.st.running = false;
     r.starting = false;
     safe(() => ctx.speech.stopListening());
+    if (r.offHealth) { safe(r.offHealth); r.offHealth = null; }
+    if (r.els.mic) r.els.mic.classList.remove('is-trouble');
     if (r.timers.race) { clearInterval(r.timers.race); r.timers.race = 0; }
     if (r.timers.noResult) { clearTimeout(r.timers.noResult); r.timers.noResult = 0; }
     releaseWake(r);
@@ -696,6 +725,7 @@ function createCourse(root, ctx) {
   /* ---------- arrivée (finishExercise v11) : rapport de course, puis la petite question ---------- */
   function finishRace(r) {
     if (!alive || race !== r || !r.st.running) return;
+    dl.dlog('course', 'arrivée', { histoire: r.s && r.s.id });
     stopAll(r);
     r.done = true;
     r.timers.finish = drop(r.timers.finish);

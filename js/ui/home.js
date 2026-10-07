@@ -18,6 +18,12 @@
    installé et qu'une installation est possible ; ✕ = elle revient dans 7 jours. Une invitation à la fois : jamais avant
    ni pendant la visite guidée, ni avec le bandeau de mise à jour (html.has-update, main.js) ou celui de la rentrée, ni
    quand un panneau du compagnon est ouvert.
+   v2.2.3 — voix et micro (demande du parent du 06/10/2026 : tout se télécharge à la première ouverture,
+   js/core/preload.js) : appareil déjà configuré (mise à jour) ou création du profil finie avant la fin du
+   téléchargement : la même petite barre que pendant la création (js/ui/preload.js) se pose sous l'en-tête jusqu'à la
+   fin (« Voix et micro prêts ✓ », puis plus rien) ; la scène du compagnon lui cède sa hauteur : tout tient
+   toujours sans défiler, « Jouer ▶ » à sa place. Données mobiles : la barre n'est qu'un petit bouton pour l'adulte.
+   Tout est prêt : aucune barre.
    « Qui joue ? » (plusieurs enfants sur un même appareil) : toucher l'avatar ouvre une feuille avec tous les profils
    (compagnon + prénom, chaque carte aux couleurs du thème de l'enfant : la MÊME carte que l'écran #/profiles,
    kidCard de js/ui/profiles.js), « ➕ Ajouter » et, dès deux enfants, « 🏆 En famille ». Toucher un autre enfant =
@@ -43,6 +49,8 @@ import { stageOf } from '../core/family.js';
 import { kidCard, kidActions } from './profiles.js';
 import * as voice from './voice.js';
 import * as inst from './install.js';
+import * as preload from '../core/preload.js';
+import { preloadBar, cssReady as preloadCSS } from './preload.js';
 
 const FROM_KEY = 'caramel-play-from';
 const ssGet = k => { try { return sessionStorage.getItem(k); } catch (_) { return null; } };
@@ -81,12 +89,12 @@ const HOME = {
     if (!p.classe) { router.go('welcome', { replace: true }); return; }
     /* balade.css : tuiles de la feuille « Choisis ton jeu » ; profiles.css : cartes de la feuille « Qui joue ? » */
     await Promise.all([loadCSS('css/ui/home.css'), loadCSS('css/ui/companion.css'), loadCSS('css/ui/balade.css'),
-      loadCSS('css/ui/profiles.css'), inst.cssReady(), mountReady(), svgReady]);
+      loadCSS('css/ui/profiles.css'), inst.cssReady(), preloadCSS(), mountReady(), svgReady]);
     if (!root.isConnected) return;
     teardown();
     p = store.getProfile();
     if (!p || !p.classe) return;
-    const my = st = { root, timers: new Set(), unsubs: [], card: null, sheet: null, today, switching: false, tour: null, inst: null };
+    const my = st = { root, timers: new Set(), unsubs: [], card: null, sheet: null, today, switching: false, tour: null, inst: null, bar: null };
 
     /* plan du jour (recalculé s'il manque, date d'un autre jour ou n'est plus valable) */
     try { store.mutateProfile(pp => { ensureToday(pp, today); }); } catch (e) { console.error('Balade du jour', e); }
@@ -142,9 +150,13 @@ const HOME = {
     /* ----- invitation à installer (v2.2.2) : tout en bas, discrète ----- */
     const instBan = my.inst = inst.homeBanner({ onHide: () => screen.classList.remove('has-inst') });
 
-    const screen = h('div', { class: 'screen hm' }, head, nextBox, petBox, play, alt, instBan.el);
+    /* ----- voix et micro en cours de téléchargement (v2.2.3) : sous l'en-tête, discrète ----- */
+    const bar = my.bar = preloadBar();
+
+    const screen = h('div', { class: 'screen hm' }, head, bar.el, nextBox, petBox, play, alt, instBan.el);
     clear(root);
     root.appendChild(screen);
+    preload.start().catch(() => {});
 
     /* ----- rendus en place ----- */
     let shownLook = '';
@@ -490,7 +502,7 @@ const HOME = {
       try { kit.toast(frTypo('À toi de jouer, ' + p.name + ' ! ' + (MOUNTS[p.companion.type] || MOUNTS.pony).em)); } catch (_) {}
       scheduleTour(1400);
     } else {
-      const blocks = [head, nextBox.firstChild, petBox, play, alt, instBan.shown ? instBan.el : null].filter(Boolean);
+      const blocks = [head, bar.shown ? bar.el : null, nextBox.firstChild, petBox, play, alt, instBan.shown ? instBan.el : null].filter(Boolean);
       motion.stagger(blocks, el => motion.enter(el, { from: 'bottom', dist: 14, dur: 420 }), 60);
       scheduleTour(900);
     }
@@ -511,4 +523,5 @@ function teardown() {
   try { if (my.tour) my.tour.close('nav'); } catch (_) {}
   try { if (my.card) my.card.destroy(); } catch (_) {}
   try { if (my.inst) my.inst.destroy(); } catch (_) {}
+  try { if (my.bar) my.bar.destroy(); } catch (_) {}
 }

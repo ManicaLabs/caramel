@@ -12,6 +12,10 @@
      v2.2.2 — fin de la création : la petite feuille « 📲 Mets Caramel sur l'écran d'accueil » (js/ui/install.js : vrai
      bouton « Installer » sur Android, marche à suivre sur iPhone et iPad, rien si l'installation est impossible ou faite),
      puis l'accueil ; après l'import de la fiche, js/ui/import-eval.js la propose de même.
+     v2.2.3 (demande du parent du 06/10/2026) — dès l'arrivée sur cet écran, tout ce qui se télécharge une fois pour
+     toutes (moteur du micro, voix fluide : js/core/preload.js) part en arrière-plan ; une petite barre commune
+     (js/ui/preload.js) le montre sous les pastilles d'étapes, sans jamais retenir la configuration ; si ce n'est pas
+     fini, la même barre continue sur l'accueil.
    « Suivant » n'est jamais désactivé : s'il manque le prénom ou fille / garçon, le toucher (ou la touche Entrée du
    clavier) secoue ce qui manque et une ligne d'aide dit quoi faire (lue par les lecteurs d'écran).
    Mode 'welcome' (params.mode === 'welcome' : profil migré de la v11, sans classe) :
@@ -33,6 +37,8 @@ import { mountReady, avatarSVG, avatarOf, setAvatar, stageOf } from './companion
 import { themeGrid, previewTheme, endPreview, swapTheme, cheerTheme } from './theme-picker.js';
 import { readAloud, speak as voiceSpeak, hush as voiceHush } from './voice.js';
 import { offerThen as offerInstallThen } from './install.js';
+import * as preload from '../core/preload.js';
+import { preloadBar, cssReady as preloadCSS } from './preload.js';
 
 const PICKED_KEY = 'caramel-picked';
 const ssSet = (k, v) => { try { sessionStorage.setItem(k, v); } catch (_) {} };
@@ -43,24 +49,27 @@ let st = null;
 export default {
   async mount(root, params) {
     const welcome = !!(params && params.mode === 'welcome');
-    await Promise.all([loadCSS('css/ui/onboarding.css'), mountReady()]);
+    await Promise.all([loadCSS('css/ui/onboarding.css'), preloadCSS(), mountReady()]);
     if (!root.isConnected) return;
     if (welcome) {
       const p = store.getProfile();
       if (!p) { router.go(store.listProfiles().length ? 'profiles' : 'onboarding', { replace: true }); return; }
       if (p.classe) { router.go('home', { replace: true }); return; }
     }
-    const my = st = { timers: new Set() };
+    const my = st = { timers: new Set(), bar: null };
     const later = (fn, ms) => { const t = setTimeout(() => { my.timers.delete(t); if (st === my) fn(); }, ms); my.timers.add(t); return t; };
 
     /* ----- squelette commun : retour, pastilles d'étapes, scène de l'étape ----- */
     const back = h('button', { type: 'button', class: 'back ob-back', 'aria-label': 'Étape précédente' }, '←');
     const dots = h('div', { class: 'ob-dots', 'aria-hidden': 'true' });
     const stepBox = h('div', { class: 'ob-step' });
+    /* voix et micro : téléchargés en arrière-plan pendant la configuration (rien ne les attend) */
+    const bar = my.bar = preloadBar();
     const screen = h('div', { class: 'screen ob' + (welcome ? ' is-welcome' : '') },
-      h('div', { class: 'ob-top' }, back, dots, h('span', { class: 'ob-top-gap' })), stepBox);
+      h('div', { class: 'ob-top' }, back, dots, h('span', { class: 'ob-top-gap' })), bar.el, stepBox);
     clear(root);
     root.appendChild(screen);
+    later(() => { preload.start().catch(() => {}); }, 600);       /* après l'entrée de la 1re étape */
 
     const steps = welcome ? ['hello', 'theme', 'classe', 'fiche'] : ['name', 'theme', 'classe', 'buddy', 'fiche'];
     /* theme : univers choisi ; themePicked : touché par l'enfant (sinon il suit la présélection du genre) */
@@ -375,5 +384,6 @@ export default {
     st = null;
     if (!my) return;
     for (const t of my.timers) clearTimeout(t);
+    try { if (my.bar) my.bar.destroy(); } catch (_) {}
   }
 };

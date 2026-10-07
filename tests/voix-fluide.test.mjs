@@ -118,36 +118,44 @@ const UA = {
 const FEAT = { wasm: true, simd: true, shared: true, worker: true, moduleWorker: true, cacheStorage: true, deviceMemory: 8 };
 const auto = (o = {}) => F.autoDownload({
   env: { ua: UA.android, connection: { type: 'wifi', saveData: false }, onLine: true, ...(o.env || {}) },
-  features: o.features || FEAT, state: { launches: 3, ...(o.state || {}) }, cached: !!o.cached, version: '2.2.2',
-  inGame: !!o.inGame, afterSession: o.afterSession !== false
+  features: o.features || FEAT, state: { ...(o.state || {}) }, cached: !!o.cached, version: '2.2.2', inGame: !!o.inGame
 });
-test('quand télécharger : jamais au 1er lancement ni pendant un jeu ; tout seul après une séance en Wi-Fi (Android, ordinateur) ; sinon les parents', () => {
-  assert.deepEqual(auto(), { ok: true, why: 'wifi' }, 'Android en Wi-Fi, après une séance');
-  assert.equal(auto({ state: { launches: 1 } }).why, 'first-launch');
+test('quand télécharger (demande du parent du 06/10/2026) : dès la 1re ouverture, partout (iPhone compris), jamais pendant un jeu ; données mobiles ou économie de données : un adulte ; exclusions gardées', () => {
+  assert.deepEqual(auto(), { ok: true, why: 'wifi' }, 'Android en Wi-Fi');
+  assert.deepEqual(auto({ state: { launches: 1 } }), { ok: true, why: 'wifi' }, 'dès la première ouverture');
+  assert.deepEqual(auto({ state: {} }), { ok: true, why: 'wifi' }, 'sans séance de jeu');
   assert.equal(auto({ inGame: true }).why, 'in-game');
-  assert.equal(auto({ afterSession: false }).why, 'no-session');
   assert.equal(auto({ env: { connection: { type: 'cellular' } } }).why, 'cellular');
   assert.equal(auto({ env: { connection: { type: 'wifi', saveData: true } } }).why, 'save-data');
   assert.equal(auto({ env: { connection: { type: 'ethernet' } } }).ok, true);
   assert.equal(auto({ env: { onLine: false } }).why, 'offline');
-  assert.equal(auto({ env: { ua: UA.iphone, connection: null } }).why, 'ios', 'iPhone : les parents seulement');
-  assert.equal(auto({ env: { ua: UA.iphone, connection: { type: 'wifi' } } }).why, 'ios');
-  assert.equal(auto({ env: { ua: UA.pc, connection: { effectiveType: '4g' } } }).why, 'desktop', 'Chrome d’ordinateur : connexion fixe');
-  assert.equal(auto({ env: { ua: UA.firefox, connection: null } }).why, 'unknown', 'connexion inconnue : les parents');
-  assert.equal(auto({ env: { ua: UA.android, connection: { effectiveType: '4g' } } }).why, 'unknown', 'Android sans type : les parents');
+  assert.equal(auto({ env: { connection: { type: 'none' } } }).why, 'offline');
+  assert.deepEqual(auto({ env: { ua: UA.iphone, connection: null } }), { ok: true, why: 'unknown' }, 'iPhone : plus d’exclusion');
+  assert.deepEqual(auto({ env: { ua: UA.iphone, connection: { type: 'wifi' } } }), { ok: true, why: 'wifi' });
+  assert.deepEqual(auto({ env: { ua: UA.pc, connection: { effectiveType: '4g' } } }), { ok: true, why: 'unknown' }, 'Chrome d’ordinateur');
+  assert.deepEqual(auto({ env: { ua: UA.firefox, connection: null } }), { ok: true, why: 'unknown' }, 'connexion inconnue : tout seul');
+  assert.deepEqual(auto({ env: { ua: UA.android, connection: { effectiveType: '4g' } } }), { ok: true, why: 'unknown' }, 'Android sans type');
+  /* exclusions gardées */
   assert.equal(auto({ cached: true }).why, 'cached');
   assert.equal(auto({ state: { removed: true } }).why, 'removed', '« Supprimer » : plus jamais tout seul');
+  assert.equal(auto({ state: { removed: true }, env: { connection: { type: 'cellular' } } }).why, 'removed', 'avant la connexion');
   assert.equal(auto({ state: { v: '2.2.2', verdict: 'slow' } }).why, 'slow');
   assert.equal(auto({ state: { v: '2.2.1', verdict: 'slow' } }).ok, true, 'nouvel essai à la version suivante');
   assert.equal(auto({ features: { ...FEAT, deviceMemory: 2 } }).why, 'modest');
+  assert.equal(auto({ features: { ...FEAT, deviceMemory: 2 }, env: { connection: { type: 'cellular' } } }).why, 'modest', 'appareil modeste : pas de bouton « Télécharger maintenant » pour elle');
   assert.equal(auto({ features: { ...FEAT, simd: false } }).why, 'unsupported');
   assert.equal(auto({ features: { ...FEAT, moduleWorker: false } }).why, 'unsupported');
-  /* demandé par un parent puis interrompu par un jeu : reprend tout seul après la séance, même en données mobiles */
+  /* demandé par un adulte (espace parents, bouton de la barre) puis interrompu : reprend tout seul, même en données
+     mobiles ou en économie de données ; jamais pendant un jeu ni hors ligne */
   assert.deepEqual(auto({ state: { want: 'parent' }, env: { ua: UA.iphone, connection: { type: 'cellular' } } }), { ok: true, why: 'parent' });
+  assert.deepEqual(auto({ state: { want: 'parent' }, env: { connection: { type: 'wifi', saveData: true } } }), { ok: true, why: 'parent' });
   assert.equal(auto({ state: { want: 'parent' }, inGame: true }).why, 'in-game');
+  assert.equal(auto({ state: { want: 'parent' }, env: { onLine: false } }).why, 'offline');
   assert.equal(F.connectionOf({ connection: { type: 'none' } }), 'offline');
   assert.equal(F.deviceOf({ ua: UA.pc }), 'desktop');
   assert.equal(F.deviceOf({ ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15', platform: 'MacIntel', maxTouchPoints: 5 }), 'ios', 'iPad');
+  /* plus de « premier lancement » ni de « après une séance » dans la politique */
+  assert.doesNotMatch(SRC('js/core/voice-fluid.js'), /first-launch|no-session|no\('ios'\)/);
 });
 
 test('mémoire faible (≤ 4 Go ou inconnue) : le micro et la voix fluide ne coexistent jamais', () => {
@@ -159,7 +167,7 @@ test('mémoire faible (≤ 4 Go ou inconnue) : le micro et la voix fluide ne coe
   assert.equal(F.modest({}), false);
   /* branchement : ensureVosk et startListening préviennent la voix ; speech.js et course-engine.js ne sont pas touchés */
   const ctx = SRC('js/ui/game-ctx.js');
-  assert.match(ctx, /ensureVosk\(\.\.\.a\) \{ voice\.micWillStart\(\); return speech\.ensureVosk\(\.\.\.a\); \}/);
+  assert.match(ctx, /ensureVosk\(\.\.\.a\) \{ voice\.micWillStart\(\); return withPreloadPct\(a\[0\], speech\.ensureVosk\(\.\.\.a\)\); \}/);
   assert.match(ctx, /startListening\(\.\.\.a\) \{ voice\.micWillStart\(\); return speech\.startListening\(\.\.\.a\); \}/);
   assert.match(ctx, /speech: speechCtx/);
   const fl = SRC('js/core/voice-fluid.js');
@@ -502,7 +510,7 @@ function fakeLib(have = []) {
 }
 const CELL = { ua: UA.android, connection: { type: 'cellular' }, onLine: true };
 const navOf = env => ({ userAgent: env.ua, connection: env.connection, onLine: env.onLine });
-const autoNow = env => F.autoDownload({ env, features: FEAT, state: F.readState(), version: '2.2.2', afterSession: true });
+const autoNow = env => F.autoDownload({ env, features: FEAT, state: F.readState(), version: '2.2.2' });
 const ALL = ['ortMjs', 'ortWasm', 'model'];
 
 test('téléchargement : « Arrêter » du parent oublie la reprise d’office (un jeu la garde) ; fini → plus de reprise d’office ; fichiers du banc d’essai → « pas téléchargée »', async () => {
@@ -540,7 +548,7 @@ test('téléchargement : « Arrêter » du parent oublie la reprise d’office (
     lib.cached.clear();
     assert.equal((await F.refresh()).state, 'absent');
     assert.deepEqual(autoNow(CELL), { ok: false, why: 'cellular' });
-    assert.equal(autoNow({ ...CELL, ua: UA.iphone, connection: { type: 'wifi' } }).why, 'ios');
+    assert.deepEqual(autoNow({ ...CELL, ua: UA.iphone, connection: { type: 'wifi' } }), { ok: true, why: 'wifi' }, 'iPhone en Wi-Fi : tout seul');
     /* VFV-6 : fichiers laissés par le banc d'essai (rien commencé ici) → « pas téléchargée », ménage ; commencé ici →
        « interrompu » ; supprimé → « pas téléchargée » */
     F._setEnv({ lib: fakeLib(['ortMjs', 'ortWasm']), features: FEAT, storage: memoryStorage({ [F.STATE_KEY]: JSON.stringify({ launches: 1 }) }), version: '2.2.2', nav: navOf(CELL) });
@@ -636,6 +644,65 @@ test('micro, mémoire faible : la voix fluide attend la prochaine ouverture (Vos
   }
   /* tables : la question suivante n'est pas calculée d'avance quand le micro est voulu (elle ne sera pas dite) */
   assert.match(SRC('js/games/tables.js'), /if \(upcoming \|\| !alive \|\| ended \|\| micWanted\(\) \|\| !ctx\.voice \|\| !ctx\.voice\.canPrepare\) return;/);
+});
+
+test('téléchargement refusé (pendant un jeu, hors ligne) : le suivant part bien (aucun téléchargement fantôme ne bloque la reprise)', async () => {
+  const lib = fakeLib();
+  const nav = navOf({ ua: UA.android, connection: { type: 'wifi' }, onLine: true });
+  F._setEnv({ lib, features: FEAT, storage: memoryStorage(), version: '2.2.2', nav });
+  try {
+    F.onRoute({ name: 'play' });
+    assert.equal(await F.download({ by: 'auto' }), false, 'pendant un jeu : refusé');
+    assert.equal(F.status().state, 'paused');
+    F.onRoute({ name: 'home' });
+    nav.onLine = false;
+    assert.equal(await F.download({ by: 'auto' }), false, 'hors ligne : refusé');
+    assert.equal(F.status().error, 'offline');
+    nav.onLine = true;
+    const p = F.download({ by: 'auto' });
+    await tick(5);
+    assert.equal(F.status().state, 'downloading', 'au retour : il part');
+    lib.finish();
+    assert.equal(await p, true);
+  } finally { F._setEnv(null); }
+});
+
+test('préchargement (v2.2.3) : holdBoot retient le démarrage pendant l’extraction du micro (essai de vitesse jamais faussé), abandonne un démarrage en cours sans verdict, libère le moteur sur mémoire faible, reprend ensuite', async () => {
+  const lib = fakeLib(ALL);
+  F._setEnv({ lib, features: FEAT, storage: memoryStorage(), version: '2.2.2' });
+  try {
+    assert.equal((await F.refresh()).state, 'cached');
+    let done;
+    F.holdBoot(new Promise(r => { done = r; }));
+    assert.equal(await F.boot(), false, 'pas de démarrage pendant le calcul');
+    assert.equal(lib.boots, 0);
+    done();
+    await tick(1700);
+    assert.equal(lib.boots, 1, 'repris après le calcul');
+    lib.go();
+    await tick(10);
+    assert.equal(F.status().state, 'ready');
+    assert.equal(F.readState().verdict, 'ok');
+  } finally { F._setEnv(null); }
+  const lib2 = fakeLib(ALL);
+  F._setEnv({ lib: lib2, features: FEAT, storage: memoryStorage(), version: '2.2.2' });
+  try {
+    await F.refresh();
+    const b = F.boot();
+    await tick(1);
+    assert.equal(F.status().state, 'starting');
+    F.holdBoot(new Promise(() => {}));
+    assert.equal(await b, false, 'démarrage en cours abandonné');
+    assert.equal(F.status().state, 'cached');
+    assert.equal(F.readState().verdict, undefined, 'aucun verdict');
+  } finally { F._setEnv(null); }
+  for (const mem of [4, 8]) {
+    F._setEnv({ engine: fakeEngine(), features: { ...FEAT, deviceMemory: mem }, storage: memoryStorage(), version: '2.2.2', lib: fakeLib(ALL) });
+    try {
+      F.holdBoot(new Promise(() => {}));
+      assert.equal(F.ready(), mem === 8, mem + ' Go : ' + (mem === 8 ? 'gardé' : 'libéré le temps du calcul'));
+    } finally { F._setEnv(null); }
+  }
 });
 
 test('ligne « Voix fluide » (espace parents) et « État de cet appareil » : supprimée, trop lente, en pause après le micro', async () => {

@@ -11,7 +11,11 @@
        (moteur intégré Vosk prêt ou téléchargé, sinon reconnaissance du navigateur, sinon aucune) ; WebAssembly ;
        stockage (sauvegarde automatique, stockage protégé : navigator.storage.persisted(), place utilisée / disponible).
    collect() → Promise<faits> (navigateur) ; describe(faits) → [{ key, label, value, ok }] (PUR, testé :
-   tests/install.test.mjs) ; diagCard() → la carte (« Vérifier de nouveau », « Copier le texte »). */
+   tests/install.test.mjs) ; diagCard() → la carte (« Vérifier de nouveau », « Copier le texte »).
+   v2.2.3 (demande du parent du 06/10/2026 : « un mode débug : si je l'active, ça enregistre ce qu'il se passe et je peux
+   exporter des logs ») : sous la carte, le MODE DIAGNOSTIC (js/core/debuglog.js) : activer, exporter le journal (partage
+   d'un fichier texte, sinon téléchargement ; en tête, l'état de l'appareil ; prénoms des profils masqués), effacer,
+   désactiver ; reconnaissance « moteur intégré installé » quand le modèle est déjà extrait (speech.modelReady()). */
 import { h, clear, frTypo } from '../core/util.js';
 import { parseUA } from '../core/install.js';
 import * as install from '../core/install.js';
@@ -21,6 +25,8 @@ import * as speech from '../core/speech.js';
 import * as clips from '../core/voice-clips.js';
 import * as fluid from '../core/voice-fluid.js';
 import * as store from '../core/store.js';
+import * as dl from '../core/debuglog.js';
+import { download as utilDownload } from '../core/util.js';
 import * as voice from './voice.js';
 import * as kit from './kit.js';
 
@@ -101,9 +107,10 @@ export function describe(f = {}) {
   else add('mic', 'Micro', 'demandé au premier essai', null);
   const k = f.reco || {};
   if (k.vosk === 'ready') add('reco', 'Reconnaissance', 'moteur intégré prêt', true);
+  else if (k.vosk === 'installed') add('reco', 'Reconnaissance', 'moteur intégré installé', true);
   else if (k.vosk === 'downloaded') add('reco', 'Reconnaissance', 'moteur intégré téléchargé', true);
   else if (k.google) add('reco', 'Reconnaissance', 'secours du navigateur (Google)', null);
-  else if (k.vosk === 'possible') add('reco', 'Reconnaissance', 'moteur intégré à télécharger (45 Mo)', null);
+  else if (k.vosk === 'possible') add('reco', 'Reconnaissance', 'moteur intégré à télécharger (≈ 52 Mo)', null);
   else if (k.web) add('reco', 'Reconnaissance', 'celle du navigateur seulement', null);
   else add('reco', 'Reconnaissance', 'aucune (course impossible)', false);
   add('wasm', 'WebAssembly', f.wasm ? 'oui' : 'non (moteur intégré impossible)', !!f.wasm);
@@ -162,6 +169,7 @@ export async function collect() {
   const web = !!(G.SpeechRecognition || G.webkitSpeechRecognition);
   let vosk = f.wasm && f.mic.api ? 'possible' : 'no';
   if (/prêt/i.test(status)) vosk = 'ready';
+  else if (vosk === 'possible' && await within(safe(() => speech.modelReady(), false), 1500, false)) vosk = 'installed';
   else if (vosk === 'possible') {
     const got = await within(safe(async () => {
       if (!G.caches || !(await G.caches.has('vosk-model-v1'))) return false;
@@ -191,7 +199,7 @@ export function diagCard() {
   const card = h('div', { class: 'card pa-card pa-diag' },
     h('h3', { class: 'pa-h3' }, 'État de cet appareil'),
     h('p', { class: 'pa-help pa-diag-intro' }, frTypo('Un souci ? Envoyez une capture d’écran de cette carte avec votre message. Tout est vérifié ici, rien n’est envoyé.')),
-    list, uaLine, h('div', { class: 'pa-dev-acts pa-diag-acts' }, again, copy));
+    list, uaLine, h('div', { class: 'pa-dev-acts pa-diag-acts' }, again, copy), debugBox(() => text));
   let text = '', seq = 0;
   const render = rows => {
     clear(list);
@@ -233,4 +241,54 @@ export function diagCard() {
     if (key(st) !== last) { last = key(st); run(); }
   });
   return card;
+}
+
+/* ---------- mode diagnostic (v2.2.3) ---------- */
+const actBtn = (emo, label, fk, fn) => {
+  const b = h('button', { type: 'button', class: 'btn small white', 'data-fk': fk },
+    h('span', { class: 'pa-lbl' }, h('span', { class: 'pa-lbl-emo', 'aria-hidden': 'true' }, emo + NB), label));
+  b.addEventListener('click', () => { try { audio.tap(); } catch (_) {} fn(); });
+  return b;
+};
+/* le journal en fichier texte : partage (Android, iPhone), sinon téléchargement → 'shared' | 'cancelled' | 'downloaded' | 'failed' */
+async function shareLog(text) {
+  const name = dl.fileName(new Date());
+  const nav = G.navigator;
+  try {
+    if (nav && typeof nav.share === 'function' && typeof nav.canShare === 'function' && typeof G.File === 'function') {
+      const f = new G.File([text], name, { type: 'text/plain' });
+      if (nav.canShare({ files: [f] })) {
+        try { await nav.share({ files: [f], title: 'Journal de Caramel' }); return 'shared'; }
+        catch (e) { if (e && e.name === 'AbortError') return 'cancelled'; }
+      }
+    }
+  } catch (_) {}
+  return utilDownload(name, text, 'text/plain') ? 'downloaded' : 'failed';
+}
+function debugBox(diagText) {
+  const box = h('div', { class: 'pa-dbg' });
+  const render = () => {
+    clear(box);
+    const on = dl.enabled(), n = dl.entries().length;
+    box.appendChild(h('h4', { class: 'pa-dbg-h' }, on ? '🐞' + NB + 'Mode diagnostic activé' : 'Mode diagnostic'));
+    box.appendChild(h('p', { class: 'pa-help pa-dbg-intro' }, frTypo(on
+      ? 'Caramel note ce que font le micro et la voix sur cet appareil (' + plural(n, 'événement', 'événements') + '). Refaites la partie qui pose problème, puis exportez le journal et joignez-le à votre message.'
+      : 'Un souci avec le micro ou la voix ? Activez ce mode, refaites la partie qui pose problème, puis exportez le journal. Rien n’est envoyé tout seul, aucun son n’est enregistré, les prénoms sont masqués.')));
+    const acts = h('div', { class: 'pa-dev-acts pa-dbg-acts' });
+    if (!on) acts.appendChild(actBtn('🐞', 'Activer le mode diagnostic', 'dbg-on', () => { dl.setEnabled(true); render(); }));
+    else {
+      acts.appendChild(actBtn('📤', 'Exporter le journal', 'dbg-export', async () => {
+        let names = [];
+        try { names = store.listProfiles().map(p => p && p.name).filter(Boolean); } catch (_) {}
+        const header = { 'Exporté le': new Date().toLocaleString('fr-FR'), 'État de l’appareil': '\n' + (diagText() || '(pas encore lu)') };
+        const r = await shareLog(dl.exportText({ names, header }));
+        try { kit.toast(r === 'shared' ? 'Journal partagé ✓' : r === 'downloaded' ? 'Journal téléchargé ✓' : r === 'cancelled' ? 'Partage annulé' : frTypo('L’export n’est pas possible ici.'), 2000); } catch (_) {}
+      }));
+      acts.appendChild(actBtn('🗑️', 'Effacer', 'dbg-clear', () => { dl.clear(); render(); }));
+      acts.appendChild(actBtn('⏹', 'Désactiver', 'dbg-off', () => { dl.setEnabled(false); render(); }));
+    }
+    box.appendChild(acts);
+  };
+  render();
+  return box;
 }

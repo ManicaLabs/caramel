@@ -168,6 +168,12 @@
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .tb-ear.is-hidden { display: none; }
+/* v2.2.3 : une voix arrive au micro → l'oreille bat (l'enfant voit qu'il est entendu) */
+.tb-ear.is-hearing { color: var(--ink); animation: tb-hear .5s var(--ease-out) infinite alternate; }
+@keyframes tb-hear { from { transform: scale(1); } to { transform: scale(1.06); } }
+/* mode diagnostic (espace parents) : état du micro en petit */
+.tb-dbg { margin: 2px 6px 0; text-align: center; font: 600 .7rem/1.2 ui-monospace, Menlo, Consolas, monospace; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-dbg:empty { display: none; }
 
 .tb-hintboard {
   position: absolute; z-index: 5; bottom: calc(var(--ground-h) + 8px);
@@ -214,6 +220,14 @@
 }
 .tb-mic.is-starting .tb-mic-ico { animation: tb-breathe 1s ease-in-out infinite; }
 .tb-mic.is-paused { opacity: .55; }
+/* v2.2.3 : micro muet ou moteur en retard qui dure : 🎤 barré (le toucher relance l'écoute), plus d'onde « je t'écoute » */
+.tb-mic.is-trouble { background: var(--card); border-color: var(--ink-4); box-shadow: 0 3px 0 var(--ink-4); }
+.tb-mic.is-trouble::after { display: none; }
+.tb-mic.is-trouble::before {
+  content: ''; position: absolute; left: 50%; top: 50%; width: 2.1rem; height: 4px; margin: -2px 0 0 -1.05rem;
+  border-radius: 2px; background: var(--ink-2); box-shadow: 0 0 0 2px var(--card); transform: rotate(-45deg); pointer-events: none;
+}
+.tb-mic.is-trouble .tb-mic-ico { opacity: .6; }
 @keyframes tb-listen { 0% { opacity: .75; transform: scale(.97); } 100% { opacity: 0; transform: scale(1.14); } }
 @keyframes tb-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.18); } }
 @media (hover: hover) and (pointer: fine) {
@@ -266,9 +280,9 @@
 
 /* ---------- mouvement réduit / animations douces : décor immobile ---------- */
 @media (prefers-reduced-motion: reduce) {
-  .tb-layer, .tb-hero-bob, .tb-mic.is-on::after, .tb-mic-ico { animation: none !important; }
+  .tb-layer, .tb-hero-bob, .tb-mic.is-on::after, .tb-mic-ico, .tb-ear.is-hearing { animation: none !important; }
   .tb-hills-near { transform: translateX(-150px); }      /* décor fixe : le pommier ne reste pas derrière le compagnon */
 }
 html.motion-soft .tb-layer, html.motion-soft .tb-hero-bob,
-html.motion-soft .tb-mic.is-on::after, html.motion-soft .tb-mic-ico { animation: none !important; }
+html.motion-soft .tb-mic.is-on::after, html.motion-soft .tb-mic-ico, html.motion-soft .tb-ear.is-hearing { animation: none !important; }
 html.motion-soft .tb-hills-near { transform: translateX(-150px); }

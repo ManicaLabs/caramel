@@ -3,8 +3,10 @@
    (≈ 45 Mo, Wi-Fi conseillé), son état sur CET appareil (js/core/voice-fluid.js) et les gestes possibles :
    Télécharger, Arrêter / Reprendre, ▶ Écouter (une phrase au prénom de l'enfant actif), Refaire l'essai de vitesse (trop
    lente), Supprimer (confirmation).
-   Aucune fenêtre côté enfant : sur iPhone, en données mobiles ou quand la connexion est inconnue, c'est ici seulement que
-   la voix fluide se télécharge. L'état s'affiche sans être annoncé ; seul le résultat d'un geste du parent l'est (say).
+   Aucune fenêtre côté enfant : la voix fluide se télécharge d'elle-même dès la première ouverture (v2.2.3,
+   js/core/preload.js), sauf en données mobiles (l'adulte la lance ici, ou par « Télécharger maintenant » de la barre de
+   l'accueil), sur un appareil modeste ou après « Supprimer » (ici seulement). L'état s'affiche sans être annoncé ; seul
+   le résultat d'un geste du parent l'est (say).
    La barre de progression (<progress>, nommée) n'est pas une zone annoncée : pas de bavardage à chaque pour cent.
    rowModel(status) → { text, on, buttons, note, pct } (PUR, testé) ; parentsRow({ say, saved }) → la ligne. */
 import { h, clear, frTypo } from '../core/util.js';

@@ -1,7 +1,9 @@
 /* Cycle d'écoute de js/core/speech.js avec de faux moteurs (aucun navigateur) :
-   - Vosk : texte cumulé identique à la v11 sans resetTranscript (la course) ; resetTranscript ignore la phrase en cours
-     jusqu'à sa fin naturelle SANS la couper (pas de retrieveFinalResult), la coupe seulement au bout de SKIP_MAX_MS ;
-     AudioContext du micro suspendu par le système → relancé ;
+   - Vosk : texte cumulé identique à la v11 sans resetTranscript (la course) ; resetTranscript oublie les mots déjà entendus
+     de la phrase en cours SANS la couper (pas de retrieveFinalResult) et garde la suite (2.2.3 : réponse enchaînée sans
+     pause) ; AudioContext du micro suspendu par le système → relancé ;
+   - santé du micro (2.2.3) : moteur en retard → blancs non envoyés, voix toujours (puis plus rien au-delà de ≈ 4 s,
+     jusqu'au rattrapage) ; micro muet → rouvert (même reconnaisseur), 3 fois par minute au plus ;
    - Web Speech (secours) : oubli des résultats déjà reçus, même finals (Chrome Android renvoie toute la liste) ;
      relance après « onend » (fin de session Android, « no-speech », « aborted »), erreurs bloquantes remontées. */
 import { test, assert } from './_t.mjs';
@@ -11,11 +13,20 @@ const KEYS = ['window', 'navigator', 'document', 'AudioContext', 'webkitAudioCon
   'SpeechRecognition', 'webkitSpeechRecognition'];
 
 /* ---------- faux navigateur ---------- */
-const F = { recs: [], ctxs: [], srs: [], gum: 0, scriptFails: false };
+const F = { recs: [], ctxs: [], srs: [], gum: 0, scriptFails: false, model: null };
+/* faux modèle de vosk-browser : postMessage (compté par speech.js) et worker (réponses rendues par le test : reply()) */
+function fakeModel() {
+  const M = { sent: [], listeners: [], KaldiRecognizer: FakeRec };
+  M.postMessage = m => { M.sent.push(m); };
+  M.worker = { addEventListener: (ev, fn) => { if (ev === 'message') M.listeners.push(fn); } };
+  M.reply = (n = 1) => { for (let i = 0; i < n; i++) M.listeners.forEach(fn => fn({ data: { event: 'partialresult', recognizerId: 'r' } })); };
+  F.model = M;
+  return M;
+}
 class FakeRec {
-  constructor(sampleRate, grammar) { this.sampleRate = sampleRate; this.grammar = grammar; this.h = {}; this.finals = 0; F.recs.push(this); }
+  constructor(sampleRate, grammar) { this.sampleRate = sampleRate; this.grammar = grammar; this.h = {}; this.finals = 0; this.waves = 0; F.recs.push(this); }
   on(ev, fn) { this.h[ev] = fn; }
-  acceptWaveform() {}
+  acceptWaveform() { this.waves++; if (F.model) F.model.postMessage({ action: 'audioChunk', recognizerId: 'r' }); }
   retrieveFinalResult() { this.finals++; }
   remove() { this.removed = true; }
   partial(p) { this.h.partialresult({ result: { partial: p } }); }
@@ -30,7 +41,7 @@ class FakeCtx {
   suspend() { this.set('suspended'); return Promise.resolve(); }
   close() { this.set('closed'); return Promise.resolve(); }
   createMediaStreamSource() { return node(); }
-  createScriptProcessor() { return node(); }
+  createScriptProcessor() { return (this.sp = node()); }
   createGain() { return node(); }
 }
 class FakeSR {
@@ -48,16 +59,17 @@ function install() {
   for (const k of KEYS) saved[k] = Object.getOwnPropertyDescriptor(globalThis, k);
   const set = (k, v) => Object.defineProperty(globalThis, k, { value: v, configurable: true, writable: true });
   set('window', globalThis);
-  set('navigator', { mediaDevices: { getUserMedia: async () => { F.gum++; return { getTracks: () => [{ stop() {} }] }; } } });
+  set('navigator', { mediaDevices: { getUserMedia: async () => { F.gum++; return { getTracks: () => [{ stop() {}, readyState: 'live' }] }; } } });
   set('document', {
     createElement: () => ({}),
-    head: { appendChild: s => setTimeout(() => { if (F.scriptFails) s.onerror(); else { set('Vosk', { createModel: async () => ({ KaldiRecognizer: FakeRec }) }); s.onload(); } }, 0) }
+    head: { appendChild: s => setTimeout(() => { if (F.scriptFails) s.onerror(); else { set('Vosk', { createModel: async () => fakeModel() }); s.onload(); } }, 0) }
   });
   set('AudioContext', FakeCtx);
   set('fetch', async () => ({ ok: true, headers: { get: () => null }, body: null, blob: async () => new Blob(['modele']) }));
   set('caches', undefined);
   set('SpeechRecognition', FakeSR);
   F.recs = []; F.ctxs = []; F.srs = []; F.gum = 0;
+  if (F.model) { F.model.sent = []; }
   return () => {
     for (const k of KEYS) {
       if (saved[k]) Object.defineProperty(globalThis, k, saved[k]);
@@ -68,14 +80,16 @@ function install() {
 /* une instance du module par moteur (état propre) : ?vosk et ?web */
 async function withSpeech(tag, fn) {
   const restore = install();
+  let S = null;
   const err = console.error;
   console.error = () => {};                               /* « Vosk indisponible » attendu côté Web Speech */
   try {
-    const S = await import('../js/core/speech.js?' + tag);
+    S = await import('../js/core/speech.js?' + tag);
     const texts = [], errors = [];
     const start = (grammar = ['un', 'deux']) => S.startListening({ grammar, onText: (t, f) => texts.push([t, f]), onError: (c) => errors.push(c) });
     await fn({ S, texts, errors, start, last: () => texts[texts.length - 1] });
   } finally {
+    try { if (S) S.stopListening(); } catch (_) {}         /* un test raté ne laisse pas un micro « allumé » derrière lui */
     console.error = err;
     restore();
   }
@@ -98,24 +112,27 @@ test('Vosk : sans resetTranscript, texte cumulé identique à la v11 (la course)
   assert.equal(S.isListening(), false);
 }));
 
-test('Vosk : resetTranscript ignore la phrase en cours jusqu’à sa fin, sans la couper', () => withSpeech('vosk', async ({ S, texts, start, last }) => {
+test('Vosk : resetTranscript oublie les mots déjà entendus, garde la suite, sans couper la phrase', () => withSpeech('vosk', async ({ S, texts, start, last }) => {
   await start();
   const rec = F.recs[F.recs.length - 1];
   rec.partial('quarante-huit');
   S.resetTranscript();                                  /* bonne réponse : calcul suivant */
-  assert.equal(rec.finals, 0, 'pas de retrieveFinalResult : la phrase n’est plus coupée au milieu d’un mot');
-  rec.partial('quarante-huit quarante');                /* l’enfant répète : même phrase */
-  assert.deepEqual(last(), ['', false]);
-  S.resetTranscript();                                  /* deuxième oubli (arrivée du calcul) : sans effet de plus */
-  rec.partial('quarante-huit quarante-huit');
-  assert.deepEqual(last(), ['', false]);
-  rec.result('quarante-huit quarante-huit');            /* fin naturelle de la phrase : ignorée */
+  assert.equal(rec.finals, 0, 'pas de retrieveFinalResult : la phrase n’est pas coupée au milieu d’un mot');
+  rec.partial('quarante-huit');                         /* même phrase, rien de neuf */
+  assert.deepEqual(last(), [' ', false]);
+  rec.partial('quarante-huit vingt-sept');              /* réponse suivante dite SANS pause : entendue (2.2.1 la perdait) */
+  assert.deepEqual(last(), [' vingt-sept', false]);
+  S.resetTranscript();                                  /* deuxième oubli dans la même phrase */
+  rec.partial('quarante-huit vingt-sept');
+  assert.deepEqual(last(), [' ', false]);
+  rec.result('quarante-huit vingt-sept soixante');      /* fin naturelle : seule la suite compte */
+  assert.deepEqual(last(), ['soixante ', true]);
+  rec.partial('soixante-quatre');                       /* nouvelle phrase : entendue en entier */
+  assert.deepEqual(last(), ['soixante  soixante-quatre', false]);
+  S.resetTranscript();
+  rec.result('soixante-quatre');                        /* sa fin : déjà entendue, oubliée */
   assert.deepEqual(last(), ['', true]);
-  rec.partial('soixante');                              /* nouvelle phrase : entendue */
-  assert.deepEqual(last(), [' soixante', false]);
-  rec.result('soixante-quatre');
-  assert.deepEqual(last(), ['soixante-quatre ', true]);
-  /* oubli dans le silence (aucune phrase en cours) : la phrase suivante est entendue tout de suite */
+  /* oubli dans le silence (aucune phrase en cours) : la phrase suivante est entendue en entier */
   S.resetTranscript();
   rec.partial('neuf');
   assert.deepEqual(last(), [' neuf', false]);
@@ -124,26 +141,88 @@ test('Vosk : resetTranscript ignore la phrase en cours jusqu’à sa fin, sans l
   S.stopListening();
 }));
 
-test('Vosk : une phrase oubliée qui ne finit pas est coupée au bout de 2,5 s, une seule fois', () => withSpeech('vosk', async ({ S, start, last }) => {
+test('dropWords, modelDir, staleKeys (pur)', () => withSpeech('pur', async ({ S }) => {
+  assert.equal(S.dropWords('quarante-huit  vingt-sept soixante ', 2), 'soixante');
+  assert.equal(S.dropWords('un deux', 5), '');
+  assert.equal(S.dropWords('un deux', 0), 'un deux');
+  const dir = S.modelDir('https://exemple.fr/caramel/models/fr.tar.gz');
+  assert.equal(dir, '/vosk/https___exemple_fr_caramel_models_fr_tar_gz', 'même chemin que le worker de vosk-browser');
+  const keys = ['/vosk/blob_https___exemple_fr_1', '/vosk/blob_https___exemple_fr_1/final.mdl', dir, dir + '/extracted.ok', dir + '/am/final.mdl'];
+  assert.deepEqual(S.staleKeys(keys, dir), keys.slice(0, 2), 'copies des ouvertures précédentes');
+}));
+
+const chunk = amp => ({ getChannelData: () => { const d = new Float32Array(4096); for (let i = 0; i < d.length; i++) d[i] = amp * Math.sin(i / 3); return d; } });
+test('santé : moteur en retard → blancs non envoyés, voix toujours ; au-delà de 4 s, plus rien jusqu’au rattrapage', () => withSpeech('retard', async ({ S, start }) => {
   await start();
-  const rec = F.recs[F.recs.length - 1];
+  const rec = F.recs[F.recs.length - 1], sp = F.ctxs[F.ctxs.length - 1].sp, M = F.model;
   const realNow = Date.now;
   let t = realNow();
   Date.now = () => t;
   try {
-    rec.partial('bruit');
-    S.resetTranscript();
-    t += 2400; rec.partial('bruit bruit');
-    assert.equal(rec.finals, 0, 'avant 2,5 s : on attend la fin naturelle');
-    t += 200; rec.partial('bruit bruit bruit');
-    assert.equal(rec.finals, 1, 'au-delà : coupée');
-    t += 300; rec.partial('bruit');
-    assert.equal(rec.finals, 1, 'une seule coupe');
-    rec.result('bruit bruit bruit');                    /* le résultat de la coupe est ignoré */
-    assert.deepEqual(last(), ['', true]);
-    rec.partial('douze');
-    assert.deepEqual(last(), [' douze', false]);
+    const feed = amp => { t += 256; sp.onaudioprocess({ inputBuffer: chunk(amp) }); };
+    for (let i = 0; i < 6; i++) { feed(0.001); M.reply(1); }   /* bruit de fond : le moteur suit, tout est envoyé */
+    assert.equal(rec.waves, 6);
+    for (let i = 0; i < 4; i++) feed(0.2);              /* voix, sans réponse du moteur : 4 en attente */
+    assert.equal(rec.waves, 10);
+    assert.equal(S.health().pending, 4);
+    feed(0.001); feed(0.001); feed(0.001);              /* blanc juste après la voix (0,8 s) : encore envoyé, pour finir la phrase */
+    assert.equal(rec.waves, 13);
+    feed(0.001); feed(0.001);                           /* blancs suivants : gardés */
+    assert.equal(rec.waves, 13);
+    feed(0.2);                                          /* la voix revient : envoyée */
+    assert.equal(rec.waves, 14);
+    while (S.health().pending < 16) feed(0.2);          /* la voix continue, le moteur ne répond plus : 16 en attente (≈ 4 s) */
+    const w = rec.waves;
+    feed(0.2); feed(0.2);
+    assert.equal(rec.waves, w, 'au-delà de 4 s de retard : plus rien, même la voix');
+    M.reply(S.health().pending - 4);                    /* le moteur rattrape : 4 en attente */
+    feed(0.2);
+    assert.equal(rec.waves, w + 1, 'rattrapé : la voix repart');
+    assert.ok(S.health().dropped >= 4);
   } finally { Date.now = realNow; }
+  S.stopListening();
+  assert.equal(S.health().state, 'off');
+}));
+
+test('santé : keepVoice (la course) → la voix part toujours, même très en retard ; les blancs restent écartés', () => withSpeech('garde', async ({ S }) => {
+  await S.startListening({ grammar: ['le', 'poney'], keepVoice: true });
+  const rec = F.recs[F.recs.length - 1], sp = F.ctxs[F.ctxs.length - 1].sp;
+  const realNow = Date.now;
+  let t = realNow();
+  Date.now = () => t;
+  try {
+    const feed = amp => { t += 256; sp.onaudioprocess({ inputBuffer: chunk(amp) }); };
+    for (let i = 0; i < 24; i++) feed(0.2);              /* lecture continue, moteur muet : 24 en attente (> 16) */
+    assert.equal(rec.waves, 24, 'aucun mot lu écarté');
+    feed(0.001); feed(0.001); feed(0.001); feed(0.001); feed(0.001);
+    assert.equal(rec.waves, 27, 'blancs : 0,8 s envoyés pour finir la phrase, puis écartés');
+  } finally { Date.now = realNow; }
+  S.stopListening();
+}));
+
+test('santé : micro muet → rouvert sans perdre le reconnaisseur, 3 fois par minute au plus', () => withSpeech('muet', async ({ S, start }) => {
+  await start();
+  const rec = F.recs[F.recs.length - 1];
+  const states = [];
+  const off = S.onHealth(h => { if (states[states.length - 1] !== h.state) states.push(h.state); });
+  const realNow = Date.now;
+  let t = realNow();
+  Date.now = () => t;
+  try {
+    for (let k = 1; k <= 4; k++) {
+      t += 2500;                                        /* plus aucun son depuis 2,5 s */
+      await sleep(320);                                 /* une vérification (250 ms) */
+      await sleep(20);
+      assert.equal(F.gum, 1 + Math.min(k, 3), 'réouverture ' + k);
+    }
+    assert.equal(F.recs.length, 1, 'même reconnaisseur');
+    assert.equal(F.recs[0], rec);
+    assert.ok(states.includes('deaf'), 'état « sourd » publié : ' + states.join(' → '));
+    const sp = F.ctxs[F.ctxs.length - 1].sp;
+    sp.onaudioprocess({ inputBuffer: chunk(0.2) });    /* le son revient */
+    await sleep(300);
+    assert.equal(S.health().state, 'ok');
+  } finally { Date.now = realNow; off(); }
   S.stopListening();
 }));
 

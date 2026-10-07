@@ -8,17 +8,19 @@
    apparaît dans « État de cet appareil » (js/ui/diag.js).
 
    Téléchargement (≈ 45 Mo, Cache Storage « piper-tts-v1 », jamais purgé par sw.js ; navigator.storage.persist()) :
-     - jamais au premier lancement, jamais pendant un jeu (un téléchargement en cours s'interrompt quand un jeu démarre) ;
-     - de lui-même, en tâche de fond APRÈS une séance (retour d'un jeu), quand navigator.connection dit Wi-Fi (ou câble)
-       sans économie de données : Android, ordinateur (Chrome ne donne pas le type de connexion d'un ordinateur : une
-       connexion d'ordinateur est tenue pour fixe) ; jamais sur un appareil modeste (≤ 2 Go annoncés) ;
-     - sinon (iPhone, iPad, données mobiles, connexion inconnue, économie de données) : proposé aux PARENTS seulement, dans
-       l'espace parents (« Voix fluide : ≈ 45 Mo, Wi-Fi conseillé », progression, « Supprimer ») ; un téléchargement
-       demandé par un parent puis interrompu par un jeu reprend de lui-même après la séance (pas s'il l'a arrêté) ;
-     - « Supprimer » (parent) : plus jamais de téléchargement automatique sur cet appareil.
+     - dès la première ouverture (demande du parent du 06/10/2026 : tout se télécharge pendant la création du profil),
+       lancé par js/core/preload.js avec le moteur du micro, sous une seule barre ; iPhone et iPad compris ;
+     - jamais pendant un jeu : un téléchargement en cours s'interrompt quand un jeu démarre (la connexion va au moteur du
+       micro, que le jeu attend peut-être) et reprend de lui-même après la séance (retour d'un jeu) ;
+     - jamais tout seul en données mobiles ou en économie de données (navigator.connection) : un adulte le lance (bouton
+       « Télécharger maintenant » de la barre de préchargement, ou espace parents) ; demandé par un adulte puis interrompu
+       par un jeu, il reprend de lui-même après la séance (pas s'il l'a arrêté) ; hors ligne : au retour du réseau ;
+     - jamais tout seul sur un appareil modeste (≤ 2 Go annoncés), jugé trop lent pour cette version, ni après
+       « Supprimer » (parent) : l'espace parents le permet toujours (« Voix fluide : ≈ 45 Mo », progression, « Supprimer »).
    Démarrage : le moteur démarre dans un worker, en tâche de fond, quand la voix est en cache (quelques secondes après
    l'ouverture, page visible) ; jamais pendant que le micro de la course ou des tables démarre (micWillStart, appelé par
-   js/ui/game-ctx.js avant ensureVosk / startListening : un démarrage en cours est abandonné et repris plus tard) ; sur un
+   js/ui/game-ctx.js avant ensureVosk / startListening : un démarrage en cours est abandonné et repris plus tard), ni
+   pendant l'extraction du modèle du micro au préchargement (holdBoot : l'essai de vitesse serait faussé) ; sur un
    appareil à mémoire faible (navigator.deviceMemory ≤ 4 Go, ou inconnue : Safari, Firefox), le moteur est LIBÉRÉ quand le
    micro démarre et ne redémarre qu'à la prochaine ouverture de Caramel : Vosk, une fois chargé, reste en mémoire
    (speech.js ne le libère pas) ; le micro et la voix fluide ne coexistent jamais.
@@ -34,7 +36,8 @@
    API :
      init({ version }) ; onRoute(route) ; onChange(fn) ; status() ; refresh() → Promise<status>
      download({ by: 'parent' | 'auto' }) → Promise<boolean> ; cancelDownload({ byParent }) ; retry() ; remove() ; boot()
-     ready() ; micWillStart() ; setMicProbe(fn) ; request(texte, prio) ; prepare(texte) ; cancelQueue()
+     autoCheck() ; ready() ; micWillStart() ; holdBoot(promesse) ; setMicProbe(fn) ; request(texte, prio) ; prepare(texte)
+     cancelQueue()
      play(segments, { clipBuffer }) → Promise<{ ok, reason, heard }> ; stop() ; playing() ; settle()
      pur (testé) : supported, lowMemory, modest, connectionOf, deviceOf, autoDownload, calibrationVerdict,
        needsCalibration, sentencesOf, segmentsOf, routeOf, readState, writeState */
@@ -100,26 +103,23 @@ export function deviceOf(env = {}) {
   const d = parseUA(env.ua || '', { platform: env.platform || '', maxTouchPoints: env.maxTouchPoints || 0 });
   return d.ios ? 'ios' : d.android ? 'android' : d.mobile ? 'mobile' : 'desktop';
 }
-/* téléchargement automatique ? → { ok, why } (why : la raison, pour le diagnostic et les tests) */
-export function autoDownload({ env = {}, features = null, state = {}, cached = false, version = '', inGame = false, afterSession = false } = {}) {
+/* téléchargement automatique ? → { ok, why } (why : la raison, pour le diagnostic et les tests). Demande du parent du
+   06/10/2026 : dès la première ouverture, sur tous les appareils ; seules restent les exclusions qui ont un sens.
+   'cellular' et 'save-data' attendent un adulte (js/core/preload.js : bouton « Télécharger maintenant ») ; 'offline' :
+   le retour du réseau */
+export function autoDownload({ env = {}, features = null, state = {}, cached = false, version = '', inGame = false } = {}) {
   const no = why => ({ ok: false, why });
   if (!supported(features)) return no('unsupported');
   if (cached) return no('cached');
   if (state.removed) return no('removed');
   if (state.verdict === 'slow' && state.v === version) return no('slow');
-  if ((state.launches || 0) < 2) return no('first-launch');
   if (inGame) return no('in-game');
-  if (!afterSession) return no('no-session');
   const net = connectionOf(env);
   if (net === 'offline') return no('offline');
-  if (net === 'save-data') return no('save-data');
-  if (state.want === 'parent') return { ok: true, why: 'parent' };       /* demandé par un parent, interrompu par un jeu */
+  if (state.want === 'parent') return { ok: true, why: 'parent' };       /* demandé par un adulte, interrompu (jeu, fermeture) */
   if (modest(features)) return no('modest');
-  const dev = deviceOf(env);
-  if (dev === 'ios') return no('ios');
-  if (net === 'wifi') return { ok: true, why: 'wifi' };
-  if (net === 'unknown' && dev === 'desktop' && env.connection) return { ok: true, why: 'desktop' };
-  return no(net === 'cellular' ? 'cellular' : 'unknown');
+  if (net === 'cellular' || net === 'save-data') return no(net);
+  return { ok: true, why: net };                                         /* 'wifi' ou 'unknown' (iPhone, iPad, ordinateur…) */
 }
 /* étalonnage → 'ok' | 'slow' */
 export function calibrationVerdict({ bootMs = 0, rtf = Infinity } = {}) {
@@ -163,7 +163,7 @@ export function routeOf({ plan = null, named = false, fluid = false, tts = false
 let lib = null, libP = null;           /* js/core/piper-tts.js, chargé au besoin */
 let feat = null;
 let VERSION = '';
-let inited = false, inGame = false, afterSession = false;
+let inited = false, inGame = false, holds = 0;
 let engine = null, booting = null, dl = null, bootTimer = 0, autoTimer = 0;
 let micHold = false, micUsed = false, micTimer = 0, micProbe = () => false;
 let ctxOf = () => audio.context();     /* tests : faux contexte */
@@ -251,15 +251,14 @@ export function init({ version = '' } = {}) {
   try { for (const t of ['visibilitychange', 'resume']) G.document.addEventListener(t, wake); } catch (_) {}
 }
 
-/* changement d'écran (js/main.js, routeur) : un jeu commence → aucun téléchargement ; on revient d'un jeu → après une
-   séance : téléchargement automatique s'il est permis, démarrage du moteur s'il attendait la fin du jeu */
+/* changement d'écran (js/main.js, routeur) : un jeu commence → aucun téléchargement (celui en cours s'interrompt) ; on
+   revient d'un jeu → téléchargement repris s'il est permis, démarrage du moteur s'il attendait la fin du jeu */
 export function onRoute(route) {
   const name = route && route.name;
   const was = inGame;
   inGame = GAME_ROUTES.includes(name);
   if (inGame) { clearTimeout(autoTimer); if (dl) cancelDownload(); return; }
   if (was) {
-    afterSession = true;
     clearTimeout(autoTimer);
     autoTimer = idle(maybeAuto, 3000);
     if (S.state === 'cached' && !micHold && !parked()) scheduleBoot(2500);
@@ -269,9 +268,15 @@ async function maybeAuto() {
   if (inGame || dl || !visible()) return;
   const st = await refresh();
   if (st.state !== 'absent' && st.state !== 'paused') return;
-  const r = autoDownload({ env: envNow(), features: feat, state: readState(), cached: false, version: VERSION, inGame, afterSession });
-  set({ why: r.why });
+  const r = autoCheck();
   if (r.ok) download({ by: 'auto' });
+}
+/* téléchargement automatique permis ICI et maintenant ? (autoDownload avec l'état réel ; après refresh(), voix absente
+   ou interrompue) → { ok, why } — aussi pour js/core/preload.js */
+export function autoCheck() {
+  const r = autoDownload({ env: envNow(), features: feat, state: readState(), cached: false, version: VERSION, inGame });
+  set({ why: r.why });
+  return r;
 }
 
 /* ---------- téléchargement ---------- */
@@ -323,8 +328,8 @@ export function download({ by = 'parent' } = {}) {
       const aborted = (e && (e.name === 'AbortError' || e.code === 'aborted')) || (my.ctrl && my.ctrl.signal.aborted);
       set({ state: aborted ? 'paused' : 'error', error: aborted ? '' : (connectionOf(envNow()) === 'offline' ? 'offline' : 'network'), progress: null });
       return false;
-    } finally { if (dl === my) dl = null; }
-  })();
+    }
+  })().finally(() => { if (dl === my) dl = null; });   /* toute sortie (refus compris : jeu, hors ligne, place) libère dl */
   return my.promise;
 }
 /* « Réessayer » (parent) : après une panne de démarrage, un nouvel essai ; sinon le téléchargement. « Refaire l'essai de
@@ -377,7 +382,7 @@ function release() {
   if (e) { try { e.dispose(); } catch (_) {} }
 }
 export async function boot() {
-  if (engine || booting || S.state !== 'cached' || micHold || parked() || !visible()) return false;
+  if (engine || booting || S.state !== 'cached' || micHold || holds || parked() || !visible()) return false;
   const my = booting = { aborted: false, ctrl: typeof G.AbortController === 'function' ? new G.AbortController() : null, piper: null };
   const P = await loadLib();
   if (!P || my.aborted || !visible()) { if (booting === my) booting = null; return false; }
@@ -448,6 +453,21 @@ export function micWillStart() {
     }
   }, 1000);
   try { if (micTimer.unref) micTimer.unref(); } catch (_) {}
+}
+/* un gros calcul passe avant (js/core/preload.js : extraction du modèle du micro) : aucun démarrage ni étalonnage du
+   moteur tant que la promesse n'est pas finie (l'essai de vitesse serait faussé : appareil jugé « trop lent » à tort) ;
+   un démarrage en cours est abandonné sans verdict ; mémoire faible : moteur libéré le temps du calcul (les deux ne
+   coexistent jamais). Repris ensuite. */
+export function holdBoot(p) {
+  holds++;
+  if (booting) { abortBoot(); set({ state: 'cached' }); }
+  else if (engine && isLowMem()) { release(); set({ state: 'cached' }); }
+  clearTimeout(bootTimer);
+  const end = () => {
+    holds = Math.max(0, holds - 1);
+    if (!holds && S.state === 'cached' && !engine && !micHold && !parked()) scheduleBoot(1500);
+  };
+  Promise.resolve(p).then(end, end);
 }
 
 /* ---------- phrases calculées : file et cache ---------- */
@@ -678,7 +698,7 @@ export function _setEnv(e) {
   stop(); cancelQueue();
   items.clear(); queue.length = 0; inflight = null; keptSec = 0; made = 0; lastUrgent = 0; clearTimeout(laterTimer);
   clearTimeout(bootTimer); clearTimeout(autoTimer); clearInterval(micTimer);
-  engine = null; booting = null; dl = null; micHold = false; inGame = false; afterSession = false; inited = false;
+  engine = null; booting = null; dl = null; micHold = false; inGame = false; holds = 0; inited = false;
   S = { state: 'unknown', progress: null, error: '', why: '' };
   const x = e || {};
   micUsed = !!x.micUsed;

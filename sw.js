@@ -17,7 +17,7 @@
    - Rappels quotidiens (periodicsync 'caramel-daily', enregistré par js/core/notifs.js) et notificationclick. */
 
 /* ASSETS:START */
-const VERSION = '2.2.2';
+const VERSION = '2.2.3';
 const ASSETS = [
   'index.html',
   'manifest.webmanifest',
@@ -52,6 +52,7 @@ const ASSETS = [
   'css/ui/mount.css',
   'css/ui/onboarding.css',
   'css/ui/parents.css',
+  'css/ui/preload.css',
   'css/ui/profiles.css',
   'css/ui/progres.css',
   'css/ui/radar.css',
@@ -73,12 +74,14 @@ const ASSETS = [
   'js/core/adaptive.js',
   'js/core/audio.js',
   'js/core/axes.js',
+  'js/core/debuglog.js',
   'js/core/economy.js',
   'js/core/family.js',
   'js/core/install.js',
   'js/core/leitner.js',
   'js/core/levels.js',
   'js/core/manche.js',
+  'js/core/mic-worklet.js',
   'js/core/migrate.js',
   'js/core/motion.js',
   'js/core/notifs.js',
@@ -86,6 +89,7 @@ const ASSETS = [
   'js/core/piper-engine.js',
   'js/core/piper-tts.js',
   'js/core/piper-worker.js',
+  'js/core/preload.js',
   'js/core/profiles.js',
   'js/core/radar-model.js',
   'js/core/rng.js',
@@ -129,6 +133,7 @@ const ASSETS = [
   'js/ui/mount-svg.js',
   'js/ui/onboarding.js',
   'js/ui/parents.js',
+  'js/ui/preload.js',
   'js/ui/profiles.js',
   'js/ui/progres.js',
   'js/ui/radar-detect-worker.js',

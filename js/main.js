@@ -178,6 +178,16 @@ async function boot() {
   unlockOnGesture(audio, tts);
   registerSW();
   router.onChange(renderBar);
+  /* 7. (v2.2.3) mode diagnostic (espace parents) : erreurs et changements d'écran notés au journal s'il est activé */
+  const dl = await load('./core/debuglog.js');
+  if (dl) {
+    try {
+      dl.init();
+      dl.dlog('appli', 'ouverture', { version: (document.querySelector('meta[name="caramel-version"]') || {}).content || '?',
+        installée: !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) });
+      router.onChange(() => { const r = router.current(); dl.dlog('écran', r ? String(r.name || '') + (r.params && r.params.id ? ' ' + r.params.id : '') : '?'); });
+    } catch (e) { console.error('Journal', e); }
+  }
   const vt = motion && typeof motion.viewTransition === 'function' ? fn => motion.viewTransition(fn) : null;
   const kit = await load('./ui/kit.js');
   const beforeSwap = () => { try { if (kit && kit.closeAllSheets) kit.closeAllSheets('nav'); } catch (_) {} };
