@@ -169,6 +169,23 @@
 .cl-help .kit-bubble-body { font-size: 1.02rem; }
 .cl-read .kit-bubble-body { font-family: var(--font-read); font-size: 1.04rem; line-height: 1.42; }
 
+/* ---------- répondre à voix haute (v2.3, js/ui/voice-answer.js) ----------
+   pastille 👂 (et 🎤 des choix) posée sur la scène : en haut du ciel (.is-high, top posé par cloture.js), sinon au bas
+   du pré, sinon cachée (.is-squeezed) — jamais sur la clôture ; rien ne bouge quand le micro s'allume ;
+   pavé décimal (la virgule prend la case vide) : 🎤 à gauche de la case réponse, hors du flux */
+.cl-voice {
+  position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 4; max-width: calc(100% - 24px);
+  padding: 3px 12px; border-radius: 999px; background: color-mix(in srgb, var(--card) 90%, transparent); box-shadow: var(--shadow-1);
+}
+.cl-voice:not(:has(> .va-mic, > .va-ear:not(.is-hidden), > .va-dbg:not(:empty))), .cl-voice.is-off, .cl-voice.is-squeezed { display: none; }
+.cl-voice.is-high { bottom: auto; }
+.cl-voice .va-mic { width: 46px; height: 46px; min-height: 46px; margin: 2px 0; }
+.cl-voice .va-ear { margin: 0; font-size: .95rem; }
+.cl-scene.is-placing .cl-voice { cursor: default; }
+.cl-answer .kit-keypad { position: relative; }
+.cl-answer .kit-keypad > .va-mic { position: absolute; left: 0; top: 0; width: 60px; height: 64px; min-height: 0; }
+.cl.is-compact .cl-answer .kit-keypad > .va-mic { height: 52px; }
+
 /* ---------- réponse ---------- */
 .cl-answer { flex: none; margin-top: auto; padding-top: 10px; width: 100%; max-width: 560px; align-self: center; }
 .cl-answer.is-keypad { max-width: 420px; }

@@ -1,0 +1,54 @@
+/* ============ RÉPONDRE À VOIX HAUTE DANS LES JEUX (v2.3, js/ui/voice-answer.js) ============
+   Le 🎤 et la ligne 👂 des tables (css/games/tables.css), pour tous les jeux : dans la case vide du pavé du kit
+   (.va-in-keypad), ou en bouton rond au-dessus d'une grille de choix (.va-row). */
+.va-mic {
+  position: relative; display: grid; place-items: center; font-size: 1.45rem; line-height: 1;
+  min-height: clamp(48px, 6.6dvh, 58px); border-radius: var(--r-m);
+  background: var(--card); border: 2px solid var(--pink-200); box-shadow: 0 3px 0 var(--pink-200);
+  transition: transform 90ms var(--ease-out), box-shadow 90ms, background var(--dur-2), border-color var(--dur-2), opacity var(--dur-2);
+}
+.va-mic:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--pink-200); }
+.va-mic.is-on { background: var(--pink-100); border-color: var(--pink-400); box-shadow: 0 3px 0 var(--pink-400); }
+.va-mic.is-on::after {                            /* onde douce : « je t'écoute » */
+  content: ''; position: absolute; inset: -3px; border-radius: inherit; border: 3px solid var(--pink-400);
+  opacity: 0; animation: va-listen 1.6s var(--ease-out) infinite; pointer-events: none;
+}
+.va-mic.is-starting .va-mic-ico { animation: va-breathe 1s ease-in-out infinite; }
+.va-mic.is-paused { opacity: .55; }
+/* micro muet ou moteur en retard qui dure : 🎤 barré (le toucher relance l'écoute) */
+.va-mic.is-trouble { background: var(--card); border-color: var(--ink-4); box-shadow: 0 3px 0 var(--ink-4); }
+.va-mic.is-trouble::after { display: none; }
+.va-mic.is-trouble::before {
+  content: ''; position: absolute; left: 50%; top: 50%; width: 2.1rem; height: 4px; margin: -2px 0 0 -1.05rem;
+  border-radius: 2px; background: var(--ink-2); box-shadow: 0 0 0 2px var(--card); transform: rotate(-45deg); pointer-events: none;
+}
+.va-mic.is-trouble .va-mic-ico { opacity: .6; }
+@keyframes va-listen { 0% { opacity: .75; transform: scale(.97); } 100% { opacity: 0; transform: scale(1.14); } }
+@keyframes va-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.18); } }
+@media (hover: hover) and (pointer: fine) {
+  .va-mic:hover { background: var(--pink-50); }
+  .va-mic.is-on:hover { background: var(--pink-100); }
+}
+
+/* au-dessus d'une grille de choix : un 🎤 rond et la ligne 👂 */
+.va-row { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.va-row:has(> .va-mic) { margin: 2px 0 6px; }
+.va-row:empty { display: none; }
+.va-row .va-mic { width: 52px; height: 52px; min-height: 52px; border-radius: 50%; flex: none; }
+.va-row .va-ear { margin: 0; flex: 0 1 auto; }
+
+/* ligne « 👂 cinquante-six » */
+.va-ear {
+  margin: 4px 6px 0; text-align: center; color: var(--ink-2); font-weight: 600; font-size: 1rem; line-height: 1.35;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.va-ear.is-hidden { display: none; }
+.va-ear.is-hearing { color: var(--ink); animation: va-hear .5s var(--ease-out) infinite alternate; }
+@keyframes va-hear { from { transform: scale(1); } to { transform: scale(1.06); } }
+.va-dbg { margin: 2px 6px 0; text-align: center; font: 600 .7rem/1.2 ui-monospace, Menlo, Consolas, monospace; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.va-dbg:empty { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .va-mic.is-on::after, .va-mic-ico, .va-ear.is-hearing { animation: none !important; }
+}
+html.motion-soft .va-mic.is-on::after, html.motion-soft .va-mic-ico, html.motion-soft .va-ear.is-hearing { animation: none !important; }

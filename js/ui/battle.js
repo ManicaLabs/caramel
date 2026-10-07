@@ -26,7 +26,18 @@
    code) à montrer au copain pour comparer — sans le prénom de l'enfant (resultCard) ; récompenses de l'économie
    existante (🍎 des bonnes réponses + 5 🍎 de participation, pas de trophée : l'appli ne sait pas qui a gagné) ;
    la place d'un QR du résultat est prévue (plus tard). État gardé pour l'onglet (sessionStorage 'caramel-duel', même
-   code et même jeton) : un rechargement reprend la partie, ou remontre le bilan sans redonner les pommes. */
+   code et même jeton) : un rechargement reprend la partie, ou remontre le bilan sans redonner les pommes.
+   RÉPONDRE À VOIX HAUTE (v2.3, demande du parent du 07/10/2026 ; js/ui/voice-answer.js, plan de chaque question :
+   js/core/battle-voice.js) : la voix TAPE la réponse, comme un doigt (un seul essai, mêmes points). Pavé : 🎤 dans la case
+   vide (pas de 🎤 dans un pavé décimal) et la ligne 👂 en pastille sur le bas de la carte ; voix jusqu'à 999 ; nombres de
+   l'énoncé, réponse d'avant et morceaux de la réponse (« cent » mal entendu) jamais comptés faux. Choix : 🎤 rond et 👂 au-dessus de la grille ; temps et sujets se disent, les formes du
+   verbe se touchent (« Ici, c'est l'écriture qui compte ») ; choix qui se disent pareil → au doigt. Le défi n'est pas
+   monté par la coquille des jeux : son ctx de voix (voiceCtx) est fait comme celui de js/ui/game-ctx.js.
+   Défi en famille : le micro suit CHAQUE joueur (my.micWant : ce qu'il a laissé à la fin de sa question ; au départ,
+   allumé pour l'enfant actif s'il l'était dans un autre jeu de la séance, éteint pour les autres) ; écran de passage
+   de main : micro en pause (rien n'est tapé), fermé si le joueur suivant répond au doigt, ouvert d'avance s'il parle ;
+   la grammaire change d'une question à l'autre (nombres / mots des choix) sans rouvrir le micro. « Avec un copain » :
+   le micro reste allumé d'une question à l'autre (séance). Retour, bilan, départ : micro en pause puis fermé. */
 
 import { h, clear, dayStr, frTypo, loadCSS, fmtNum, deNom, frList } from '../core/util.js';
 import * as store from '../core/store.js';
@@ -44,6 +55,11 @@ import { petReady, putPet, petMood, podiumEl, themeIdOf, plural, lifeOf } from '
 import * as TL from '../games/tables-logic.js';
 import * as PL from '../games/pommes-logic.js';
 import * as OL from '../games/orchestre-logic.js';
+import * as speech from '../core/speech.js';
+import * as preload from '../core/preload.js';
+import { micTrouble } from './game-ctx.js';
+import { createVoiceAnswer, SESSION_KEY as MIC_KEY } from './voice-answer.js';
+import * as BV from '../core/battle-voice.js';
 
 const SS_KEY = 'caramel-battle';               /* défi en cours (cet onglet) */
 const DUEL_KEY = 'caramel-duel';               /* partie « Avec un copain » en cours ou finie (cet onglet) */
@@ -72,7 +88,8 @@ export default {
     const wrap = h('div', { class: 'bt' });
     clear(root);
     root.appendChild(wrap);
-    const my = st = { root, wrap, timers: new Set(), players: [], cfg: null, phase: 'setup', dead: false, kp: null };
+    const me = store.getProfile();
+    const my = st = { root, wrap, timers: new Set(), players: [], cfg: null, phase: 'setup', dead: false, kp: null, micFirst: me ? me.id : null };
     setupScreen(my, { entering: true });
   },
   unmount() { teardown(); }
@@ -87,6 +104,7 @@ function teardown() {
   for (const t of my.timers) clearTimeout(t);
   my.timers.clear();
   dropKeypad(my);
+  dropVoice(my);
   for (const pl of my.players) {
     try { if (pl.manche && !pl.manche.closed) pl.manche.abort(); } catch (e) { try { console.error('défi : abandon', e); } catch (_) {} }
   }
@@ -101,6 +119,177 @@ function later(my, fn, ms) {
 }
 function dropKeypad(my) {
   if (my.kp) { try { my.kp.destroy(); } catch (_) {} my.kp = null; }
+}
+
+/* ============ RÉPONDRE À VOIX HAUTE ============ */
+/* ctx de voix du défi, sur le modèle de js/ui/game-ctx.js : le micro prévient la voix fluide avant de démarrer
+   (voice.micWillStart) et suit le préchargement du modèle (pourcentage « Je me prépare à t'écouter… ») */
+const speechCtx = Object.freeze(Object.assign({}, speech, {
+  ensureVosk(...a) {
+    voice.micWillStart();
+    const p = speech.ensureVosk(...a);
+    const off = preload.followVosk(a[0]);
+    Promise.resolve(p).then(off, off);
+    return p;
+  },
+  startListening(...a) { voice.micWillStart(); return speech.startListening(...a); }
+}));
+function micEnv() {
+  let standalone = false, ios = false, host = '', voskReady = false;
+  try { standalone = !!(G.matchMedia && G.matchMedia('(display-mode: standalone)').matches) || G.navigator.standalone === true; } catch (_) {}
+  try { const n = G.navigator; ios = /iPad|iPhone|iPod/.test(n.userAgent) || (n.platform === 'MacIntel' && n.maxTouchPoints > 1); } catch (_) {}
+  try { host = G.location.host; } catch (_) {}
+  try { voskReady = preload.micReady(); } catch (_) {}
+  return { standalone, host, ios, voskReady };
+}
+const sessionMic = () => { try { return G.sessionStorage.getItem(MIC_KEY) === '1'; } catch (_) { return false; } };
+const NOTE = {
+  number: '✋ Celui-là, tape-le avec les doigts.',
+  written: '✍️ Ici, c’est l’écriture qui compte : touche ta réponse.',
+  same: '👆 Elles se disent presque pareil : touche la bonne.',
+  unheard: '👆 Ici, touche ta réponse.'
+};
+
+/* micro du défi (un par écran de jeu) : 🎤, ligne 👂 et petite note ; la voix tape comme un doigt */
+function setupVoice(my) {
+  dropVoice(my);
+  if (!my.micWant) my.micWant = new Map();
+  let va = null;
+  const ctx = {
+    speech: speechCtx,
+    voice: { hush: () => voice.hush(), settle: () => voice.settle() },
+    mic: { trouble: code => micTrouble(code, micEnv()) },
+    announce: t => { if (st === my && my.live && my.phase === 'question') my.live.textContent = t; }
+  };
+  va = createVoiceAnswer(ctx, {
+    /* nombre entendu : écrit dans la case et validé, seulement pendant la question (jamais au passage de main) */
+    onNumber: v => {
+      if (st !== my || my.phase !== 'question' || my.locked || !my.kp) return;
+      my.via = 'voix';
+      my.kp.set(fmtNum(v).replace(/\s/g, ''));
+      const ok = my.kp.el.querySelector('[data-k="ok"]');
+      if (ok) ok.click();
+    },
+    onChoice: v => {
+      if (st !== my || my.phase !== 'question' || my.locked || !my.grid) return;
+      const b = my.grid.button(v);
+      if (!b || b.disabled) return;
+      my.via = 'voix';
+      b.click();
+    },
+    onProblem: msg => { if (st === my) kit.toast(msg, 4200); },
+    onChange: () => {
+      if (st !== my || !my.va) return;
+      const on = my.va.listening();
+      /* micro ouvert d'avance au passage de main, prêt après le début de la question : il a démarré avec la grammaire
+         « sourde » ; la question est reprise (nouvelle grammaire, nouveau reconnaisseur) */
+      if (on && !my.vOn && my.vPre && my.phase === 'question') voiceApply(my, true);
+      if (on) { my.vPre = false; my.vEngine = engineNow(); }
+      my.vOn = on;
+      voiceNote(my);
+    }
+  });
+  if (!va.supported) { va.destroy(); return; }
+  const note = h('p', { class: 'bt-vnote', hidden: true });
+  my.va = va;
+  my.vnote = note;
+}
+function dropVoice(my) {
+  if (!my || !my.va) return;
+  try { my.va.destroy(); } catch (_) {}
+  for (const el of [my.va.el, my.va.ear, my.va.dbg, my.vnote]) { if (el && el.parentNode) el.remove(); }
+  my.va = null; my.vnote = null; my.vbox = null; my.vplan = null; my.vOn = false; my.vPre = false;
+}
+/* le joueur veut-il le micro ? ce qu'il a laissé à la fin de sa dernière question ; au départ : l'enfant actif le garde
+   s'il était allumé dans un autre jeu de la séance, les autres commencent au doigt */
+function wantMic(my, pl) {
+  if (my.micWant && my.micWant.has(pl.id)) return my.micWant.get(pl.id);
+  return pl.id === my.micFirst && my.micSession;
+}
+/* passage de main : la voix ne tape rien ; micro fermé si le joueur suivant répond au doigt, ouvert d'avance (en pause)
+   s'il répond à voix haute — il est prêt quand l'enfant touche « Je suis prêt » */
+function voiceHandover(my, pl) {
+  const va = my.va;
+  if (!va) return;
+  voiceDeaf(my);
+  if (my.vbox && my.vbox.parentNode) my.vbox.remove();
+  const want = wantMic(my, pl);
+  /* reconnaissance de secours du navigateur (Web Speech) : pas de grammaire, donc pas d'oreille sourde → micro fermé
+     pendant le passage de main, rouvert à la question */
+  const deafOk = my.vEngine !== 'webspeech';
+  if (va.wanted() && (!want || !deafOk)) va.stop();
+  else if (want && deafOk && !va.wanted()) { my.vPre = true; va.start(); }
+}
+const engineNow = () => { try { return speech.health().engine || null; } catch (_) { return null; } };
+/* entre deux questions, micro allumé : en pause et SOURD (grammaire des seuls mots d'appoint : aucun nombre, aucun
+   choix) ; la question suivante change de grammaire, donc de reconnaisseur : ce qui a été dit avant (un frère qui crie
+   un nombre pendant le passage de main) arrive à l'ancien reconnaisseur et n'est jamais tapé */
+function voiceDeaf(my) {
+  if (!my.va) return;
+  my.va.pause(true);
+  my.va.choices([]);
+}
+/* question : plan de la voix (js/core/battle-voice.js), 🎤 et 👂 à leur place, micro allumé si le joueur le veut */
+function voiceQuestion(my, pl, item, { card, zone }) {
+  const va = my.va;
+  if (!va) return;
+  const plan = my.vplan = BV.voicePlan(item);
+  my.vbox = null;
+  if (plan.mode === 'number' && my.kp) {
+    /* 🎤 dans la case vide du pavé ; 👂 en pastille sur le bas de la carte (rien ne bouge quand elle paraît) */
+    const box = my.vbox = h('div', { class: 'bt-vpill' }, va.ear, my.vnote, va.dbg);
+    card.appendChild(box);
+    va.attachKeypad(my.kp);
+  } else if (plan.mode === 'choices' && my.grid) {
+    /* 🎤 rond et 👂 au-dessus de la grille (la place est prise dès la question : rien ne saute) */
+    const box = my.vbox = h('div', { class: 'va-row bt-vrow' }, va.ear, my.vnote, va.dbg);
+    zone.insertBefore(box, my.grid.el);
+    va.placeIn(box, va.ear);
+    va.attachChoices(my.grid);
+  }
+  voiceApply(my, false);
+  if (wantMic(my, pl) && !va.wanted()) va.start();
+  voiceNote(my);
+}
+/* la question pour la voix : grammaire (nombres ou mots des choix), juge neuf ; flip : repasse d'abord par la grammaire
+   sourde (reconnaisseur neuf même si la grammaire de la question était déjà là) */
+function voiceApply(my, flip) {
+  const va = my.va, plan = my.vplan;
+  if (!va || !plan) return;
+  if (flip) va.choices([]);
+  if (plan.mode === 'number' && my.kp) {
+    const prev = Number.isFinite(my.prevAnswer) ? [my.prevAnswer] : [];
+    va.number({ answer: plan.answer, ignore: plan.ignore.concat(prev), voice: plan.voice });
+  } else if (plan.mode === 'choices' && my.grid) {
+    va.choices(plan.list);
+    if (!plan.voice) va.pause(true);
+  } else va.pause(true);
+}
+/* question que la voix ne peut pas juger, micro allumé : une petite note à la place de « Micro en pause » */
+function voiceNote(my) {
+  const va = my.va, note = my.vnote, plan = my.vplan;
+  if (!va || !note) return;
+  let why = '';
+  if (my.phase === 'question' && plan && va.listening()) {
+    if (plan.mode === 'number' && !plan.voice) why = 'number';
+    else if (plan.mode === 'choices' && !plan.voice) why = plan.why || 'same';
+  }
+  const text = why ? frTypo(NOTE[why] || NOTE.unheard) : '';
+  if (note.textContent !== text) note.textContent = text;
+  note.hidden = !text;
+  if (my.vbox) my.vbox.classList.toggle('is-note', !!text);
+}
+/* fin de la question : la voix ne tape plus rien ; ce que le joueur a laissé est retenu pour son prochain tour */
+function voiceDone(my, pl, item) {
+  const va = my.va;
+  if (!va) return;
+  voiceDeaf(my);
+  my.micWant.set(pl.id, va.wanted());
+  const v = Number(item && item.answer);
+  my.prevAnswer = Number.isFinite(v) ? v : null;
+  /* masquée sans être retirée : la carte, le pavé et la grille ne bougent pas pendant le retour */
+  if (my.vbox) my.vbox.classList.add('is-done');
+  my.vbox = null;
 }
 /* changement de tour : fondu enchaîné (transition de vue) — les couleurs passent au thème du joueur */
 function swap(my, fn) {
@@ -128,6 +317,7 @@ function setupScreen(my, { entering = false, cfg = null } = {}) {
   my.phase = 'setup';
   my.wrap.removeAttribute('data-theme');
   dropKeypad(my);
+  dropVoice(my);
   const list = store.listProfiles();
   const prefs = cfg || readJSON('localStorage', PREFS_KEY) || {};
   let chosen = (Array.isArray(prefs.ids) ? prefs.ids : []).filter(id => list.some(p => p.id === id)).slice(0, F.BATTLE.MAX);
@@ -330,6 +520,8 @@ async function startBattle(my, cfg, resume = null) {
   });
   my.shown = new Set();
   my.turn = resume ? resume.turn : 0;
+  my.micSession = sessionMic();
+  my.prevAnswer = null;
   saveState(my);
   buildPlay(my);
   nextTurn(my);
@@ -363,6 +555,7 @@ function buildPlay(my) {
   Object.assign(my, { roundEl: round, main, live, arena });
   clear(my.wrap);
   my.wrap.appendChild(screen);
+  setupVoice(my);
   motion.stagger(lanes.children, el => motion.enter(el, { from: 'left', dur: 380 }), 70);
 }
 function placeRunner(my, pl, animate = true) {
@@ -418,6 +611,7 @@ function soloTurn(my, pl, round) {
 function showIntro(my, pl, round) {
   my.phase = 'intro';
   dropKeypad(my);
+  voiceHandover(my, pl);
   my.wrap.setAttribute('data-theme', pl.theme);
   my.roundEl.textContent = 'Manche ' + round + ' / ' + my.cfg.rounds;
   for (const p of my.players) p.ui.lane.classList.toggle('is-turn', p === pl);
@@ -435,13 +629,15 @@ function showIntro(my, pl, round) {
   goBtn.addEventListener('click', () => { audio.tap(); showQuestion(my, pl, round); });
   const stop = h('button', { type: 'button', class: 'btn ghost bt-stop' }, frTypo('Je m’arrête là 💤'));
   stop.addEventListener('click', () => askAbandon(my, pl));
+  /* micro allumé pour ce joueur : il le sait avant de prendre l'appareil */
+  const mic = my.va && wantMic(my, pl) ? h('p', { class: 'bt-intro-mic' }, h('span', { 'aria-hidden': 'true' }, '🎤 '), frTypo('Tu pourras dire ta réponse.')) : null;
   const card = h('div', { class: 'bt-intro' },
     pic, title,
     h('p', { class: 'bt-intro-sub' }, frTypo('Manche ' + round + ' sur ' + my.cfg.rounds + ' · ' + what)),
     h('p', { class: 'bt-intro-hint' }, frTypo(my.turn === 0 && round === 1
       ? 'Passe l’appareil à ' + pl.name + '. Une question chacun à son tour : réponds juste, et vite pour les points bonus ⚡'
       : 'Prends l’appareil, et touche le bouton quand tu es ' + ready(pl) + '.')),
-    goBtn, stop);
+    mic, goBtn, stop);
   clear(my.main);
   my.main.appendChild(card);
   my.live.textContent = frTypo('À toi, ' + pl.name + ' ! Manche ' + round + ' sur ' + my.cfg.rounds + '.');
@@ -472,6 +668,8 @@ function showQuestion(my, pl, round) {
   try { if (G.__caramelDebug) { G.__caramelDebug.item = item; G.__caramelDebug.game = 'battle'; G.__caramelDebug.player = pl.id; } } catch (_) {}
   my.item = item;
   my.locked = false;
+  my.grid = null;
+  my.via = 'doigt';
   const whoPts = my.duel ? null : h('span', null, frTypo(' · ' + plural(pl.points, 'point', 'points')));
   const who = my.duel ? null : h('div', { class: 'bt-who' }, h('b', null, pl.name), whoPts);
   my.whoPts = whoPts;
@@ -483,10 +681,11 @@ function showQuestion(my, pl, round) {
   const done = (correct, rightText, after) => answer(my, pl, item, { correct, rightText, card, zone, after });
 
   if (item.axis === 'fr.conjug') {
-    renderConjug(item, card, zone, done);
+    my.grid = renderConjug(item, card, zone, done);
   } else {
-    renderMaths(my, item, card, zone, done);
+    my.grid = renderMaths(my, item, card, zone, done);
   }
+  voiceQuestion(my, pl, item, { card, zone });
   motion.enter(card, { from: 'scale', dur: 320 });
   my.live.textContent = frTypo(pl.name + ', à toi : ' + (card.getAttribute('aria-label') || card.textContent || ''));
   my.t0 = nowMs();
@@ -538,7 +737,7 @@ function renderMaths(my, item, card, zone, done) {
       }
     });
     zone.appendChild(grid.el);
-    return;
+    return grid;
   }
   const info = faits ? TL.answerInfo(item) : PL.answerInfo(item);
   const kp = my.kp = kit.keypad({
@@ -562,6 +761,7 @@ function renderMaths(my, item, card, zone, done) {
     }
   });
   zone.appendChild(kp.el);
+  return null;
 }
 
 /* conjugaison : consigne (temps mis en valeur), phrase à trou en police de lecture, 4 choix */
@@ -609,6 +809,7 @@ function renderConjug(item, card, zone, done) {
     }
   });
   zone.appendChild(grid.el);
+  return grid;
 }
 
 /* ----- réponse : points, progression du joueur, retour doux ----- */
@@ -616,6 +817,7 @@ function answer(my, pl, item, { correct, rightText, card, zone, after }) {
   if (my.locked || my.phase !== 'question') return;
   my.locked = true;
   my.phase = 'feedback';
+  voiceDone(my, pl, item);
   const ms = Math.max(0, Math.round(nowMs() - my.t0));
   try { pl.manche.report(item, { correct: !!correct, hinted: !!item.assist, ms, tries: 1 }); } catch (e) { try { console.error('défi : rapport', e); } catch (_) {} }
   pl.answered++;
@@ -629,7 +831,7 @@ function answer(my, pl, item, { correct, rightText, card, zone, after }) {
     try { pl.summary = pl.manche.finish(); } catch (e) { try { console.error('défi : fin de manche', e); } catch (_) {} }
   }
   saveState(my);
-  try { if (G.__caramelDebug) G.__caramelDebug.item = null; } catch (_) {}
+  try { if (G.__caramelDebug) { G.__caramelDebug.item = null; G.__caramelDebug.last = { correct: !!correct, via: my.via, ms, player: pl.id, t: nowMs() }; } } catch (_) {}
 
   /* retour */
   const fbBox = h('div', { class: 'bt-fb' + (correct ? ' is-right' : ' is-learn'), role: 'status', 'aria-live': 'polite' });
@@ -711,9 +913,13 @@ async function askAbandon(my, pl) {
 }
 /* ----- arrêter le défi (tout le monde) ----- */
 async function askQuit(my) {
+  /* la feuille de confirmation couvre la question : la voix ne tape rien derrière elle */
+  const held = my.va && my.phase === 'question';
+  if (held) my.va.pause(true);
   const ok = await confirmIn(my.wrap.getAttribute('data-theme'),
     frTypo(my.duel ? 'Arrêter la partie ? Tes progrès sont gardés.' : 'Arrêter le défi ? Les progrès de chacun sont gardés.'),
     { ok: 'Arrêter', cancel: 'Continuer', icon: my.duel ? '👫' : '⚔️' });
+  if (held && st === my && my.va && my.phase === 'question' && !ok) voiceApply(my, false);
   if (!ok || st !== my) return;
   removeKey('sessionStorage', my.duel ? DUEL_KEY : SS_KEY);
   for (const pl of my.players) { try { if (pl.manche && !pl.manche.closed) pl.summary = pl.manche.abort(); } catch (_) {} }
@@ -725,6 +931,7 @@ function results(my) {
   if (my.phase === 'results') return;
   my.phase = 'results';
   dropKeypad(my);
+  dropVoice(my);
   const today = my.today;
   for (const pl of my.players) {
     if (pl.manche && !pl.manche.closed) {
@@ -850,7 +1057,7 @@ function mountDuel(root, code, nonce) {
   clear(root);
   root.appendChild(wrap);
   const n = String(nonce || '');
-  const my = st = { root, wrap, timers: new Set(), players: [], cfg: null, phase: 'setup', dead: false, kp: null, duel: { code: d.code, n } };
+  const my = st = { root, wrap, timers: new Set(), players: [], cfg: null, phase: 'setup', dead: false, kp: null, duel: { code: d.code, n }, micFirst: me.id };
   const saved = readDuel(me.id, d.code, n);
   if (saved && saved.done) {                    /* rechargement après la fin : le bilan, sans redonner les pommes */
     const s0 = saved.players[0];
@@ -881,6 +1088,7 @@ function duelResults(my) {
 function showDuelResults(my, { replay = false } = {}) {
   my.phase = 'results';
   dropKeypad(my);
+  dropVoice(my);
   my.wrap.removeAttribute('data-theme');
   const pl = my.players[0];
   const p = pl && store.getProfile(pl.id);

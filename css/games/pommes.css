@@ -238,3 +238,13 @@
   .pm-twig { animation: none !important; }
 }
 html.motion-soft .pm-twig { animation: none !important; }
+
+/* répondre à voix haute (v2.3, js/ui/voice-answer.js) : pastille 👂 (et 🎤 des choix d'estimation) posée sur l'herbe,
+   entre le compagnon et le panier ; le pavé garde sa hauteur */
+.pm-voice {
+  position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 6; max-width: 58%;
+  padding: 3px 12px; border-radius: 999px; background: color-mix(in srgb, var(--card) 90%, transparent); box-shadow: var(--shadow-1);
+}
+.pm-voice:not(:has(> .va-mic, > .va-ear:not(.is-hidden), > .va-dbg:not(:empty))) { display: none; }
+.pm-voice .va-mic { width: 46px; height: 46px; min-height: 46px; margin: 2px 0; }
+.pm-voice .va-ear { margin: 0; font-size: .95rem; }

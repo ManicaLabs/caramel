@@ -432,6 +432,12 @@ docs/CDC-v2.md
 
 ## 18. Journal de livraison
 
+### v2.3.1 (07/10/2026) — le micro dans tous les jeux
+**Retour du parent** (07/10/2026, journal du mode diagnostic joint : 10 réponses sur 10 aux tables, moteur sans retard) : « le micro ça va mieux. Par contre il faudrait pouvoir utiliser le micro sur les autres jeux, pas seulement les tables ».
+**Livré** : le 🎤 des tables, généralisé (`js/ui/voice-answer.js`, `docs/ARCHITECTURE.md` §8.15) et branché dans Pommes express, le Chemin de la clôture, le Chef d'orchestre, l'Atelier des opérations, le Défi en famille et Avec un copain ; la voix tape la réponse (mêmes retours qu'au doigt) ; le micro allumé reste allumé d'un jeu à l'autre pendant la séance ; une question qui ne se dit pas sans risque (homophones, mots inconnus du modèle, « placer » sur la clôture) se fait au doigt (« 👆 Ici, réponds avec le doigt »).
+**Vérifié** : banc « enfant simulé » (voix Piper rajeunie dans un faux micro, vrai moteur Vosk) : Pommes 10/10 ; opérations 106 chiffres sur 108 sans faux injuste ; orchestre 39/44 (1 faux injuste) ; clôture décimaux 29/29, fractions 13/14 ; défi 38/44 ; mise en page identique micro allumé ou non (400 et 360 px).
+**Limites** : voix d'enfant simulées seulement ; la musique du Chef d'orchestre dans le vrai micro (annulation d'écho) n'est vérifiable que sur un vrai téléphone ; liaisons (« vous avez‿un ») à surveiller.
+
 ### v2.3 (07/10/2026) — Avec un copain
 **Décisions du parent** (07/10/2026, après les études « multijoueur » et « stores ») : faire le palier 1 du multijoueur ; préparer Google Play en parallèle (nom « Caramel : lire et compter », éditeur la société Manica Labs, contact hello@manica.fr, secours Google coupé dans l'appli Android, adresse définitive du site sur un domaine à lui AVANT Play).
 **Livré** :

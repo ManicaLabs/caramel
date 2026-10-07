@@ -15,10 +15,14 @@
    - Joker 💡 : l'astuce avant de répondre (l'item compte comme aidé) ; item.assist : coup de pouce d'emblée.
    - Voix (petits lecteurs, ctx.voice, comme les tables et la clôture) : le calcul (et, au premier, comment répondre),
      l'astuce, l'explication ; silence dès la bonne réponse et au démontage ; le temps d'écoute ne compte pas.
+   - Répondre à voix haute (v2.3, js/ui/voice-answer.js) : 🎤 dans la case vide du pavé (nombres entiers ; pas pour les
+     réponses décimales), ou rond au-dessus des choix d'estimation ; la voix tape la réponse (même retour qu'au
+     doigt) ; les nombres de l'énoncé ne comptent jamais faux ; micro en pause pendant l'explication.
    Logique pure (énoncé, réponse, horloge du sprint, silhouette de pomme, panier, mise en page) :
    js/games/pommes-logic.js (tests/pommes.test.mjs). */
 
 import { h, svg, clear, frTypo } from '../core/util.js';
+import { createVoiceAnswer } from '../ui/voice-answer.js';
 import * as L from './pommes-logic.js';
 
 const CELEBRATE_MS = 200;     /* la bonne réponse reste visible (verte) avant que la pomme s'envole */
@@ -78,7 +82,7 @@ function createPommes(root, ctx) {
   const announce = t => safe(() => ctx.announce(String(t || '')));
   const cheer = kind => { try { return ctx.kit.cheer(kind); } catch (_) { return ''; } };
   /* voix du compagnon (petits lecteurs, js/ui/voice.js) : le texte reste affiché */
-  const say = t => { try { return ctx.voice ? Promise.resolve(ctx.voice.say(String(t || ''))) : Promise.resolve(false); } catch (_) { return Promise.resolve(false); } };
+  const say = t => { try { return ctx.voice ? Promise.resolve(ctx.voice.say(String(t || ''), { quiet: va.wanted() })) : Promise.resolve(false); } catch (_) { return Promise.resolve(false); } };
   const hush = () => { try { if (ctx.voice) ctx.voice.hush(); } catch (_) {} };
   const sound = name => { try { const f = ctx.audio && ctx.audio[name]; if (typeof f === 'function') return f(); } catch (_) {} return null; };
   const M = ctx.motion;
@@ -153,6 +157,13 @@ function createPommes(root, ctx) {
   const helpIn = h('div', { class: 'pm-help-in' });
   const help = h('div', { class: 'pm-help' }, helpIn);
   const pad = h('div', { class: 'pm-pad' });
+  /* répondre à voix haute (v2.3) : la ligne 👂 (et le 🎤 des choix) dans une pastille au bas de la scène */
+  const va = createVoiceAnswer(ctx, {
+    onProblem: msg => { if (cur && !cur.resolved && !cur.locked) showBubble(msg, 'soft', '🎙️'); },
+    onChange: () => { if (helpIn.querySelector('.pm-idle')) showIdle(); }     /* « dis ou tape ta réponse » */
+  });
+  const vaBar = h('div', { class: 'va-row pm-voice' }, va.ear, va.dbg);
+  scene.appendChild(vaBar);                          /* pastille posée sur l'herbe : le pavé garde sa hauteur */
   const box = h('div', { class: 'pm' }, scene, help, pad);
   root.appendChild(box);
 
@@ -444,7 +455,9 @@ function createPommes(root, ctx) {
     cheerShown = false;
     clear(helpIn);
     if (!cur) return;
-    helpIn.appendChild(h('p', { class: 'pm-idle' }, frTypo(L.idleText(cur.item))));
+    const idle = L.idleText(cur.item);
+    helpIn.appendChild(h('p', { class: 'pm-idle' }, frTypo(va.wanted() ? idle.replace('tape ta réponse', 'dis ou tape ta réponse')
+      .replace('choisis le nombre', 'dis ou touche le nombre') : idle)));
   }
   /* « Astuce : » + la stratégie (après une 1re erreur, au joker, ou d'emblée en coup de pouce) */
   function showTip(why) {
@@ -486,6 +499,10 @@ function createPommes(root, ctx) {
       grid = ctx.kit.choiceGrid(choices, { onPick });
       grid.el.classList.add('pm-choices');
       pad.appendChild(grid.el);
+      va.placeIn(vaBar, va.ear);
+      va.attachChoices(grid);
+      va.choices(c.item.choices.map(ch => ({ value: ch.value, num: Number.isFinite(Number(ch.value)) ? Number(ch.value) : undefined,
+        label: L.choiceLabel(c.item, ch.value) })));
       safe(() => M.stagger(grid.buttons, b => M.enter(b, { from: 'scale', dur: 300 }), 50));
       c.hole = h('div', { class: 'answer pm-hole empty', role: 'status', 'aria-live': 'polite', 'aria-label': 'Ta réponse' }, h('span', { class: 'pm-hole-val' }));
     } else {
@@ -495,7 +512,15 @@ function createPommes(root, ctx) {
       kp.clear(); kp.setState(null); kp.disable(false);
       kp.answer.classList.remove('pm-revealed');
       c.hole = kp.answer;
+      va.attachKeypad(kp);
+      const v = c.info.value;
+      va.number({ answer: v, ignore: promptNumbers(c.item.prompt), voice: !c.info.decimal && Number.isInteger(v) && v >= 0 && v <= 99999 });
     }
+  }
+  /* nombres écrits dans l'énoncé : jamais comptés faux à la voix (l'enfant relit souvent le calcul) */
+  function promptNumbers(prompt) {
+    return (String(prompt || '').match(/\d+(?:[\s\u00A0\u202F]\d{3})*(?:,\d+)?/g) || [])
+      .map(x => Number(x.replace(/[\s\u00A0\u202F]/g, '').replace(',', '.'))).filter(Number.isFinite);
   }
   /* nombre affiché avec une espace des milliers un peu plus visible (« 3 400 ») */
   const numNode = text => {
@@ -597,8 +622,9 @@ function createPommes(root, ctx) {
       }, WRONG_CLEAR_MS);
       return;
     }
-    /* 2e erreur : la réponse s'écrit dans la case, puis le calcul détaillé */
+    /* 2e erreur : la réponse s'écrit dans la case, puis le calcul détaillé (le micro attend « J’ai compris ») */
     c.locked = true;
+    va.pause(true);
     if (c.info.choice) grid.disable(); else kp.disable(true);
     sprintPause('learn');
     later(() => {
@@ -806,6 +832,7 @@ function createPommes(root, ctx) {
     if (modesEl) { modesEl.remove(); modesEl = null; }
     if (sprint) sprintSetup();
     nextItem();
+    va.autoStart();                                    /* micro déjà allumé dans un autre jeu de la séance */
   }
 
   /* ================= FIN DE MANCHE ================= */
@@ -869,6 +896,7 @@ function createPommes(root, ctx) {
     for (const n of flying) { try { n.remove(); } catch (_) {} }
     flying.clear();
     try { ctx.onJoker(() => false); } catch (_) {}
+    va.destroy();
     if (kp) { try { kp.destroy(); } catch (_) {} kp = null; }
     dropGrid();
     box.remove();

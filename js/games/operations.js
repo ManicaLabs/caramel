@@ -18,9 +18,18 @@
    le coup de pouce (item.assist) ; joker 💡 = indice de l'étape en cours. Méthode de soustraction de l'école :
    ctx.settings.subMethod → ctx.nextItem(undefined, { subMethod }).
    Voix (petits lecteurs, ctx.voice, comme les autres jeux) : la question de chaque étape, l'indice, l'explication ;
-   le texte reste affiché ; silence au démontage. */
+   le texte reste affiché ; silence au démontage.
+   Répondre à voix haute (v2.3, js/ui/voice-answer.js) : 🎤 en 6e colonne du pavé (haute de deux touches : le pavé
+   garde sa hauteur), ligne 👂 dans l'en-tête de la feuille, à la place du crayon. L'enfant dit le chiffre de la case
+   (« sept », « deux fois », « huit, je retiens un ») ; le jeu juge (onNumber, règles et mesures dans
+   operations-logic.js : voiceTarget, voiceVerdict) : chiffre attendu → posé comme au doigt ; autre chiffre → essai
+   faux (« J’ai entendu 4… » + indice) ; nombre de deux chiffres → jamais faux (le total juste de la colonne est salué,
+   la question reste posée) ; fin de phrase qui déborde sur la question suivante → oubliée. Micro en pause en fin
+   d'opération (explication), compagnon discret (quiet) quand le micro est voulu, allumé d'office s'il l'était dans un
+   autre jeu de la séance (autoStart). */
 
-import { h, svg, clear } from '../core/util.js';
+import { h, svg, clear, frTypo } from '../core/util.js';
+import { createVoiceAnswer } from '../ui/voice-answer.js';
 import * as L from './operations-logic.js';
 
 let inst = null;
@@ -86,7 +95,8 @@ function pencilSVG() {
 function createAtelier(root, ctx) {
   const M = ctx.motion, A = ctx.audio, K = ctx.kit;
   /* voix du compagnon (petits lecteurs, js/ui/voice.js) : ce que dit la bulle, le texte restant affiché */
-  const say = t => { try { return ctx.voice ? Promise.resolve(ctx.voice.say(String(t || ''))) : Promise.resolve(false); } catch (_) { return Promise.resolve(false); } };
+  /* micro voulu : la phrase est seulement confiée à 🔊 (le micro n'entend que l'enfant) */
+  const say = t => { try { return ctx.voice ? Promise.resolve(ctx.voice.say(String(t || ''), { quiet: va.wanted() })) : Promise.resolve(false); } catch (_) { return Promise.resolve(false); } };
   const hush = () => { try { if (ctx.voice) ctx.voice.hush(); } catch (_) {} };
   let alive = true;
   const timers = new Set(), anims = new Set(), clones = new Set();
@@ -101,8 +111,13 @@ function createAtelier(root, ctx) {
   let wrongEl = null, winEls = [], pendingReport = null, nextLabel = '', appleFlying = false;
 
   /* ---------- DOM ---------- */
+  /* répondre à voix haute (v2.3) : le jeu juge ce qu'il entend (onVoice) ; la ligne 👂 prend la place du crayon */
+  const va = createVoiceAnswer(ctx, {
+    onNumber: (v, right) => onVoice(v, right),
+    onProblem: msg => { if (alive && run && !finished) { setNote(msg, 'say'); fitTalk(''); } }
+  });
   const tag = h('div', { class: 'op-tag' });
-  const head = h('div', { class: 'op-head' }, tag, pencilSVG());
+  const head = h('div', { class: 'op-head' }, tag, h('div', { class: 'op-voice' }, va.ear, va.dbg), pencilSVG());
   const band = h('div', { class: 'op-band', 'aria-hidden': 'true' });
   const sheet = h('div', { class: 'op-sheet', 'aria-hidden': 'true' });
   const stage = h('div', { class: 'op-stage' }, sheet);
@@ -123,6 +138,7 @@ function createAtelier(root, ctx) {
   const dock = h('div', { class: 'op-dock' }, pad, nextBtn);
 
   const wrap = h('div', { class: 'op' }, bench, talk, dock);
+  if (va.placeIn(pad)) { pad.classList.add('has-mic'); wrap.classList.add('has-voice'); }   /* 🎤 : 6e colonne du pavé */
 
   /* ---------- outils ---------- */
   const reduced = () => { try { return M.reduced(); } catch (_) { return false; } };
@@ -461,7 +477,7 @@ function createAtelier(root, ctx) {
     if (!item) { endManche(); return; }
     run = L.createRun(item, { assist: !!item.assist });
     geo = L.analyzeGrid(item.data.grid);
-    finished = false; streak = 0; guardUntil = 0; pendingReport = null;
+    finished = false; streak = 0; guardUntil = 0; pendingReport = null; lastAns = null;
     setNumText(tag, item.prompt);
     paper.setAttribute('aria-label', 'Opération posée : ' + item.prompt);
     buildSheet();
@@ -484,13 +500,38 @@ function createAtelier(root, ctx) {
     const first = run.current;
     ctx.announce('Opération : ' + item.prompt + '. ' + (intro.text ? intro.text + ' ' : '') + (first ? first.prompt : ''));
     say((item.assist && first && first.hint ? 'Petit coup de pouce : ' + first.hint + ' ' : (intro.text ? intro.text + ' ' : '')) + (first ? first.prompt : ''));
+    armVoice();
     if (run.done) complete();
   }
 
-  function onDigit(d) {
+  /* ---------- répondre à voix haute ---------- */
+  let vTarget = null;
+  let lastAns = null;           /* { at, expect, carry } : dernière réponse posée (débordement d'une phrase) */
+  function armVoice() {
+    const step = run && !finished ? run.current : null;
+    vTarget = step ? L.voiceTarget(step, { item, prev: lastAns }) : null;
+    if (!vTarget || !vTarget.voice) { va.pause(true); return; }
+    va.number({ answer: vTarget.answer, ignore: vTarget.ignore, voice: true, words: L.VOICE_WORDS });
+  }
+  function onVoice(v, right) {
+    if (!alive || !run || finished || !vTarget) return;
+    const verdict = L.voiceVerdict(v, right, { target: vTarget, last: lastAns, now: performance.now() });
+    if (verdict === 'drop') { armVoice(); return; }          /* fin de la phrase précédente : oubliée, 👂 réécoute */
+    if (verdict === 'right' || verdict === 'digit') { onDigit(String(v), 'voice'); return; }
+    if (verdict === 'total') {                              /* « quinze » : le total est juste, la case attend un chiffre */
+      setNote(L.voiceTotalNote(v), 'hint');                 /* pas compté comme une aide (run.hintShown inchangé) */
+      setAsk(run.current ? run.current.prompt : '');
+      fitTalk('');
+      ctx.announce(note.textContent);
+      say(note.textContent);
+    }
+    /* autre nombre : il reste affiché dans 👂, rien d'autre (jamais un essai faux) */
+  }
+
+  function onDigit(d, via = 'tap') {
     if (!alive || !run || finished) return;
     const now = performance.now();
-    if (now < guardUntil) return;
+    if (via !== 'voice' && now < guardUntil) return;      /* double appui involontaire : pas pour la voix */
     settle();
     clearWrong();
     const step = run.current;
@@ -498,6 +539,9 @@ function createAtelier(root, ctx) {
     const target = run.view().target;
     const res = run.answer(d);
     if (res.result === 'ignored') return;
+    /* chiffre posé (juste, ou donné après deux essais) : la question suivante n'écoute pas la fin de cette phrase */
+    if (res.result !== 'retry') lastAns = { at: now, expect: Number(step.expect), carry: L.voiceTarget(step).carry };
+    const heard = via === 'voice' ? frTypo('J’ai entendu ' + d + '…') : '';     /* la voix dit ce qu'elle a compris */
     if (res.result === 'right') {
       streak++;
       guardUntil = now + GUARD_RIGHT;
@@ -513,11 +557,12 @@ function createAtelier(root, ctx) {
       showStepTalk(said);
       ctx.announce(said.text + ' ' + (run.current ? run.current.prompt : ''));
       say(run.current ? run.current.prompt : '');
+      armVoice();
     } else if (res.result === 'retry') {
       streak = 0;
       guardUntil = now + GUARD_WRONG;
       showWrong(target, d);
-      setNote(K.cheer('retry', ctx.rng) + ' ' + (step.hint || ''), 'hint');
+      setNote((heard || K.cheer('retry', ctx.rng)) + ' ' + (step.hint || ''), 'hint');
       setAsk(step.prompt);
       fitTalk(step.hint || '');
       if (!reduced()) M.squash(ava, { amount: 0.6 });
@@ -531,7 +576,7 @@ function createAtelier(root, ctx) {
       const rec = target && cells.get(target);
       if (rec) popIn(rec.ch, 380, { dur: 420, from: 0.5 });
       else if (step.type === 'count') slotsIn();
-      const learn = K.cheer('learn', ctx.rng) + ' ' + (step.say || '');
+      const learn = (heard || K.cheer('learn', ctx.rng)) + ' ' + (step.say || '');
       animAutos(res.autos, target, 420);
       const more = sayOf(res.autos).short;
       setNote(learn + (more && learn.length + more.length < SAY_MAX ? ' ' + more : ''), 'learn');
@@ -540,6 +585,7 @@ function createAtelier(root, ctx) {
       fitTalk(step.say || '');
       ctx.announce(note.textContent + ' ' + run.current.prompt);
       say(note.textContent + ' ' + run.current.prompt);
+      armVoice();
     }
   }
 
@@ -575,6 +621,7 @@ function createAtelier(root, ctx) {
   /* ---------- fin d'une opération ---------- */
   function complete() {
     finished = true;
+    va.pause(true);                                         /* explication, « Opération suivante » : le micro attend */
     const out = run.outcome(performance.now() - t0);
     itemsDone++;
     cleanRun = out.correct && !out.hinted ? cleanRun + 1 : 0;
@@ -741,10 +788,12 @@ function createAtelier(root, ctx) {
         ro.observe(stage);
       } catch (_) { ro = null; }
       nextItem();
+      va.autoStart();                                       /* micro déjà allumé dans un autre jeu de la séance */
     },
     destroy() {
       if (pendingReport && alive) safe(pendingReport);
       alive = false;
+      va.destroy();
       hush();
       for (const t of timers) clearTimeout(t);
       timers.clear();

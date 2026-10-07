@@ -258,3 +258,29 @@ html.bt-swap::view-transition-group(bt-arena) { animation-duration: 320ms; }
 }
 html.motion-soft .bt-runner { transition: none; }
 html.motion-soft .bt-wait-ico { animation: none; }
+
+/* ---------- répondre à voix haute (v2.3 : 🎤 et 👂 de js/ui/voice-answer.js, css/ui/voice-answer.css) ---------- */
+.bt-qcard { position: relative; }
+/* pavé : 🎤 dans la case vide ; la ligne 👂 en pastille posée sur le bas de la carte, hors du flux (rien ne bouge
+   quand elle paraît) ; un peu plus d'air sous la carte pour qu'elle ne touche pas les touches */
+.bt-main:has(.bt-vpill) { gap: 16px; }
+.bt-vpill {
+  position: absolute; left: 50%; bottom: 0; z-index: 2; transform: translate(-50%, 50%); max-width: calc(100% - 20px);
+  padding: 2px 12px; border-radius: var(--r-pill); background: var(--card); border: 2px solid var(--amber-200); box-shadow: var(--shadow-1);
+}
+.bt-vpill:not(:has(> .va-ear:not(.is-hidden), > .bt-vnote:not([hidden]), > .va-dbg:not(:empty))) { display: none; }
+.bt-vpill .va-ear { margin: 0; font-size: .95rem; }
+.bt-vpill .bt-vnote { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bt-vpill .va-dbg { margin: 0; }
+/* choix : 🎤 rond à gauche et 👂 à sa droite, au-dessus de la grille ; hauteur du 🎤 (la grille ne saute pas) et 🎤 fixe
+   (il ne bouge pas sous le doigt quand la ligne paraît). Sélecteurs en .bt … : css/ui/voice-answer.css se charge après. */
+.bt .bt-vrow { position: relative; justify-content: flex-start; flex-wrap: nowrap; gap: 10px; min-height: 52px; margin: 0 0 8px; padding: 0 2px; }
+.bt .bt-vrow .va-ear, .bt .bt-vrow .bt-vnote { flex: 1 1 0; min-width: 0; text-align: left; }
+.bt .bt-vrow .va-dbg { position: absolute; left: 64px; right: 0; bottom: -4px; margin: 0; text-align: left; }
+/* question que la voix ne juge pas : une note à la place de « Micro en pause » */
+.bt-vnote { margin: 0; color: var(--ink-2); font-weight: 600; font-size: .92rem; line-height: 1.3; text-wrap: balance; }
+.bt-vnote[hidden] { display: none; }
+.bt-vpill.is-note .va-ear, .bt-vrow.is-note .va-ear { display: none; }
+/* passage de main : micro allumé pour ce joueur */
+.bt-intro-mic { padding: 3px 12px; border-radius: var(--r-pill); background: var(--pink-50); border: 2px solid var(--pink-200); color: var(--ink-2); font-weight: 600; font-size: .95rem; }
+.bt-vpill.is-done, .bt-vrow.is-done { visibility: hidden; }

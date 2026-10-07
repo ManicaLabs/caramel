@@ -24,6 +24,7 @@
 
 import { h, svg, clear, fmtNum, frTypo } from '../core/util.js';
 import * as dl from '../core/debuglog.js';
+import { SESSION_KEY } from '../ui/voice-answer.js';
 import * as L from './tables-logic.js';
 
 const JUMP_MS = 660;            /* saut (élan, envol, réception) */
@@ -190,9 +191,12 @@ function createTables(root, ctx) {
     h('span', { class: 'tb-mic-ico', 'aria-hidden': 'true' }, '🎤'));
   listen(micBtn, 'click', () => {
     if (voice.wanted && troubled()) { dl.dlog('tables', '🎤 barré touché : écoute relancée'); stopVoice(); startVoice(); }   /* 🎤 barré : on relance */
-    else if (voice.wanted) stopVoice();
+    else if (voice.wanted) { micSession(false); stopVoice(); }
     else startVoice();
   });
+  /* v2.3 : le micro allumé dans un jeu le reste dans le suivant pendant la séance (js/ui/voice-answer.js) ; l'enfant l'éteint */
+  const micSession = on => { try { if (on) sessionStorage.setItem(SESSION_KEY, '1'); else sessionStorage.removeItem(SESSION_KEY); } catch (_) {} };
+  const micSessionOn = () => { try { return sessionStorage.getItem(SESSION_KEY) === '1'; } catch (_) { return false; } };
 
   /* ---------- pavé (la case « … » du panneau est son affichage) ---------- */
   let kp = null, kpDecimal = null;
@@ -780,6 +784,7 @@ function createTables(root, ctx) {
     if (!voice.supported || voice.wanted || !alive) return;
     hush();                                       /* le micro n'entend que l'enfant : le compagnon se tait */
     voice.wanted = true; voice.starting = true; voice.pct = null; voice.err = '';
+    micSession(true);
     stopClip();
     renderVoice();
     try { ctx.speech.ensureVosk(p => { if (alive && voice.starting) { voice.pct = p; renderVoice(); } }); } catch (_) {}
@@ -922,6 +927,7 @@ function createTables(root, ctx) {
     } catch (_) { listen(globalThis, 'resize', () => { layout(); if (cur) fitSign(); }); }
     listen(document, 'visibilitychange', () => { world.last = 0; });
     nextItem();
+    if (micSessionOn()) startVoice();                  /* micro déjà allumé dans un autre jeu de la séance */
   }
 
   function destroy() {

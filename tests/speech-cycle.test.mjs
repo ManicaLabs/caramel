@@ -305,3 +305,23 @@ test('appli Android (?app=android) : Vosk indisponible → jamais de secours Goo
     });
   } finally { F.scriptFails = false; F.session = null; }
 });
+
+test('changeGrammar (2.3, jeux à choix) : nouveau reconnaisseur sur le même micro, l’ancien se tait', () => withSpeech('grammaire', async ({ S, texts, start, last }) => {
+  await start(['mange', 'mangeais']);
+  const old = F.recs[F.recs.length - 1], gum = F.gum, ctxs = F.ctxs.length;
+  old.partial('mange');
+  assert.equal(S.changeGrammar(['finis', 'finissais']), true);
+  const rec = F.recs[F.recs.length - 1];
+  assert.notEqual(rec, old);
+  assert.equal(rec.grammar, JSON.stringify(['finis', 'finissais', '[unk]']));
+  assert.equal(F.gum, gum, 'micro pas rouvert');
+  assert.equal(F.ctxs.length, ctxs, 'même contexte audio');
+  assert.ok(old.removed, 'ancien reconnaisseur retiré');
+  const n = texts.length;
+  old.result('mange');                                   /* résultat tardif de l’ancien : ignoré */
+  assert.equal(texts.length, n);
+  rec.partial('finissais');
+  assert.deepEqual(last(), [' finissais', false], 'texte reparti de zéro');
+  S.stopListening();
+  assert.equal(S.changeGrammar(['x']), false, 'micro arrêté : rien');
+}));

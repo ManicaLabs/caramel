@@ -12,9 +12,14 @@
    - plaquettes : taille de police qui tient sans chevauchement ;
    - indice : les deux plaquettes (ou piquets) qui encadrent la valeur, et les petits sauts entre elles ;
    - caméra du zoom : zoom logarithmique à point fixe (la lisse ne bouge pas à l'écran) ;
-   - saut en arc et marche du compagnon. */
+   - saut en arc et marche du compagnon ;
+   - répondre à voix haute (v2.3) : ce que le micro écoute pour l'item (voicePlan), formes dites des fractions et
+     des décimaux (tests/cloture-voice.test.mjs). */
 
 import { parseNum, fmtNum } from '../core/util.js';
+import { toWords, spell, parseSpoken } from '../core/numbers-fr.js';
+import { fracWords } from '../content/maths/ligne.js';
+import { NEVER_WRONG } from './tables-logic.js';
 
 export const EPS = 1e-6;
 const NNBSP = '\u202f';
@@ -226,4 +231,167 @@ export function sceneLayout(W, H, { zoom = false, wide = false, lift = null, com
     minH: A + above + 44,                           /* en dessous, les pieds des piquets sont coupés */
     ideal
   };
+}
+
+/* ---------- répondre à voix haute (v2.3, js/ui/voice-answer.js) ----------
+   voicePlan(item, { prev }) → ce que le micro écoute pour l'item :
+   - { kind: 'pause' }                   placer : la voix ne place rien (dire « 23 » donnerait la réponse : c'est le
+                                         nombre de la consigne) ; pavé entier ≥ 100 000 (comme Pommes express ;
+                                         mesuré, enfant simulé : 2 justes sur 6 et 3 faux injustes à six chiffres,
+                                         « sept cent cinquante-quatre mille six cents » entendu « … mille cents ») ;
+   - { kind: 'number', answer, ignore }  pavé entier ≤ 99 999 ; jamais comptés faux : les plaquettes
+                                         (deux plans), les débuts du nombre dit (« trois mille… » en route vers
+                                         3 290 : l'enfant reprend son souffle), la réponse précédente ; only : seul un
+                                         piquet de la clôture compte faux (le reste : morceau ou erreur d'écoute) ;
+   - { kind: 'choices', list }           QCM : entiers par { num }, fractions par leurs formes dites (« trois
+                                         quarts ») ; pavé décimal : les PIQUETS de la clôture (≤ 21 valeurs ; la
+                                         grammaire des nombres du module commun n'a pas « virgule », celle des
+                                         choix l'a), forme « deux virgule huit » ; sans les plaquettes, ni les
+                                         entiers d'une ligne décimale, ni ce qui se lit DANS la réponse dite (sinon
+                                         « deux virgule huit… » vaudrait 2,8 en route vers 2,812) ; un « témoin »
+                                         fait reconnaître chaque piquet à sa forme entière (VOICE_WITNESS).
+   voiceVerdict(v, réponse, retenu) : une réponse dite JUSTE est tapée tout de suite ; FAUSSE, elle est retenue
+   (l'enfant compte souvent les piquets à voix haute : « un quart… deux quarts… trois quarts » ; le nombre suivant
+   l'annule), redite → tapée ; « un » n'est jamais faux (hésitations).
+   holdDue : la réponse fausse retenue est tapée quand l'enfant s'est tu (VOICE_QUIET_MS sans voix d'après la santé
+   du micro, vue toutes les 250 ms : un enfant qui compte « trois dixièmes… quatre dixièmes » se tait 1 s entre deux
+   piquets — mesuré, enfant simulé : à 1,2 s, le faux tombait 40 ms avant le piquet suivant) et au moins
+   VOICE_HOLD_MS après qu'elle a été entendue (choix ;
+   0 pour les nombres, déjà stables 1,5 s), au plus tard VOICE_HOLD_MAX_MS après (bruit continu ; 10 s : un enfant
+   qui compte cinq piquets parle plus de 4 s — mesuré).
+   VOICE_FORGET_MS : en mode choix, après ce silence, le texte entendu repart de zéro (un début abandonné, « six… »,
+   ne se combine plus avec la réponse dite ensuite, « cinq dixièmes », pour donner un autre choix) ; 3 s : « huit
+   virgule… » (il compte les petits piquets en silence) « …sept » reste une seule réponse. */
+export const VOICE_NUMBER_MAX = 99999;
+export const VOICE_HOLD_MS = 900;
+export const VOICE_QUIET_MS = 1800;
+export const VOICE_HOLD_MAX_MS = 10000;
+export const VOICE_FORGET_MS = 3000;
+/* ordinaux (dénominateurs ≤ 20) dont le PLURIEL est au lexique du modèle ; sinon le singulier (même son) */
+const PLURAL_OK = new Set([2, 3, 4, 5, 6, 7, 8, 10, 12, 16, 17]);
+export const FRAC_SAY_MAX_DEN = 20;
+
+/* « trois quarts », « trois quart » (homophones : Vosk rend l'un ou l'autre), « un demi », « une demie » ;
+   dénominateur > 20 (distracteurs de CM2) ou n/1 : aucune forme (le choix se touche au doigt) */
+export function fracSay(n, d) {
+  if (!Number.isInteger(n) || !Number.isInteger(d) || n < 1 || d < 2 || d > FRAC_SAY_MAX_DEN) return [];
+  const den = k => fracWords(k, d).split(' ').slice(1).join(' ');
+  const one = den(1), many = den(2);
+  const dens = PLURAL_OK.has(d) ? (n > 1 ? [many, one] : [one, many]) : [one];
+  const out = dens.map(w => (n === 1 ? 'un' : toWords(n)) + ' ' + w);
+  if (n === 1 && d === 2) out.push('une demie', 'une demi');
+  return [...new Set(out)];
+}
+
+/* 2,812 → { ip: 2, fp: '812' } (trois décimales au plus, zéros de fin retirés) */
+function decParts(v) {
+  const [ip, fp = ''] = Math.abs(v).toFixed(3).replace(/\.?0+$/, '').split('.');
+  return { ip: Number(ip), fp };
+}
+/* « deux virgule huit cent douze », « trois virgule zéro cinq » ; entier → son écriture.
+   Pas de « deux unités et huit dixièmes » : mêlée aux formes « virgule », elle fausse les mots distinctifs du juge
+   des choix (js/core/voice-choice.js : « trois virgule trois » ne garderait que « virgule », « trois unités et cinq
+   dixièmes » serait à égalité avec « trois unités et trois dixièmes ») */
+export function decSay(v) {
+  if (!Number.isFinite(v) || v < 0) return [];
+  const { ip, fp } = decParts(v);
+  if (!fp) return [toWords(ip)];
+  const z = fp.length - fp.replace(/^0+/, '').length;
+  return [toWords(ip) + ' virgule ' + [...Array(z).fill('zéro'), toWords(Number(fp))].join(' ')];
+}
+
+/* nombres entendus en route vers n, mot après mot : 3 290 → 3, 3 000, 3 002, 3 200 */
+export function spokenPrefixes(n) {
+  if (!Number.isInteger(n) || n < 0) return [];
+  const w = toWords(n).split(' '), out = [];
+  for (let k = 1; k < w.length; k++) {
+    const v = parseSpoken(w.slice(0, k).join(' '));
+    if (v !== null && v !== n && !out.includes(v)) out.push(v);
+  }
+  return out;
+}
+
+const labelValues = data => [...(data.labels || []), ...((data.zoom && data.zoom.labels) || [])].map(l => l.v);
+/* « témoin » des piquets décimaux : un choix qu'on ne dit pas (mots d'appoint déjà dans la grammaire, dans un ordre
+   que personne ne dit) et qui ne partage aucun mot avec les autres. Le juge des choix ne garde d'une forme que ses
+   mots « distinctifs » (absents d'au moins une forme des autres choix) : sans témoin, « trois » et « virgule »,
+   communs à tous les piquets entre 3 et 4, disparaîtraient — « trois virgule trois » ne garderait rien de plus
+   que « trois virgule » (souffle repris → 3,3), et 3,5 sur une ligne de demis se réduirait à « trois ». Avec lui,
+   chaque piquet se reconnaît à sa forme entière. Valeur non numérique : voiceVerdict → 'skip'. */
+export const VOICE_WITNESS = Object.freeze({ value: '·', say: ['zut oups zut oups'], label: '…' });
+
+/* piquets de la partie où se trouve le drapeau → choix dits (pavé décimal) */
+export function postChoices(data) {
+  const pl = data.zoom || data, answer = Number(data.value);
+  const lab = labelValues(data);
+  const sayOf = decSay;
+  const ans = sayOf(answer).map(f => f.split(' '));
+  /* forme contenue (mots dans l'ordre) dans celle de la réponse : un début (« deux virgule huit » de 2,812), ou
+     « six virgule un » dans « six virgule zéro un » — le juge les mettrait à égalité avec la réponse dite */
+  const inAnswer = v => sayOf(v).some(f => {
+    const w = f.split(' ');
+    return ans.some(a => {
+      if (a.length <= w.length) return false;
+      let k = 0;
+      for (const x of a) if (k < w.length && x === w[k]) k++;
+      return k === w.length;
+    });
+  });
+  const entry = v => ({ value: v, say: decSay(v), label: fmtNum(v) });
+  const out = [];
+  for (const p of posts(pl)) {
+    if (sameValue(p.v, answer)) { out.push(entry(answer)); continue; }
+    if (lab.some(x => sameValue(x, p.v)) || Number.isInteger(p.v) || inAnswer(p.v)) continue;
+    out.push(entry(p.v));
+  }
+  if (!out.some(c => c.value === answer)) out.push(entry(answer));
+  out.push(VOICE_WITNESS);
+  return out;
+}
+
+export function voicePlan(item, { prev = null } = {}) {
+  const d = item && item.data;
+  if (!d || d.mode !== 'lire') return { kind: 'pause' };
+  const answer = Number(item.answer);
+  if (!Number.isFinite(answer)) return { kind: 'pause' };
+  if (Array.isArray(item.choices) && item.choices.length) {
+    /* « quatre cents… » en route vers 470 : jamais un essai faux, même si 400 est proposé */
+    const never = d.fmt === 'frac' || !Number.isInteger(answer) ? [] : spokenPrefixes(answer);
+    return { kind: 'choices', never, list: item.choices.map(c => {
+      const v = Number(c.value);
+      if (d.fmt === 'frac') return { value: c.value, say: fracSay(c.num, c.den), label: Number.isInteger(c.num) && Number.isInteger(c.den) ? fracWords(c.num, c.den) : String(c.label) };
+      if (Number.isInteger(v) && v >= 0) return { value: c.value, num: v, label: spell(v) };
+      return { value: c.value, say: decSay(v), label: fmtNum(v) };
+    }) };
+  }
+  if (d.fmt === 'int' && Number.isInteger(answer) && answer >= 0 && answer <= VOICE_NUMBER_MAX) {
+    const ignore = [...new Set([...labelValues(d), ...spokenPrefixes(answer), prev])]
+      .filter(v => typeof v === 'number' && Number.isFinite(v) && !sameValue(v, answer));
+    /* faux par la voix : seulement un piquet de la clôture (la lecture d'un voisin, d'une autre graduation) ; tout
+       autre nombre est un morceau de phrase ou une erreur d'écoute (voix d'enfant simulée : « neuf cents » entendu
+       « neuf cinq » → 5, « trois cent vingt-trois » → « trois vingt-trois » → 23, « deux cents » → « dix ») */
+    const only = [...posts(d), ...(d.zoom ? posts(d.zoom) : [])].map(p => p.v);
+    return { kind: 'number', answer, ignore, only };
+  }
+  if (d.fmt === 'dec') return { kind: 'choices', never: [], list: postChoices(d) };
+  return { kind: 'pause' };
+}
+
+/* réponse entendue → 'now' (taper), 'hold' (retenir) ou 'skip' (rien) ; never : jamais faux (début de la réponse
+   dite) ; only : seules ces valeurs peuvent compter faux (piquets de la clôture) */
+export function voiceVerdict(v, answer, held = null, { never = [], only = null } = {}) {
+  const x = Number(v);
+  if (!Number.isFinite(x)) return 'skip';
+  if (sameValue(x, Number(answer))) return 'now';
+  if (NEVER_WRONG.concat(never || []).some(y => sameValue(y, x))) return 'skip';
+  if (Array.isArray(only) && !only.some(y => sameValue(y, x))) return 'skip';
+  if (held !== null && held !== undefined && sameValue(x, Number(held))) return 'now';
+  return 'hold';
+}
+
+export function holdDue({ pickAt, lastVoiceAt = 0, now, holdMs = VOICE_HOLD_MS }) {
+  const since = now - pickAt;
+  if (!(since >= 0)) return false;
+  if (since >= VOICE_HOLD_MAX_MS) return true;
+  return since >= holdMs && now - (lastVoiceAt || 0) >= VOICE_QUIET_MS;
 }

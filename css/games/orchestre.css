@@ -156,6 +156,30 @@
 .orc-tempo-ico svg { display: block; fill: currentColor; }
 .orc-tempo.is-max { background: var(--amber-200); border-color: var(--amber-400); }
 
+/* répondre à voix haute (v2.3, js/ui/voice-answer.js) : rien ne bouge dans la mise en page ; caché pendant l'intro et la
+   mélodie finale. 🎤 suspendu en haut de la scène, sur le lambrequin, entre l'ours et le renard ; scène rapetissée
+   (bulle ouverte, petit écran) : à gauche du décor, dans la marge. Ligne 👂 en pastille posée sur le bord bas de la
+   scène (sous les pieds des musiciens, au-dessus de la consigne). */
+.orc-voice { display: contents; }
+.orc-voice.is-off { display: none; }
+.orc-voice-mic {
+  position: absolute; left: 50%; top: 4px; transform: translateX(-50%); z-index: 3;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.orc-voice-mic .va-mic { width: 44px; height: 44px; min-height: 44px; border-radius: 50%; font-size: 1.3rem; }
+.orc-voice-mic .va-dbg { margin: 0; padding: 0 6px; border-radius: var(--r-pill); background: var(--card); }
+.orc-voice-ear {
+  position: absolute; left: 50%; bottom: 0; transform: translate(-50%, 50%); z-index: 3; max-width: calc(100% - 24px);
+}
+.orc-voice-ear:not(:has(> .va-ear:not(.is-hidden))) { display: none; }
+.orc-voice-ear .va-ear {
+  margin: 0; padding: 1px 12px 2px; border-radius: var(--r-pill); background: var(--card); border: 2px solid var(--pink-200);
+  box-shadow: var(--shadow-1); font-size: .88rem; line-height: 1.3;
+}
+@container (max-height: 130px) {
+  .orc-voice-mic { left: 4px; top: 50%; transform: translateY(-50%); }
+}
+
 /* ---------- carte de la phrase ---------- */
 .orc-card {
   flex: none; background: var(--card); border: var(--line); border-radius: var(--r-l);

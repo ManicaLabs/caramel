@@ -13,11 +13,20 @@
    - 1re erreur : secousse douce + indice (bulle + petits sauts « +10 » entre les plaquettes qui encadrent) ;
    - 2e erreur  : le compagnon marche jusqu'au bon piquet, la valeur apparaît sur un panneau, explication,
                   « J’ai compris ✓ ».
+   - Répondre à voix haute (v2.3, js/ui/voice-answer.js) aux items « lire » : 🎤 dans la case vide du pavé
+     (entiers), à gauche de la case réponse (pavé décimal) ou dans la pastille de la scène (QCM) ; la ligne 👂 dans
+     cette pastille (dans le ciel, sinon sur l'herbe, jamais sur la clôture). La voix tape la réponse ; ce que le
+     micro écoute : L.voicePlan (QCM, nombre, ou piquets de la clôture pour les décimaux) ; une réponse fausse est
+     retenue jusqu'à ce que l'enfant se taise (il compte les piquets à voix haute). Micro en pause pour « placer »
+     (la voix ne place rien : dire « 23 », c'est lire la consigne), pour les nombres ≥ 100 000 et pendant
+     l'explication.
    Déroulé d'un item : contrat §7.3 (référence : tests/harness/demo-game.js). Logique pure : cloture-logic.js.
    Tout le dessin est en SVG à l'échelle du pixel (viewBox = taille réelle, redessiné si la largeur change). */
 
 import { h, svg, clear, frTypo, fmtNum } from '../core/util.js';
 import { fracWords } from '../content/maths/ligne.js';
+import { createVoiceAnswer } from '../ui/voice-answer.js';
+import { dlog } from '../core/debuglog.js';
 import * as L from './cloture-logic.js';
 
 const PAD = 8;              /* marge intérieure totale d'une plaquette (px) */
@@ -134,7 +143,7 @@ function svgFrac(x, y, n, d, fs, cls) {
 /* ======================================================================================== */
 function createCloture(root, ctx) {
   /* voix du compagnon (petits lecteurs, js/ui/voice.js) : la consigne, l'indice, l'explication ; le texte reste affiché */
-  const say = t => { try { return ctx.voice ? Promise.resolve(ctx.voice.say(String(t || ''))) : Promise.resolve(false); } catch (_) { return Promise.resolve(false); } };
+  const say = t => { try { return ctx.voice ? Promise.resolve(ctx.voice.say(String(t || ''), { quiet: va.wanted() })) : Promise.resolve(false); } catch (_) { return Promise.resolve(false); } };
   const hush = () => { try { if (ctx.voice) ctx.voice.hush(); } catch (_) {} };
   let placeN = 0;            /* carottes à placer déjà proposées dans la manche : la ligne du geste n'est montrée qu'à la 1re */
   const M = ctx.motion, K = ctx.kit, AU = ctx.audio;
@@ -189,6 +198,17 @@ function createCloture(root, ctx) {
   const help = h('div', { class: 'cl-help' });
   const answer = h('div', { class: 'cl-answer' });
   const wrap = h('div', { class: 'cl' }, head, scene, help, answer);
+  /* répondre à voix haute (v2.3) : la ligne 👂 (et le 🎤 des choix) dans une pastille posée sur la scène (placeVoiceBar) :
+     rien ne bouge quand le micro s'allume ; un toucher sur la pastille ne pose pas la carotte */
+  const va = createVoiceAnswer(ctx, {
+    onNumber: (v, right) => voiceAnswer(v, right ? 'now' : L.voiceVerdict(v, item && item.answer, heldV, voiceRule), 0),
+    onChoice: v => voiceAnswer(v, L.voiceVerdict(v, item && item.answer, heldV, voiceRule), L.VOICE_HOLD_MS),
+    onProblem: msg => { if (alive && phase === 'answer') { if (bubbleEl) K.toast(msg); else setBubble(msg, 'soft', '🎙️'); } },
+    onChange: () => syncVoiceBar()
+  });
+  const vaBar = h('div', { class: 'va-row cl-voice' }, va.ear, va.dbg);
+  scene.append(vaBar);
+  for (const type of ['pointerdown', 'keydown']) on(vaBar, type, e => e.stopPropagation());
 
   /* ancres du compagnon (bouche…) à son stade, en unités du viewBox (× S / 100 pour des px) */
   const anchors = (() => { try { return ctx.petAnchors(); } catch (_) { return null; } })();
@@ -206,6 +226,9 @@ function createCloture(root, ctx) {
   let svgRoot = null, mountS = 0, mpos = { kind: 'bale' }, facing = 1;
   const arcAnims = [];           /* saut en cours : corps, carotte tenue, ombre (arcLift) */
   let dragging = null, lastTick = 0, okBtn = null, prevBtn = null, nextBtn = null;
+  /* voix : réponse de l'item précédent, réponse fausse retenue (minuterie, valeur, instant), dernière voix entendue */
+  let prevAnswer = null, held = 0, heldV = null, heldAt = 0, voiceRule = {}, lastVoiceAt = 0, offVoice = null;
+  let voiceKind = 'pause', forgot = true, lastTap = 0;
 
   const mainPlane = () => D;
   const actPlane = () => (D && D.zoom ? D.zoom : D);
@@ -261,6 +284,7 @@ function createCloture(root, ctx) {
     drawWorld();
     placeMount();
     if (bubbleEl) placeBubble();
+    else placeVoiceBar();
   }
 
   /* ---------- décor : soleil, nuages, collines, pré, fleurs, bottes de foin ---------- */
@@ -814,6 +838,105 @@ function createCloture(root, ctx) {
       answer.append(h('div', { class: 'cl-place' }, prevBtn, okBtn, nextBtn));
     }
   }
+
+  /* ---------- répondre à voix haute (v2.3) ---------- */
+  /* ce que le micro écoute pour l'item, et où se met le 🎤 (rien ne bouge : case vide du pavé, à gauche de la case
+     réponse du pavé décimal, ou pastille de la scène) */
+  function setVoice() {
+    dropHeld();
+    const plan = L.voicePlan(item, { prev: prevAnswer });
+    voiceRule = { never: plan.never || [], only: plan.only || null };
+    voiceKind = plan.kind;
+    if (!offVoice && plan.kind !== 'pause') offVoice = safe(() => ctx.speech.onHealth(onVoiceHealth)) || null;
+    if (plan.kind === 'number') {
+      if (!va.attachKeypad(kp)) va.placeIn(vaBar, va.ear);
+      va.number({ answer: plan.answer, ignore: plan.ignore });
+    } else if (plan.kind === 'choices') {
+      if (grid) { va.placeIn(vaBar, va.ear); va.attachChoices(grid); }
+      else if (kp && !va.attachKeypad(kp)) va.placeIn(kp.el, kp.answer);
+      va.choices(plan.list);
+    } else {
+      if (!(kp && va.attachKeypad(kp))) va.placeIn(vaBar, va.ear);   /* grand nombre : le 🎤 (en pause) reste au pavé */
+      va.pause(true);
+    }
+    syncVoiceBar();
+  }
+  /* placer ou explication, micro éteint : pas de pastille (la voix n'y sert à rien) ; micro allumé : « en pause »,
+     éteignable d'un toucher */
+  function syncVoiceBar() {
+    if (!alive) return;
+    const off = !!D && (placing() || phase === 'learn') && !va.wanted();
+    vaBar.classList.toggle('is-off', off);
+    placeVoiceBar();
+  }
+  /* pastille : en haut du ciel si elle y tient (au-dessus du drapeau, du panneau et des sauts du compagnon ; zoom :
+     sous la mini-carte), sinon au bas du pré (sous la bulle posée sur l'herbe), sinon cachée (petit écran et indice
+     sous la scène : le 🎤 du pavé reste à sa place) — jamais sur la clôture ni ses plaquettes ; le ciel d'abord :
+     elle ne saute pas quand la bulle d'indice arrive sur l'herbe */
+  function placeVoiceBar() {
+    if (!alive || !lay) return;
+    const ph = va.el.parentNode === vaBar ? 62 : 30;
+    let ground = lay.yGround + 8;
+    if (bubbleEl && bubbleEl.parentNode === floatEl) ground = Math.max(ground, floatEl.offsetTop + bubbleEl.offsetHeight + 6);
+    const skyTop = D && D.zoom ? Math.round(lay.A * 0.38 + lay.lift * 0.5) + 26 : 0;
+    const skyBottom = lay.yRail - (wide ? 112 : 106);
+    const where = skyBottom - skyTop - 8 >= ph ? 'high' : H - 8 - ground >= ph ? 'low' : '';
+    vaBar.classList.toggle('is-high', where === 'high');
+    vaBar.classList.toggle('is-squeezed', !where);
+    vaBar.style.top = where === 'high' ? (skyTop + 8) + 'px' : '';
+  }
+  const vlog = (m, d) => { try { dlog('voix', m, d); } catch (_) {} };
+  function dropHeld() {
+    if (held) { clearTimeout(held); timers.delete(held); vlog('voix : retenu, annulé', { valeur: heldV }); }
+    held = 0; heldV = null;
+  }
+  /* réponse entendue : juste → tapée ; fausse → retenue jusqu'à ce que l'enfant se taise (il compte souvent les
+     piquets à voix haute : la suivante l'annule ; redite → tapée) ; « un », début de la réponse → rien */
+  function voiceAnswer(v, verdict, holdMs) {
+    if (!alive || !item || phase !== 'answer') return;
+    dropHeld();
+    if (verdict === 'now') { typeVoice(v); return; }
+    if (verdict !== 'hold') return;
+    heldV = v; heldAt = Date.now();
+    vlog('voix : retenu', { valeur: v });
+    const tick = () => {
+      held = 0;
+      if (!alive || phase !== 'answer') { heldV = null; return; }
+      const now = Date.now();
+      if (L.holdDue({ pickAt: heldAt, lastVoiceAt, now, holdMs })) {
+        heldV = null;
+        vlog('voix : retenu, tapé', { valeur: v, après: now - heldAt, silence: now - lastVoiceAt });
+        typeVoice(v);
+      } else held = laterItem(tick, 150);
+    };
+    held = laterItem(tick, Math.max(150, holdMs));
+  }
+  /* santé du micro : quand l'enfant parle (réponse retenue) ; en mode choix, un long silence fait oublier le texte */
+  function onVoiceHealth(hh) {
+    if (!alive || !hh) return;
+    const now = Date.now();
+    if (hh.voice) { lastVoiceAt = now; forgot = false; return; }
+    if (!forgot && voiceKind === 'choices' && phase === 'answer' && !held && now - lastVoiceAt >= L.VOICE_FORGET_MS) {
+      forgot = true;
+      vlog('voix : silence, texte oublié');
+      safe(() => ctx.speech.resetTranscript());
+    }
+  }
+  /* la voix tape la réponse : bouton du choix, ou nombre écrit dans le pavé puis ✓ (mêmes retours qu'au doigt) ;
+     la grille ignore un 2e toucher à moins de 350 ms : la bonne réponse dite juste après un choix faux attend */
+  function typeVoice(v) {
+    if (!alive || phase !== 'answer') return;
+    if (grid) {
+      const wait = lastTap + 380 - Date.now();
+      if (wait > 0) { laterItem(() => typeVoice(v), wait); return; }
+      const b = grid.button(v);
+      if (b && !b.disabled) b.click();
+    } else if (kp) {
+      kp.set(fmtNum(Number(v)).replace(/\s/g, ''));
+      const ok = kp.el.querySelector('[data-k="ok"]');
+      if (ok && !ok.disabled) ok.click();
+    }
+  }
   /* flèches : un appui = un pas ; appui long = répétition */
   function bindNudge(b, dir) {
     const stop = () => { if (repeat) { clearTimeout(repeat.t); timers.delete(repeat.t); repeat = null; } };
@@ -854,16 +977,17 @@ function createCloture(root, ctx) {
       const room = scene.clientHeight + (wasIn === help ? help.offsetHeight : 0) + (wasIn === head ? b.offsetHeight : 0) - top - 8;
       floatEl.style.top = top + 'px';
       if (b.parentNode !== floatEl) floatEl.append(b);
-      if (b.offsetHeight <= room) return;
+      if (b.offsetHeight <= room) { placeVoiceBar(); return; }
     }
     if (b.parentNode !== help) help.append(b);
-    if (answer.getBoundingClientRect().bottom <= wrap.getBoundingClientRect().bottom + 1) return;
+    if (answer.getBoundingClientRect().bottom <= wrap.getBoundingClientRect().bottom + 1) { placeVoiceBar(); return; }
     head.append(b);
     head.classList.add('has-bubble');
     for (const cls of ['is-tight', 'is-tighter']) {       /* indice très long sur un tout petit écran */
       if (answer.getBoundingClientRect().bottom <= wrap.getBoundingClientRect().bottom + 1) break;
       b.classList.add(cls);
     }
+    placeVoiceBar();
   }
   function clearBubble() {
     bubbleEl = null;
@@ -871,6 +995,7 @@ function createCloture(root, ctx) {
     clear(floatEl);
     for (const n of head.querySelectorAll('.kit-bubble')) n.remove();
     head.classList.remove('has-bubble');
+    placeVoiceBar();
   }
 
   /* ================= DÉROULÉ D'UN ITEM (contrat §7.3) ================= */
@@ -881,7 +1006,8 @@ function createCloture(root, ctx) {
     hideLoupe();
     dragging = null;
     const it = ctx.nextItem();
-    if (!it) { phase = 'end'; ctx.end(); return; }
+    if (!it) { phase = 'end'; dropHeld(); va.pause(true); ctx.end(); return; }
+    prevAnswer = item && item.data && item.data.mode === 'lire' ? Number(item.answer) : null;
     item = it; D = it.data;
     tries = 0; hinted = !!it.assist; hintShown = false;
     marker = null; lastWrong = null; ghost = null; revealed = false; stepHint = false; showMid = false;
@@ -892,6 +1018,7 @@ function createCloture(root, ctx) {
     setCompact();
     buildPrompt();
     buildAnswer();
+    setVoice();
     setSub();
     clearBubble();
     setSceneMin();
@@ -955,11 +1082,14 @@ function createCloture(root, ctx) {
   /* ---------- réponses ---------- */
   function onChoice(v, btn) {
     if (!alive || phase !== 'answer') return;
+    lastTap = Date.now();
+    dropHeld();                                   /* un choix touché (au doigt ou à la voix) annule le choix retenu */
     if (Math.abs(v - item.answer) < 1e-9) { grid.mark(v, 'right'); grid.disable(); onRight(btn); }
     else { grid.mark(v, 'wrong'); onWrong(btn); }
   }
   function onKeypad(str) {
     if (!alive || phase !== 'answer') return;
+    dropHeld();
     if (L.answerMatches(str, item.answer)) { kp.setState('right'); kp.disable(true); onRight(kp.answer); }
     else {
       kp.setState('wrong');
@@ -1045,6 +1175,10 @@ function createCloture(root, ctx) {
   /* 2e erreur : la réponse est montrée (le compagnon marche jusqu'au bon piquet) + explication */
   function learn() {
     const tok = token;
+    dropHeld();
+    va.placeIn(vaBar, va.ear);                    /* le pavé s'en va : le 🎤 (en pause) passe dans la pastille */
+    va.pause(true);                               /* le micro attend « J’ai compris ✓ » */
+    syncVoiceBar();
     if (grid) { grid.reveal(item.answer); grid.dimOthers(item.answer); grid.disable(); }
     if (kp) kp.disable(true);
     stepHint = true;
@@ -1210,6 +1344,7 @@ function createCloture(root, ctx) {
         drawBg();
         if (!diving) fence.setAttribute('viewBox', `0 0 ${W} ${H}`);
         if (bubbleEl && bubbleEl.parentNode === help) placeBubble();
+        else placeVoiceBar();
       }
     });
   }
@@ -1233,6 +1368,7 @@ function createCloture(root, ctx) {
     on(scene, 'keydown', onKey);
     ctx.onJoker(onJoker);
     next(true);
+    va.autoStart();                               /* micro déjà allumé dans un autre jeu de la séance */
   }
   function destroy() {
     if (!alive) return;
@@ -1253,6 +1389,9 @@ function createCloture(root, ctx) {
     ro = null;
     if (kp) safe(() => kp.destroy());
     kp = null;
+    safe(() => va.destroy());
+    if (offVoice) safe(offVoice);
+    offVoice = null;
     safe(() => ctx.onJoker(null));
     safe(() => wrap.remove());
   }

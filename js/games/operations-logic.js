@@ -9,7 +9,11 @@
                          continue (on ne bloque jamais), joker, coup de pouce (item.assist), état des cases
                          (visibles, barrées, données, retenues pâlies, emplacements du quotient), surlignage
                          (case attendue, cases en jeu, colonne courante) et comptage des aides → outcome.
+   - voiceTarget / voiceVerdict / voiceTotalNote : répondre à voix haute (v2.3), voir en fin de fichier.
    Une case est désignée par sa clé « r,c » ou « r,c,pos » (annotation collée à un chiffre). */
+
+import { CONFIRM_MS, STABLE_MS, heardLabel } from './tables-logic.js';
+import { frTypo } from '../core/util.js';
 
 /* ---------- clés de case ---------- */
 export const cellKey = c => c.r + ',' + c.c + (c.pos ? ',' + c.pos : '');
@@ -310,4 +314,70 @@ export function digitOfKey(k) {
   if (/^\d$/.test(k)) return k;
   const m = /^(?:Numpad|Digit)(\d)$/.exec(k);
   return m ? m[1] : null;
+}
+
+/* ---------- répondre à voix haute (v2.3, js/ui/voice-answer.js) ----------
+   Le juge des tables (juste dès qu'il est entendu, autre nombre stable 1,5 s = essai faux, « un » jamais faux) entend
+   la phrase ; l'atelier décide (onNumber). Chaque question attend UN chiffre : l'enfant dit le chiffre de la case
+   (« sept », « deux fois », « il reste trois », « huit, je retiens un » : la retenue s'envole toute seule, il n'a pas à
+   la dire). Mesuré (Vosk, grammaire des tables, voix Piper adulte et enfant) : « retiens » est entendu « vingt-et-un »
+   ou « vingt », « chiffres » « six », « il y va deux fois » « vingt-deux fois », un « cinq » « cent ». D'où :
+   - jamais faux : les nombres de la question et de l'opération (l'enfant relit : « 8 + 6… »), le chiffre et la
+     retenue de la question précédente, « six » à « combien de chiffres ? » (sauf si c'est la réponse), « un » ;
+   - un nombre de deux chiffres ou plus n'est JAMAIS un essai faux (une case = un chiffre) : le total juste de la
+     colonne (« quinze ») est salué, la question reste posée (voiceTotalNote), les autres restent affichés dans 👂 ;
+   - débordement : la fin d'une phrase arrive sur la question suivante (resetTranscript garde la suite). Entendue
+     moins de VOICE_BLEED_MS après la réponse précédente, elle est oubliée si elle vaut la retenue annoncée ou un
+     nombre de deux chiffres ; moins de VOICE_REPEAT_MS après, si elle répète le chiffre précédent (« cinq… cinq »).
+   voiceTarget(step, { item, prev }) → { answer, ignore, total, carry, voice } ; prev = { expect, carry } de la
+     question précédente (null au début d'une opération).
+   voiceVerdict(valeur, juste, { target, last, now }) → 'right' (le chiffre attendu) | 'digit' (un autre chiffre :
+     essai faux, comme au doigt) | 'total' (total juste de la colonne) | 'other' (autre nombre : rien) | 'drop'
+     (débordement : oublié) ; last = { at, expect, carry } de la dernière réponse (performance.now()). */
+export const VOICE_BLEED_MS = 2000;
+export const VOICE_REPEAT_MS = 1000;
+const COUNT_HEARD_SIX = 6;                      /* « chiffres » entendu « six » (mesuré, voix d'enfant) */
+
+/* v2.3 : mots que l'enfant dit autour du chiffre, ajoutés à la grammaire du micro (js/ui/voice-answer.js, number({ words })) :
+   sans eux, Vosk changeait « retiens » en « vingt-et-un » et « chiffres » en « six » (mesuré au banc) ; tous dans le lexique */
+export const VOICE_WORDS = Object.freeze(['retiens', 'retenue', 'chiffre', 'chiffres', 'rien', 'reste', 'case', 'unités', 'dizaines', 'centaines']);
+
+/* nombres écrits dans un texte (« 9 456 ÷ 7 », « Dans 52, combien de fois 9 ? », « 4,56 € ») */
+export function textNumbers(text) {
+  return (String(text || '').match(/\d+(?:[\u00A0\u202F]\d{3})*(?:,\d+)?/g) || [])
+    .map(x => Number(x.replace(/[\u00A0\u202F]/g, '').replace(',', '.'))).filter(Number.isFinite);
+}
+export function voiceTarget(step, { item = null, prev = null } = {}) {
+  const none = { answer: null, ignore: [], total: null, carry: null, voice: false };
+  if (!step || !step.ask || !/^\d$/.test(String(step.expect))) return none;
+  const answer = Number(step.expect);
+  const ign = new Set([...textNumbers(step.prompt), ...textNumbers(item && item.prompt)]);
+  if (prev) for (const v of [prev.expect, prev.carry]) if (Number.isFinite(v)) ign.add(v);
+  if (step.type === 'count') ign.add(COUNT_HEARD_SIX);
+  ign.delete(answer);
+  /* « 5 + 9 = 14 : je pose 4 et je retiens 1. » ; « 7 × 7 = 49, et 49 + 6 = 55 : je pose 5 et je retiens 5. » */
+  const say = String(step.say || '');
+  const t = /=\s*(\d+)\s*:\s*je pose/.exec(say), c = /je retiens\s+(\d+)/.exec(say);
+  const total = t && Number(t[1]) >= 10 ? Number(t[1]) : null;
+  return { answer, ignore: [...ign].sort((a, b) => a - b), total, carry: c ? Number(c[1]) : null, voice: true };
+}
+export function voiceVerdict(value, right, { target = null, last = null, now = 0 } = {}) {
+  const v = Number(value);
+  if (value === null || value === undefined || !Number.isFinite(v)) return 'drop';
+  /* instant où le nombre a été entendu : le juge confirme une bonne réponse 0,35 s après, un essai faux 1,5 s après */
+  const heardAt = now - (right ? CONFIRM_MS : STABLE_MS);
+  if (last && Number.isFinite(last.at)) {
+    const since = heardAt - last.at;
+    if (since < VOICE_BLEED_MS && (v >= 10 || v === last.carry)) return 'drop';
+    if (since < VOICE_REPEAT_MS && v === last.expect) return 'drop';
+  }
+  if (right) return 'right';
+  if (Number.isInteger(v) && v >= 0 && v <= 9) return 'digit';
+  if (target && target.total !== null && v === target.total) return 'total';
+  return 'other';
+}
+/* « Quinze, c'est juste ! Mais dans la case, on n'écrit qu'un chiffre. » (la question reste affichée dessous) */
+export function voiceTotalNote(v) {
+  const w = heardLabel(v);
+  return frTypo((w ? w[0].toUpperCase() + w.slice(1) : String(v)) + ', c’est juste ! Mais dans la case, on n’écrit qu’un chiffre.');   /* frTypo : espaces fines */
 }

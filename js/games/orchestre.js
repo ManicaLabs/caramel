@@ -13,10 +13,20 @@
    choix qui pulsent doucement sur le temps.
    Juste : une note s'ajoute sur la portée en haut de l'écran, les musiciens jouent les dernières notes gagnées.
    Fin de manche : l'orchestre rejoue toute la mélodie gagnée (accord final), puis ctx.end().
-   Logique pure : js/games/orchestre-logic.js (tests/orchestre.test.mjs). */
+   Répondre à voix haute (v2.3, js/ui/voice-answer.js) : 🎤 suspendu en haut de la scène, ligne 👂 posée sur son bord
+   bas (la mise en page ne bouge pas) ; l'enfant dit la forme (« nous mangeons », « j’ai »), le mot entier pour une tuile (« mangeons »),
+   le temps (« le futur ») ou le sujet : la voix touche le bouton du choix, le jeu réagit comme au doigt (tempo compris).
+   Micro en pause quand la question ne se dit pas sans risque (homophones « mange » / « manges », mot inconnu du
+   modèle : js/games/orchestre-voice.js), pendant l'explication et la mélodie finale ; compagnon discret quand le
+   micro est demandé (il l'entendrait).
+   Logique pure : js/games/orchestre-logic.js (tests/orchestre.test.mjs), js/games/orchestre-voice.js
+   (tests/orchestre-voice.test.mjs). */
 
 import { h, clear, frTypo } from '../core/util.js';
+import { dlog } from '../core/debuglog.js';
+import { createVoiceAnswer } from '../ui/voice-answer.js';
 import * as L from './orchestre-logic.js';
+import { voiceChoices, FILLERS } from './orchestre-voice.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const now = () => (globalThis.performance && performance.now ? performance.now() : Date.now());
@@ -57,11 +67,12 @@ function createGame(root, ctx) {
     alive: true, timers: new Set(), metro: null, bpm: L.TEMPO.start, period: L.beatMs(L.TEMPO.start),
     phase: 'intro', item: null, model: null, grid: null, tries: 0, hinted: false, hintShown: false, locked: false,
     t0: 0, slotEl: null, slotIn: null, subjEls: [], verbEl: null, notes: [], queue: [], beatN: 0,
-    sway: [0, 0, 0, 0], baton: -24, flip: false, ended: false, destroy
+    sway: [0, 0, 0, 0], baton: -24, flip: false, ended: false, vaShown: false, destroy
   };
   const { kit, motion, audio } = ctx;
-  /* voix du compagnon (petits lecteurs, js/ui/voice.js) : la phrase, l'indice, l'explication ; le texte reste affiché */
-  const say = t => { try { return ctx.voice ? Promise.resolve(ctx.voice.say(String(t || ''))) : Promise.resolve(false); } catch (_) { return Promise.resolve(false); } };
+  /* voix du compagnon (petits lecteurs, js/ui/voice.js) : la phrase, l'indice, l'explication ; le texte reste affiché ;
+     micro demandé : seulement confiée à 🔊 (le micro l'entendrait) */
+  const say = t => { try { return ctx.voice ? Promise.resolve(ctx.voice.say(String(t || ''), { quiet: va.wanted() })) : Promise.resolve(false); } catch (_) { return Promise.resolve(false); } };
   const hush = () => { try { if (ctx.voice) ctx.voice.hush(); } catch (_) {} };
   const reduced = () => { try { return motion.reduced(); } catch (_) { return false; } };
   const later = (fn, ms) => {
@@ -79,7 +90,20 @@ function createGame(root, ctx) {
   const tempoChip = h('div', { class: 'orc-tempo', 'aria-hidden': 'true' },
     h('span', { class: 'orc-tempo-ico', html: '<svg viewBox="0 0 10 16" width="8" height="13"><ellipse cx="4" cy="12.6" rx="3.6" ry="2.7" transform="rotate(-20 4 12.6)"/><rect x="6.6" y="1" width="1.5" height="11.6" rx=".7"/></svg>' }),
     h('span', { class: 'orc-tempo-n' }, '= ' + my.bpm));
-  const stageBox = h('div', { class: 'orc-stage', 'aria-hidden': 'true' }, h('div', { class: 'orc-stage-in' }, stage.el, tempoChip));
+  /* répondre à voix haute (v2.3) : 🎤 suspendu en haut de la scène (sur le côté quand la scène rapetisse), ligne 👂
+     posée sur le bord bas de la scène : la mise en page ne bouge pas ; le décor seul est caché aux lecteurs d'écran */
+  const va = createVoiceAnswer(ctx, {
+    onProblem: msg => {
+      if (my.phase !== 'item' || my.locked) return;
+      if (my.hintShown) kit.toast(msg);                /* l'indice reste affiché */
+      else showBubble(msg, 'soft', '🎙️');
+    }
+  });
+  const vaMic = h('div', { class: 'orc-voice-mic' });
+  const vaBar = h('div', { class: 'orc-voice is-off' }, vaMic, h('div', { class: 'orc-voice-ear' }, va.ear));
+  va.placeIn(vaMic);
+  if (va.dbg) vaMic.appendChild(va.dbg);
+  const stageBox = h('div', { class: 'orc-stage' }, h('div', { class: 'orc-stage-in', 'aria-hidden': 'true' }, stage.el, tempoChip), vaBar);
   const promptEl = h('p', { class: 'orc-prompt' });
   const tagsEl = h('div', { class: 'orc-tags' });
   const modelEl = h('p', { class: 'orc-model read' });
@@ -144,6 +168,8 @@ function createGame(root, ctx) {
     try { item = ctx.nextItem(); } catch (e) { console.error(e); item = null; }
     if (!item) { finale(); return; }
     Object.assign(my, { item, tries: 0, hinted: !!item.assist, hintShown: false, locked: false, t0: now(), phase: 'item' });
+    /* micro déjà allumé dans un autre jeu de la séance : il le reste (avant la phrase dite : le compagnon se tait) */
+    if (!my.vaShown) { my.vaShown = true; vaBar.classList.remove('is-off'); va.autoStart(); }
     renderItem(item);
     clear(help);
     clear(okBox);
@@ -205,13 +231,25 @@ function createGame(root, ctx) {
     /* choix (tuiles de terminaison, formes, temps, sujets) */
     clear(answers);
     const ch = L.choiceModel(item);
-    if (ch.length < 2) { my.locked = true; later(next, 0); return; }   /* item inutilisable (jamais en pratique) : on passe */
+    if (ch.length < 2) { my.locked = true; va.pause(true); later(next, 0); return; }   /* item inutilisable (jamais en pratique) : on passe */
     my.grid = kit.choiceGrid(ch.map(c => ({ label: c.label, value: c.value })), { onPick: pick, cols: 2, read: true });
     my.grid.el.classList.add('orc-grid');
     if (m.mode === 'ending') my.grid.el.classList.add('is-tiles');
     answers.appendChild(my.grid.el);
+    listenFor(item);
     motion.enter(card, { from: 'right', dur: 360 });
     motion.stagger(my.grid.buttons, b => motion.enter(b, { from: 'bottom', dur: 320 }), 50);
+  }
+
+  /* répondre à voix haute : les formes dites des choix (le choix dit touche son bouton) ; question qui ne se dit pas
+     sans risque d'erreur injuste (homophones, mot inconnu du modèle) : micro en pause, l'enfant touche */
+  function listenFor(item) {
+    va.attachChoices(my.grid);
+    let vc = null;
+    try { vc = voiceChoices(item); } catch (e) { console.error('orchestre : voix', e); }
+    if (vc && vc.list) { va.choices(vc.list, { fillers: FILLERS }); return; }
+    va.choices([], { touch: true });                   /* « 👆 Ici, réponds avec le doigt » */
+    try { dlog('voix', 'orchestre : question sans micro (' + ((vc && vc.why) || '?') + ')', { sous_type: item.kind }); } catch (_) {}
   }
 
   /* ---------- réponse ---------- */
@@ -279,6 +317,7 @@ function createGame(root, ctx) {
     my.grid.el.classList.add('is-learn');          /* on ne garde que la bonne réponse : place pour l'explication */
     fillSlot(item, item.answer, 'is-shown');
     interruptMusic();
+    va.pause(true);                                  /* le micro attend « J’ai compris » */
     const msg = kit.cheer('learn', ctx.rng);
     const ok = h('button', { type: 'button', class: 'btn block orc-ok' }, 'J’ai compris ✓');
     ok.addEventListener('click', () => {
@@ -551,6 +590,8 @@ function createGame(root, ctx) {
     my.phase = 'finale';
     my.item = null;
     stopMusic();
+    va.pause(true);
+    vaBar.classList.add('is-off');                   /* la mélodie : plus rien à dire */
     clear(help); clear(answers); clear(okBox); clear(tagsEl); clear(modelEl);
     tagsEl.hidden = true; modelEl.hidden = true;
     const melody = my.notes.length ? my.notes.slice() : [2, 3, 0];
@@ -600,6 +641,7 @@ function createGame(root, ctx) {
     for (const id of my.timers) clearTimeout(id);
     my.timers.clear();
     stopMusic();
+    va.destroy();
     clear(answers);                                 /* plus rien à passer : le bilan de la coquille prend le relais */
     try { ctx.end(); } catch (e) { console.error(e); }
   }
@@ -610,6 +652,7 @@ function createGame(root, ctx) {
     my.alive = false;
     hush();
     stopMusic();
+    va.destroy();
     for (const id of my.timers) clearTimeout(id);
     my.timers.clear();
     try { ctx.onJoker(() => false); } catch (_) {}

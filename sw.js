@@ -19,7 +19,7 @@
    - Rappels quotidiens (periodicsync 'caramel-daily', enregistré par js/core/notifs.js) et notificationclick. */
 
 /* ASSETS:START */
-const VERSION = '2.3.0';
+const VERSION = '2.3.1';
 const ASSETS = [
   'index.html',
   'manifest.webmanifest',
@@ -63,6 +63,7 @@ const ASSETS = [
   'css/ui/progres.css',
   'css/ui/radar.css',
   'css/ui/shell.css',
+  'css/ui/voice-answer.css',
   'js/content/companion-data.js',
   'js/content/fr/conjug.js',
   'js/content/fr/verbs.js',
@@ -80,6 +81,7 @@ const ASSETS = [
   'js/core/adaptive.js',
   'js/core/audio.js',
   'js/core/axes.js',
+  'js/core/battle-voice.js',
   'js/core/debuglog.js',
   'js/core/duel.js',
   'js/core/economy.js',
@@ -106,6 +108,7 @@ const ASSETS = [
   'js/core/themes.js',
   'js/core/tts.js',
   'js/core/util.js',
+  'js/core/voice-choice.js',
   'js/core/voice-clips.js',
   'js/core/voice-fluid.js',
   'js/games/cloture-logic.js',
@@ -116,6 +119,7 @@ const ASSETS = [
   'js/games/operations-logic.js',
   'js/games/operations.js',
   'js/games/orchestre-logic.js',
+  'js/games/orchestre-voice.js',
   'js/games/orchestre.js',
   'js/games/pommes-logic.js',
   'js/games/pommes.js',
@@ -148,6 +152,7 @@ const ASSETS = [
   'js/ui/radar-detect.js',
   'js/ui/radar.js',
   'js/ui/theme-picker.js',
+  'js/ui/voice-answer.js',
   'js/ui/voice-fluid.js',
   'js/ui/voice.js',
   'js/ui/wipe.js'

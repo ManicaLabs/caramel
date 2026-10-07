@@ -619,6 +619,11 @@ async function openWorklet(){
 
 async function startVoskEngine(words){
   await openAudio();
+  const rec = makeRecognizer(words);
+  audio.recognizer = rec;
+}
+/* reconnaisseur (v11 : milieu de startVoskEngine) ; 2.3 : aussi pour changer de grammaire sans rouvrir le micro (changeGrammar) */
+function makeRecognizer(words){
   let rec;
   if(Array.isArray(words) && words.length){
     /* Grammaire : la reco ne connaît que les mots fournis (déjà normalisés par l'appelant) → précision maximale */
@@ -634,8 +639,8 @@ async function startVoskEngine(words){
     try{ rec = new voskModel.KaldiRecognizer(audio.ctx.sampleRate); }
     catch(e2){ rec = new voskModel.KaldiRecognizer(); }
   }
-  audio.recognizer = rec;
   rec.on('result', (m)=>{
+    if(audio.recognizer !== rec) return;                  /* 2.3 : ancien reconnaisseur (grammaire changée) */
     if(!running) return;
     const t = (m && m.result && m.result.text) || '';
     if(t) dlog('entendu', t, cutN ? { oubliés: cutN } : undefined);
@@ -651,6 +656,7 @@ async function startVoskEngine(words){
     emit(finalTranscript, true);
   });
   rec.on('partialresult', (m)=>{
+    if(audio.recognizer !== rec) return;
     if(!running) return;
     const p = (m && m.result && m.result.partial) || '';
     live = p;
@@ -659,6 +665,21 @@ async function startVoskEngine(words){
     emit(finalTranscript + ' ' + p, false);
   });
   rec.on('error', (m)=>{ dlog('micro', 'erreur du reconnaisseur : ' + String((m && m.error) || '?')); });
+  return rec;
+}
+/* 2.3 : nouvelle grammaire sans rouvrir le micro (jeux à choix : les mots attendus changent à chaque question). Le texte
+   entendu repart de zéro. → true si changée (Vosk à l'écoute) ; Web Speech n'a pas de grammaire : false, rien à faire. */
+export function changeGrammar(words){
+  if(!running || engine !== 'vosk' || !voskModel || !audio.ctx) return false;
+  const old = audio.recognizer;
+  let rec = null;
+  try{ rec = makeRecognizer(words); }
+  catch(e){ dlog('micro', 'grammaire impossible : ' + String((e && e.message) || e)); return false; }
+  audio.recognizer = rec;
+  try{ if(old && old.remove) old.remove(); }catch(_){}
+  finalTranscript = ''; live = ''; cutN = 0;
+  dlog('micro', 'grammaire changée', { mots: Array.isArray(words) ? words.length : 'libre' });
+  return true;
 }
 function stopVoskEngine(){
   try{ if(audio.node){ audio.node.onaudioprocess = null; audio.node.disconnect(); } }catch(_){}
