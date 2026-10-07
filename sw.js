@@ -3,7 +3,7 @@
    - install : précache ; skipWaiting() immédiat SEULEMENT si le cache v11 'caramel-shell-v1' existe
      (la v11 n'a pas de bandeau de mise à jour : on bascule tout de suite) ; sinon la nouvelle version attend
      que l'enfant ou le parent touche le bandeau « Nouvelle version » (message SKIP_WAITING).
-   - activate : supprime les caches caramel-* obsolètes — JAMAIS 'vosk-model-v1' (modèle de 44 Mo), 'vosk-lib-v1'
+   - activate : supprime les caches caramel-* obsolètes — JAMAIS 'vosk-model-v1' (modèle de 42 Mo, v2.2.4), 'vosk-lib-v1'
      ni 'caramel-voix-v1' (voix enregistrée du compagnon, v2.2.2) ; 'piper-tts-v1' (voix fluide, ≈ 45 Mo : modèle
      models/piper/, onnxruntime-web et piper-phonemize de jsDelivr, rempli par la page : js/core/piper-tts.js) ne commence
      pas par « caramel- » : jamais touché. Ni le modèle ni le moteur ne sont dans le précache (seuls les petits modules
@@ -17,7 +17,7 @@
    - Rappels quotidiens (periodicsync 'caramel-daily', enregistré par js/core/notifs.js) et notificationclick. */
 
 /* ASSETS:START */
-const VERSION = '2.2.3';
+const VERSION = '2.2.4';
 const ASSETS = [
   'index.html',
   'manifest.webmanifest',

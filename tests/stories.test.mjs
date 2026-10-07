@@ -231,7 +231,7 @@ test('lexique : 0 mot hors lexique en CM2, OOV exact pour les textes v11', () =>
   const all = new Set();
   for (const s of STORIES) for (const w of words(stripTokens(s.text))) if (!lex.has(w)) all.add(w);
   assert.deepEqual([...OOV].sort(), [...all].sort(), 'OOV doit lister exactement les mots hors lexique');
-  assert.equal(OOV.size, 11);
+  assert.equal(OOV.size, 4, '2.2.4 : 4 mots hors du lexique de vosk-model-small-fr-0.22 (11 avec le modèle v11)');
   for (const w of OOV) {
     assert.equal(w, normalizeForGrammar(w), w + ' : forme de la grammaire');
     assert.ok(STORIES.some(s => words(s.text).includes(w)), w + ' : présent dans un texte');

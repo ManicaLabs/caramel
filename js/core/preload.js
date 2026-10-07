@@ -14,7 +14,7 @@
    Règles :
      - Wi-Fi, câble, connexion inconnue (iPhone, iPad, ordinateur) : tout part tout seul ;
      - données mobiles ou économie de données : rien ne part tout seul ; la barre propose à l'adulte « Télécharger
-       maintenant (≈ 97 Mo) » (taille de ce qui manque vraiment) → start({ by: 'parent' }) ; son accord est gardé
+       maintenant (≈ 93 Mo) » (taille de ce qui manque vraiment) → start({ by: 'parent' }) ; son accord est gardé
        (localStorage STATE_KEY) jusqu'à la fin, même si l'appli est fermée entre-temps. Ce qui ne télécharge rien
        (extraction d'un modèle déjà en cache) part tout seul ;
      - hors ligne : rien ; nouvel essai au retour du réseau ('online', changement de navigator.connection) ;
@@ -39,8 +39,8 @@ import { dlog } from './debuglog.js';
 const G = globalThis;
 export const STATE_KEY = 'caramel-prechargement';
 /* octets annoncés (Mo décimaux, comme les libellés) : bibliothèque vosk-browser, modèle du micro (models/fr.tar.gz),
-   voix fluide (fluid.SIZE_LABEL) ; tout : ≈ 97 Mo */
-export const BYTES = Object.freeze({ voskLib: 5.8e6, voskModel: 46.0e6, fluid: 45e6 });
+   voix fluide (fluid.SIZE_LABEL) ; tout : ≈ 93 Mo */
+export const BYTES = Object.freeze({ voskLib: 5.8e6, voskModel: 42.2e6, fluid: 45e6 });   /* 2.2.4 : modèle fr-small-0.22 */
 const MODEL_CACHE = 'vosk-model-v1', LIB_CACHE = 'vosk-lib-v1';      /* caches de js/core/speech.js (KEEP de sw.js) */
 const NET_MS = 1200;                                                  /* changements de connexion regroupés */
 
@@ -57,7 +57,7 @@ export function writeState(patch, st = ls()) {
 }
 
 /* ---------- politique (pur) ---------- */
-/* « ≈ 97 Mo » (espaces insécables : jamais coupé en fin de ligne) */
+/* « ≈ 93 Mo » (espaces insécables : jamais coupé en fin de ligne) */
 export const sizeOf = bytes => '≈\u00a0' + Math.max(1, Math.round((Number(bytes) || 0) / 1e6)) + '\u00a0Mo';
 /* que faire de chaque part ? net : connectionOf ; vosk : null (rien à faire) | { bytes } (à télécharger ; 0 : extraction
    seule) ; fluid : null (rien à faire) | { ok, why } (fluid.autoCheck) ; consent : un adulte a dit oui.

@@ -1,5 +1,6 @@
-/* Lexique du modèle Vosk (vosk-model-small-fr-pguyot-0.3) extrait de models/fr.tar.gz.
-   Le dictionnaire est la table de symboles OpenFst embarquée dans Gr.fst (90 120 mots).
+/* Lexique du modèle Vosk de l'appli (2.2.4 : vosk-model-small-fr-0.22, models/fr-small-0.22.tar.gz ; avant :
+   vosk-model-small-fr-pguyot-0.3, models/fr.tar.gz) — nom du fichier tiré de MODEL_URL (js/core/speech.js).
+   Le dictionnaire est la table de symboles OpenFst embarquée dans Gr.fst (135 774 mots ; 90 120 pour l'ancien).
    Un mot absent de ce lexique ne peut JAMAIS être reconnu par Vosk, même s'il est dans la grammaire.
    Résultat mis en cache dans tests/.cache/lexicon.txt (ignoré par git).
      import { loadLexicon, normalizeForGrammar } from './lexicon.mjs';
@@ -8,9 +9,12 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { MODEL_URL } from '../js/core/speech.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const CACHE = join(root, 'tests', '.cache', 'lexicon.txt');
+const MODEL = join(root, ...MODEL_URL.split('/'));
+/* cache par modèle : changer de modèle ne relit jamais l'ancien lexique */
+const CACHE = join(root, 'tests', '.cache', 'lexicon-' + MODEL_URL.split('/').pop().replace(/\.tar\.gz$/, '') + '.txt');
 
 function extractGrFst(tarGz) {
   const tar = gunzipSync(tarGz);
@@ -44,7 +48,7 @@ export function loadLexicon() {
   let words;
   if (existsSync(CACHE)) words = readFileSync(CACHE, 'utf8').split('\n').filter(Boolean);
   else {
-    words = parseSymbols(extractGrFst(readFileSync(join(root, 'models', 'fr.tar.gz'))));
+    words = parseSymbols(extractGrFst(readFileSync(MODEL)));
     try { mkdirSync(dirname(CACHE), { recursive: true }); writeFileSync(CACHE, words.join('\n') + '\n'); } catch (_) {}
   }
   memo = new Set(words);

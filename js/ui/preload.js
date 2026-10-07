@@ -8,7 +8,7 @@
        seulement si ça dure (SHOW_DELAY_MS : pas d'éclair quand il ne reste qu'un petit travail) ;
      - fini (vu en cours ici) : « Voix et micro prêts ✓ » quelques secondes (dit une fois aux lecteurs d'écran), puis
        plus rien ;
-     - données mobiles, économie de données : UN bouton pour l'adulte, « Télécharger maintenant (≈ 97 Mo) » ;
+     - données mobiles, économie de données : UN bouton pour l'adulte, « Télécharger maintenant (≈ 93 Mo) » ;
      - hors ligne, rien à faire : rien.
    La progression n'est pas une zone annoncée (pas de bavardage à chaque pour cent).
    barModel(status) → { kind: 'run' | 'ask' | 'done' | null, text, pct, button, label } (PUR, testé) ;

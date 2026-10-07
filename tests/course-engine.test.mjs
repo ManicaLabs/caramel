@@ -389,24 +389,25 @@ test('minuteur de Zip v11 ↔ zipTick ; ligne 👂 v11 ↔ heardTail', () => {
 
 /* ---------- 3. ajouts v2 ---------- */
 test('OOV (v2) : les mots hors lexique du texte deviennent validables par [unk]', () => {
-  const s = STORIES.find(x => /lucioles/.test(x.text));
-  assert.ok(s, 'une histoire contient « lucioles »');
+  /* « hulule » : hors du lexique des deux modèles (« lucioles », l'exemple de la v2.0, est connu de vosk-model-small-fr-0.22) */
+  const s = STORIES.find(x => /hulule/.test(x.text));
+  assert.ok(s, 'une histoire contient « hulule »');
   const text = fillTemplate(s.text, PROFILES[0]);
   const plain = E.createRace(text, { mountNoun: 'poney' });
   const v2 = E.createRace(text, { mountNoun: 'poney', oov: OOV });
-  assert.ok(!plain.proper.has('lucioles') && v2.proper.has('lucioles'));
+  assert.ok(!plain.proper.has('hulule') && v2.proper.has('hulule'));
   for (const w of OOV) {
     const inText = v2.target.some(t => t.raw.toLowerCase().replace(/[^\p{L}0-9]/gu, '') === w);
     if (inText) assert.ok(v2.proper.has(E.normalize(w)), w);
   }
-  /* lecture où Vosk renvoie [unk] pour « lucioles » */
-  const k = v2.target.findIndex(t => t.norm === 'lucioles');
-  const said = v2.target.slice(0, k + 1).map(t => (t.norm === 'lucioles' ? '[unk]' : t.raw.toLowerCase().replace(/[^\p{L}0-9]/gu, '')));
+  /* lecture où Vosk renvoie [unk] pour « hulule » */
+  const k = v2.target.findIndex(t => t.norm === 'hulule');
+  const said = v2.target.slice(0, k + 1).map(t => (t.norm === 'hulule' ? '[unk]' : t.raw.toLowerCase().replace(/[^\p{L}0-9]/gu, '')));
   E.processTranscript(v2, said.join(' '), 5000);
   E.processTranscript(plain, said.join(' '), 5000);
-  assert.equal(v2.status[k], 'read', 'v2 : [unk] valide « lucioles »');
+  assert.equal(v2.status[k], 'read', 'v2 : [unk] valide « hulule »');
   assert.equal(v2.progress, k + 1);
-  assert.notEqual(plain.status[k], 'read', 'v11 : « lucioles » restait non lu');
+  assert.notEqual(plain.status[k], 'read', 'v11 : « hulule » restait non lu');
   /* les noms propres v11 restent là */
   for (const n of E.computeProper(v2.target)) assert.ok(v2.proper.has(n));
 });

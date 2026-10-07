@@ -66,7 +66,12 @@
 import { dlog } from './debuglog.js';
 
 export const VOSK_LIB = 'https://cdn.jsdelivr.net/npm/vosk-browser@0.0.8/dist/vosk.js';
-export const MODEL_URL = 'models/fr.tar.gz';
+/* 2.2.4 (décision du parent du 07/10/2026) : vosk-model-small-fr-0.22 (Alpha Cephei, Apache 2.0, 42 Mo) remplace
+   vosk-model-small-fr-pguyot-0.3 de la v11 (CC BY-NC-SA 4.0 : usage commercial interdit, incompatible avec les stores) ;
+   mesuré : un peu meilleur sur les voix d'enfant simulées, lexique plus riche (nombres, mots d'appoint et mots des histoires
+   tous connus), 66 % de calcul en plus (supporté par la santé du micro). Nouvelle adresse : nouveau cache, nouvelle
+   extraction ; l'ancien modèle est retiré du cache et d'IndexedDB (pruneModelCache, staleKeys). */
+export const MODEL_URL = 'models/fr-small-0.22.tar.gz';
 let voskModel = null, voskPromise = null, engine = null, webRecognition = null;
 const audio = { ctx:null, stream:null, source:null, node:null, gain:null, recognizer:null };
 let voskSettled = false;
@@ -245,6 +250,16 @@ async function forgetModel(url){
   }catch(_){}
   finally{ try{ if(db) db.close(); }catch(_){} }
 }
+/* 2.2.4 : un seul modèle dans le cache 'vosk-model-v1' (l'ancien, 46 Mo, part dès que le nouveau est installé) */
+async function pruneModelCache(){
+  try{
+    const c = await caches.open('vosk-model-v1');
+    const keep = new URL(MODEL_URL, (typeof document !== 'undefined' && document.baseURI) || location.href).href;
+    for(const req of await c.keys()){
+      if(req.url !== keep){ await c.delete(req); dlog('micro', 'ancien modèle retiré du cache', { adresse: req.url.split('/').pop() }); }
+    }
+  }catch(_){}
+}
 /* le modèle est-il déjà extrait sur cet appareil ? (préchargement, espace parents) */
 export async function modelReady(){
   let db = null;
@@ -331,6 +346,7 @@ export function ensureVosk(onPct){
         catch(e1){ voskModel = await openModel(MODEL_URL, LOAD_MS.extract); }
       }
       instrument(voskModel);
+      pruneModelCache();
       setVoiceStatus('🎙 Moteur vocal prêt ✓ — la voix reste sur l\u2019appareil');
       dlog('micro', 'moteur prêt', { voie: how || 'blob', ms: Date.now() - t0 });
       return true;
@@ -375,6 +391,7 @@ export function prefetch({ onPct = null, extract = true } = {}){
         const m = await openModel(url, LOAD_MS.extract);    /* vosk-browser extrait et enregistre, puis on le libère */
         try{ if(m.worker) m.worker.terminate(); }catch(_){}
       }
+      pruneModelCache();
       dlog('micro', 'préchargement fini', { voie: how, ms: Date.now() - t0 });
       return true;
     }catch(err){

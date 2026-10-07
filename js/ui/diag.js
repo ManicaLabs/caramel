@@ -110,7 +110,7 @@ export function describe(f = {}) {
   else if (k.vosk === 'installed') add('reco', 'Reconnaissance', 'moteur intégré installé', true);
   else if (k.vosk === 'downloaded') add('reco', 'Reconnaissance', 'moteur intégré téléchargé', true);
   else if (k.google) add('reco', 'Reconnaissance', 'secours du navigateur (Google)', null);
-  else if (k.vosk === 'possible') add('reco', 'Reconnaissance', 'moteur intégré à télécharger (≈ 52 Mo)', null);
+  else if (k.vosk === 'possible') add('reco', 'Reconnaissance', 'moteur intégré à télécharger (≈ 48 Mo)', null);
   else if (k.web) add('reco', 'Reconnaissance', 'celle du navigateur seulement', null);
   else add('reco', 'Reconnaissance', 'aucune (course impossible)', false);
   add('wasm', 'WebAssembly', f.wasm ? 'oui' : 'non (moteur intégré impossible)', !!f.wasm);

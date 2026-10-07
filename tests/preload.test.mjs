@@ -25,7 +25,7 @@ test('politique : Wi-Fi ou inconnue → tout part ; données mobiles, économie 
   for (const net of ['cellular', 'save-data']) {
     const p = PL.planOf({ net, vosk: V, fluid: { ok: false, why: net } });
     assert.deepEqual(p, { vosk: 'ask', fluid: 'ask', mode: 'ask', bytes: ALL_BYTES }, net);
-    assert.equal(PL.sizeOf(p.bytes), '≈' + NB + '97' + NB + 'Mo', 'le bouton dit ce qui manque vraiment');
+    assert.equal(PL.sizeOf(p.bytes), '≈' + NB + '93' + NB + 'Mo', 'le bouton dit ce qui manque vraiment');
     assert.deepEqual(PL.planOf({ net, vosk: V, fluid: { ok: false, why: net }, consent: true }).mode, 'run', net + ' : l’adulte a dit oui');
     assert.equal(PL.planOf({ net, vosk: { bytes: 0 }, fluid: null }).vosk, 'run', 'extraction d’un modèle déjà en cache : aucune donnée');
   }
@@ -34,7 +34,7 @@ test('politique : Wi-Fi ou inconnue → tout part ; données mobiles, économie 
   /* voix fluide : ses exclusions la retirent du plan (le micro reste) */
   for (const why of ['unsupported', 'modest', 'removed', 'slow', 'cached']) {
     const p = PL.planOf({ net: 'cellular', vosk: V, fluid: { ok: false, why } });
-    assert.deepEqual([p.fluid, p.mode, PL.sizeOf(p.bytes)], [null, 'ask', '≈' + NB + '52' + NB + 'Mo'], why);
+    assert.deepEqual([p.fluid, p.mode, PL.sizeOf(p.bytes)], [null, 'ask', '≈' + NB + '48' + NB + 'Mo'], why);
   }
   assert.equal(PL.planOf({ net: 'wifi', vosk: null, fluid: { ok: false, why: 'in-game' } }).fluid, 'run', 'jeu en cours : elle reprendra après');
   assert.deepEqual(PL.planOf({ net: 'wifi' }), { vosk: null, fluid: null, mode: 'none', bytes: 0 }, 'tout est prêt');
@@ -62,7 +62,7 @@ test('barre : « Je prépare ma voix et mes oreilles… 42 % », « presque fini
   assert.equal(barModel({ state: 'done', pct: 100, parts: { vosk: false, fluid: true } }).text, 'Voix prête ✓');
   const ask = barModel({ state: 'ask', bytes: ALL_BYTES, parts: both });
   assert.equal(ask.kind, 'ask');
-  assert.equal(ask.button, 'Télécharger maintenant (≈' + NB + '97' + NB + 'Mo)');
+  assert.equal(ask.button, 'Télécharger maintenant (≈' + NB + '93' + NB + 'Mo)');
   assert.equal(ask.text, '', 'le bouton, et rien d’autre');
   assert.ok(ask.label.startsWith(ask.button), 'nom accessible : commence par le texte visible');
   for (const state of ['idle', 'checking', 'none', 'wait']) assert.equal(barModel({ state }).kind, null, state + ' : pas de barre');
@@ -173,13 +173,13 @@ test('1re ouverture en Wi-Fi : le micro d’abord, la voix fluide dès que son m
   } finally { teardown(); }
 });
 
-test('données mobiles : rien ne part tout seul ; « Télécharger maintenant (≈ 97 Mo) » pour l’adulte ; son accord tient jusqu’à la fin, même après une fermeture', async () => {
+test('données mobiles : rien ne part tout seul ; « Télécharger maintenant (≈ 93 Mo) » pour l’adulte ; son accord tient jusqu’à la fin, même après une fermeture', async () => {
   const st = memoryStorage();
   let E = setup({ net: 'cellular', store: st });
   try {
     const s = await PL.start();
     assert.deepEqual([s.state, s.bytes, s.parts], ['ask', ALL_BYTES, { vosk: true, fluid: true }]);
-    assert.equal(barModel(s).button, 'Télécharger maintenant (≈' + NB + '97' + NB + 'Mo)');
+    assert.equal(barModel(s).button, 'Télécharger maintenant (≈' + NB + '93' + NB + 'Mo)');
     assert.equal(E.sp.prefetches, 0, 'rien de lancé');
     assert.equal(F.status().state, 'absent');
     assert.equal(E.lib.starts, 0);
@@ -273,13 +273,13 @@ test('appareil déjà configuré (mise à jour) : modèle du micro en cache → 
   } finally { teardown(); }
 });
 
-test('voix fluide : ses exclusions tiennent (appareil modeste, « Supprimer », trop lente, non supportée) — le micro seul, ≈ 52 Mo', async () => {
+test('voix fluide : ses exclusions tiennent (appareil modeste, « Supprimer », trop lente, non supportée) — le micro seul, ≈ 48 Mo', async () => {
   for (const [name, o] of [['modeste', { features: { ...FEAT, deviceMemory: 2 } }], ['supprimée', { fluidState: { removed: true } }],
     ['trop lente', { fluidState: { v: '2.2.3', verdict: 'slow' } }], ['non supportée', { features: { ...FEAT, simd: false } }]]) {
     const E = setup({ net: 'cellular', ...o });
     try {
       const s = await PL.start();
-      assert.deepEqual([s.state, s.parts, PL.sizeOf(s.bytes)], ['ask', { vosk: true, fluid: false }, '≈' + NB + '52' + NB + 'Mo'], name);
+      assert.deepEqual([s.state, s.parts, PL.sizeOf(s.bytes)], ['ask', { vosk: true, fluid: false }, '≈' + NB + '48' + NB + 'Mo'], name);
       await PL.start({ by: 'parent' });
       E.sp.end(true);
       await tick(10);

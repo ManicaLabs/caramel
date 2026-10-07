@@ -32,7 +32,6 @@ const objLiteral = (code, re) => { const m = code.match(re); return m ? new Func
 test('constantes et paramètres clés de la v11', () => {
   for (const s of [
     "export const VOSK_LIB = 'https://cdn.jsdelivr.net/npm/vosk-browser@0.0.8/dist/vosk.js';",
-    "export const MODEL_URL = 'models/fr.tar.gz';",
     "cache = await caches.open('vosk-model-v1');",
     'audio: { echoCancellation:true, noiseSuppression:true, channelCount:1 }',
     'try{ audio.ctx = new Ctx({ sampleRate: 16000 }); }',
@@ -49,7 +48,8 @@ test('constantes et paramètres clés de la v11', () => {
     'setTimeout(()=>{ try{ webRecognition.start(); }catch(_){} }, 200);'
   ]) assert.ok(src.includes(s), 'absent de speech.js : ' + s);
   assert.equal(speech.VOSK_LIB, 'https://cdn.jsdelivr.net/npm/vosk-browser@0.0.8/dist/vosk.js');
-  assert.equal(speech.MODEL_URL, 'models/fr.tar.gz');
+  /* 2.2.4 (décision du parent du 07/10/2026) : vosk-model-small-fr-0.22 (Apache 2.0) remplace le modèle v11 (CC BY-NC-SA) */
+  assert.equal(speech.MODEL_URL, 'models/fr-small-0.22.tar.gz');
 });
 
 test('ERR_MSG identique à la v11', () => {
@@ -66,7 +66,7 @@ test('ERR_MSG identique à la v11', () => {
 test('constantes v11 (VOSK_LIB, MODEL_URL) et messages de statut identiques', () => {
   if (!v11) return;
   assert.ok(v11.includes("const VOSK_LIB = '" + speech.VOSK_LIB + "';"));
-  assert.ok(v11.includes("const MODEL_URL = '" + speech.MODEL_URL + "';"));
+  assert.ok(v11.includes("const MODEL_URL = 'models/fr.tar.gz';"), 'MODEL_URL v11 (remplacé en 2.2.4)');
   for (const m of v11.match(/setVoiceStatus\('[^\n]*?'(?: \+ p \+ '[^\n]*?')?\);/g)) assert.ok(src.includes(retext(m)), m);
 });
 

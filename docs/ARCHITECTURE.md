@@ -24,7 +24,7 @@ manifest.webmanifest  sw.js   PWA (sw.js : cache versionné, liste ASSETS géné
 fonts/                        Fredoka 500/600/700 (interface), Andika 400/700 (lecture) + OFL.txt
 audio/voix/<id>.mp3           v2.2.2 — voix enregistrée du compagnon : 358 clips, ≈ 1,8 Mo, HORS précache (générés par tools/voix.mjs)
 models/piper/                 v2.2.2 — voix fluide : fr_FR-siwis-medium-f16.onnx (32 Mo, poids float16) + .onnx.json + LISEZMOI.txt
-                              (origine, empreintes, licences) ; hors précache, jamais intercepté par sw.js (comme models/fr.tar.gz)
+                              (origine, empreintes, licences) ; hors précache, jamais intercepté par sw.js (comme le modèle Vosk)
 css/base.css                  jetons (thème Caramel), socle mobile, composants partagés (cf. §9)
 css/themes.css                v2.1 — les 7 autres thèmes visuels : jetons redéfinis sous [data-theme="<id>"] (cf. §8.5)
 css/motion.css                keyframes génériques + règles de mouvement réduit
@@ -82,7 +82,7 @@ js/content/voice-lines.js     v2.2.2 — inventaire des phrases enregistrées (L
 js/content/voice-manifest.js  v2.2.2 — GÉNÉRÉ par tools/voix.mjs : id → [durée ms, empreinte] (VOICE.clips, VOICE.base)
 tests/run.mjs                 mini-harnais : exécute tests/*.test.mjs (node:assert/strict), code ≠ 0 si échec
 tests/*.test.mjs              tests unitaires (Node 20)
-tests/lexicon.mjs             extrait le lexique du modèle Vosk (models/fr.tar.gz) → Set de mots
+tests/lexicon.mjs             extrait le lexique du modèle Vosk (MODEL_URL : models/fr-small-0.22.tar.gz) → Set de mots
 tests/harness/*.html          bancs d'essai navigateur ; game.html monte un jeu avec le VRAI ctx et une sauvegarde en mémoire
                               (game.html?id=tables&classe=CM2&theta=1.2&mode=libre&count=10&theme=dinosaures ; demo-game.js = jeu de
                               référence §7.3) ; companion.html = planche du compagnon ; radar-detect.html = banc de la détection ;
@@ -469,6 +469,7 @@ Ajouts hors v11 (commentés `AJOUT` / `CHANGÉ` dans le code ; seule la relance 
   - **Capture sur le fil audio** (`openWorklet`, `js/core/mic-worklet.js`, AudioWorklet) : le `ScriptProcessor` de la v11 tourne sur le fil principal ; quand le jeu l'occupe, le navigateur perd des morceaux de son (fil principal occupé à 90 % : 1 réponse sur 8 comprise, son haché ; 8 sur 8 avec l'AudioWorklet). Repli : le `ScriptProcessor` de la v11.
   - **Santé du micro** (`health()`, `onHealth(fn)`, réglages `TUNING`) : son reçu, niveau, voix, retard du moteur (requêtes en attente dans le worker de vosk-browser, qui traite chaque morceau dans l'ordre sans jamais en sauter : bridé, le retard montait à **28 s**, 0 réponse comprise sur 10, et chaque relance du micro attendait derrière). Au-delà de ≈ 1 s de retard (`softPending`), les blancs ne sont plus envoyés (la voix toujours, 0,8 s de blanc après elle pour finir la phrase, et le morceau d'avant pour l'attaque du mot) ; au-delà de ≈ 4 s (`hardPending`), plus rien jusqu'au rattrapage. Micro muet (plus de son depuis 2 s, ou 4 s de zéros) → micro **rouvert** sans perdre le reconnaisseur (`reopenAudio`, 3 fois par minute au plus). États publiés : `off`, `starting`, `ok`, `slow`, `deaf` ; les jeux barrent le 🎤 (tables, course).
   - **Journal de diagnostic** (`js/core/debuglog.js`, `dlog`) : chargement, écoute, santé toutes les 2 s, résultats partiels et finals, réouvertures.
+  - **v2.2.4 — modèle `vosk-model-small-fr-0.22`** (Alpha Cephei, Apache 2.0, `models/fr-small-0.22.tar.gz`, 42 Mo ; décision du parent du 07/10/2026) à la place de `vosk-model-small-fr-pguyot-0.3` (CC BY-NC-SA 4.0, incompatible avec les stores). Mesuré (banc, grammaire des tables) : voix d'enfant simulée 13 sur 14 aux tables (9 sur 14 avant) ; 8 voix × 50 nombres : 320/400 (311 avant) ; hésitations prises pour un nombre : 12/192 (27 avant) ; course « La carotte du matin » 100 %, 3 ⭐ ; lexique de 135 774 mots (nombres, mots d'appoint, et 7 mots des histoires de plus : `OOV` passe de 11 à 4 mots) ; calcul 66 % plus long (fil principal occupé à 90 % : 8 sur 8, 2,9 s). Nouvelle adresse : l'ancien modèle quitte le cache `vosk-model-v1` (`pruneModelCache`) et IndexedDB (`staleKeys`) dès que le nouveau est installé (mesuré : 92 Mo au total).
   - **Préchargement** : `prefetch({ onPct, extract })` (bibliothèque mise en cache même sans service worker, modèle, extraction par un worker aussitôt libéré) et `modelReady()`, pour tout préparer à la première ouverture.
 L'alignement mot à mot (tokenize, computeProper, FORGIVE, isMatch, levenshtein, pauses, joker `[unk]`) reste **dans le jeu course**, copié à l'identique. Amélioration v2 : les mots de `OOV` présents dans le texte rejoignent l'ensemble des noms propres (validables par `[unk]`).
 

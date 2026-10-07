@@ -94,7 +94,7 @@ export function micTrouble(code, { standalone = false, host = '', ios = false, v
     adultTitle = 'Connexion nécessaire';
     adult = voskReady
       ? frTypo('Le moteur vocal est déjà sur l’appareil, mais il n’a pas pu démarrer ; la reconnaissance de secours du navigateur, elle, a besoin d’internet. Fermez puis rouvrez Caramel, ou connectez l’appareil à internet.') + retry
-      : frTypo('Pour écouter la lecture, Caramel télécharge une seule fois son moteur vocal (environ 52 Mo). Connectez l’appareil à internet, en Wi-Fi de préférence.') + retry;
+      : frTypo('Pour écouter la lecture, Caramel télécharge une seule fois son moteur vocal (environ 48 Mo). Connectez l’appareil à internet, en Wi-Fi de préférence.') + retry;
   } else {
     title = frTypo('Ici, je ne peux pas t’écouter 😕');
     adultTitle = 'Reconnaissance vocale indisponible';

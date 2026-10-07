@@ -1,7 +1,8 @@
 /* ============ NOMBRES ↔ MOTS (français) ============
    Module pur (aucun accès au DOM) — importable dans Node pour les tests.
 
-   toWords(n)      écriture avec les FORMES DU LEXIQUE VOSK (vosk-model-small-fr-pguyot-0.3),
+   toWords(n)      écriture avec les FORMES DU LEXIQUE VOSK (vosk-model-small-fr-pguyot-0.3 ; mêmes formes dans
+                   vosk-model-small-fr-0.22, le modèle de la 2.2.4 : tests/lexicon.mjs),
                    mots séparés par des espaces : c'est ce que la reconnaissance peut renvoyer.
                    - de 0 à 99 : UN seul mot du lexique (« vingt-et-un », « soixante-et-onze »,
                      « quatre-vingts », « quatre-vingt-un », « quatre-vingt-dix-sept ») ;

@@ -65,7 +65,7 @@ const TXT = {
   /* v2.2.3 : micro muet, ou moteur en retard, qui dure */
   lost: frTypo('Je ne t’entends plus 😕 Parle tout près du téléphone…'),
   slow: frTypo('🐢 Ton téléphone est un peu lent… continue de lire !'),
-  /* attente du moteur vocal (1er téléchargement, ≈ 52 Mo, normalement fait dès la 1re ouverture : js/core/preload.js) : une phrase d'enfant, la jauge montre l'avancée (D1-10) */
+  /* attente du moteur vocal (1er téléchargement, ≈ 48 Mo, normalement fait dès la 1re ouverture : js/core/preload.js) : une phrase d'enfant, la jauge montre l'avancée (D1-10) */
   dl: p => (p < 99 ? frTypo('Je me prépare à t’écouter… ') + p + NNBSP + '%' : frTypo('Presque prêt…'))
 };
 const DL_HEAD = 'Je me prépare';

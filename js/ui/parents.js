@@ -1779,7 +1779,7 @@ function aboutCard() {
     h('div', { class: 'pa-about-row' }, h('span', null, 'Version'), h('b', null, 'Caramel ' + v)),
     h('p', { class: 'pa-note' }, frTypo('Pas de compte ni de serveur Caramel : les résultats et les photos restent sur cet appareil.')),
     h('p', { class: 'pa-note' }, frTypo('La voix de l’enfant est reconnue sur l’appareil par le moteur vocal intégré. S’il ne peut pas se charger, Caramel utilise la reconnaissance vocale du navigateur : dans Chrome, la voix passe alors par les serveurs de Google.')),
-    h('p', { class: 'pa-note' }, frTypo('Le moteur vocal (environ 52\u00A0Mo) et la voix fluide (environ 45\u00A0Mo) se téléchargent une seule fois, en arrière-plan, dès la première ouverture de Caramel. En données mobiles ou en économie de données, rien ne part sans votre accord : « Télécharger maintenant », sur l’accueil.')),
+    h('p', { class: 'pa-note' }, frTypo('Le moteur vocal (environ 48\u00A0Mo) et la voix fluide (environ 45\u00A0Mo) se téléchargent une seule fois, en arrière-plan, dès la première ouverture de Caramel. En données mobiles ou en économie de données, rien ne part sans votre accord : « Télécharger maintenant », sur l’accueil.')),
     h('p', { class: 'pa-note' }, frTypo('Caramel n’établit aucun diagnostic.')),
     h('p', { class: 'pa-note pa-credits' }, frTypo('Voix du compagnon : Piper (Rhasspy, licence MIT), voix siwis — SIWIS French Speech Synthesis Database, CC BY 4.0 ('),
       link('https://datashare.is.ed.ac.uk/handle/10283/2353', 'datashare.is.ed.ac.uk'), frTypo('), rajeunie en voix d’enfant (hauteur et timbre relevés de 5\u00A0demi-tons).')),

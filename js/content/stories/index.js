@@ -71,10 +71,11 @@ export function storiesOf(world) {
    Le jeu course les ajoute à son ensemble de noms propres (validables par [unk]) quand ils
    figurent dans le texte. Liste figée, vérifiée par tests/stories.test.mjs (les textes CM2
    n'en contiennent aucun). Le nom de monture « capybara », hors lexique lui aussi, est déjà
-   couvert par la règle v11.2 (nom de la monture ajouté aux noms propres). */
+   couvert par la règle v11.2 (nom de la monture ajouté aux noms propres). 2.2.4 : le lexique du modèle
+   vosk-model-small-fr-0.22 connaît en plus « lucioles », « géantes », « comète », « scintille », « mercis »,
+   « dansantes » et « ondule ». */
 export const OOV = new Set([
-  'tourbillonnent', 'tambourine', 'lucioles', 'géantes', 'comète', 'ajustent',
-  'scintille', 'hulule', 'mercis', 'dansantes', 'ondule'
+  'tourbillonnent', 'tambourine', 'ajustent', 'hulule'
 ]);
 
 /* ---------- Déblocage ---------- */

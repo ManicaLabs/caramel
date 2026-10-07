@@ -56,7 +56,7 @@ Banc d'essai de la voix fluide (même moteur que l'appli, `js/core/piper-tts.js`
 
 Créé par [Cédric Delalande](https://www.linkedin.com/in/cedric-delalande-57bb7860/).
 Polices Fredoka et Andika sous licence SIL OFL ([fonts/OFL.txt](fonts/OFL.txt)) ;
-modèle de reconnaissance vocale `vosk-model-small-fr-pguyot-0.3`.
+modèle de reconnaissance vocale `vosk-model-small-fr-0.22` (Alpha Cephei, licence Apache 2.0 ; depuis la 2.2.4, à la place de `vosk-model-small-fr-pguyot-0.3`, CC BY-NC-SA 4.0).
 Voix du compagnon : Piper (Rhasspy, licence MIT), voix siwis — SIWIS French Speech Synthesis Database, CC BY 4.0
 ([datashare.is.ed.ac.uk/handle/10283/2353](https://datashare.is.ed.ac.uk/handle/10283/2353)) : phrases enregistrées
 une fois pour toutes (modèle `fr_FR-siwis-medium`, voix rajeunie : hauteur et timbre relevés de 5 demi-tons ;
