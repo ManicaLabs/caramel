@@ -34,11 +34,7 @@ html:not(.has-update) .hm.has-inst { --hm-rest: 470px; }
 @media (max-height: 700px) { html:not(.has-update) .hm.has-inst { --hm-rest: 436px; } }
 @media (min-width: 600px) { html:not(.has-update) .hm.has-inst { --hm-rest: 490px; } }
 @media (min-width: 900px) and (orientation: landscape) {
-  html:not(.has-update) .hm.has-inst {
-    --hm-rest: 150px;
-    grid-template-areas: "head head" "next next" "pet play" "pet alt" "pet inst"; grid-template-rows: auto auto 1fr auto auto;
-  }
-  .hm-inst-slot { grid-area: inst; align-self: start; }
+  html:not(.has-update) .hm.has-inst { --hm-rest: 150px; }   /* la bannière vit dans la colonne de droite (.hm-side, css/ui/home.css) */
 }
 
 /* ---------- la feuille ---------- */

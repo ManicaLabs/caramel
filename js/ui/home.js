@@ -166,7 +166,10 @@ const HOME = {
     /* ----- voix et micro en cours de téléchargement (v2.2.3) : sous l'en-tête, discrète ----- */
     const bar = my.bar = preloadBar();
 
-    const screen = h('div', { class: 'screen hm' }, head, bar.el, nextBox, petBox, play, alt, instBan.el);
+    /* colonne de droite sur grand écran couché (le bouton, les pierres, Jeux / Mes progrès, l'invitation à installer) :
+       un seul bloc centré face à la scène ; sur téléphone et tablette debout, display: contents — rien ne change (v2.5.3) */
+    const side = h('div', { class: 'hm-side' }, play, alt, instBan.el);
+    const screen = h('div', { class: 'screen hm' }, head, bar.el, nextBox, petBox, side);
     clear(root);
     root.appendChild(screen);
     preload.start().catch(() => {});

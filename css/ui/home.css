@@ -161,20 +161,27 @@ html.who-swap::view-transition-group(hm-who-ava) { animation-duration: 560ms; an
   .hm-play { width: min(100%, 520px); align-self: center; }
 }
 
-/* ---------- grand écran couché : scène à gauche, bouton à droite ---------- */
+/* colonne de droite (js/ui/home.js) : transparente partout, sauf sur grand écran couché */
+.hm-side { display: contents; }
+
+/* ---------- grand écran couché : scène à gauche, bouton à droite ----------
+   Retours du parent (PC 2541 × 1309) : une rangée 1fr s'étirait jusqu'en bas (scène en haut, « Jouer » au pied de
+   l'écran), puis l'invitation à installer (css/ui/install.css) remettait une grille étirée. Désormais : rangées à leur
+   taille, le bloc entier centré, et la colonne de droite (.hm-side : bouton, pierres, Jeux / Mes progrès, invitation)
+   est UN bloc centré face à la scène (v2.5.3). */
 @media (min-width: 900px) and (orientation: landscape) {
   .hm {
     --hm-rest: 150px;
     display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(300px, 1fr); column-gap: 32px; row-gap: 14px;
-    grid-template-areas: "head head" "next next" "pet play" "pet alt"; grid-template-rows: auto auto auto auto;
-    align-content: center;   /* rangées à leur taille, le bloc centré : sur un écran très haut, une rangée 1fr s'étirait
-                                jusqu'en bas (scène en haut, « Jouer » au pied de l'écran — retour du parent, PC 2541 × 1309) */
+    grid-template-areas: "head head" "bar bar" "next next" "pet side"; grid-template-rows: auto auto auto auto;
+    align-content: center;
   }
   .hm-head { grid-area: head; }
+  .hm > .pl { grid-area: bar; }
   .hm-next-slot { grid-area: next; }
   .hm-pet { grid-area: pet; align-self: center; }
-  .hm-play { grid-area: play; align-self: end; width: 100%; }
-  .hm-alt { grid-area: alt; align-self: start; }
+  .hm-side { display: flex; flex-direction: column; gap: 14px; grid-area: side; align-self: center; min-width: 0; }
+  .hm-play { width: 100%; }
   .hm-hello { font-size: 1.9rem; }
   .hm .cc.is-hero .cc-stage { height: clamp(300px, calc(100dvh - 260px), 620px); }
   .hm:has(.hm-near:not([hidden])) .cc.is-hero .cc-stage { height: clamp(300px, calc(100dvh - 260px), 620px); }   /* colonne à part */
