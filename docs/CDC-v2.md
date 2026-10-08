@@ -438,6 +438,9 @@ docs/CDC-v2.md
 
 ## 18. Journal de livraison
 
+### v2.6.2 (08/10/2026) — le décor aussi sur téléphone
+**Retour du parent** : « sur le PC je vois le fond, mais pas sur mobile ». Choix du parent : un décor vertical par univers — sur téléphone et tablette debout, le décor de l'univers apparaît derrière l'accueil (ciel en haut, personnages dans les coins du bas), adouci.
+
 ### v2.6.1 (08/10/2026) — des illustrations
 **Demande du parent** : une image d'accueil générée avec Gemini ; choix du parent : la verticale pour le premier écran, l'horizontale en décor de l'accueil sur grand écran, celle du pique-nique pour la fiche Google Play. Le premier écran montre le pré, le poney et ses amis au-dessus de « Bonjour ! Comment tu t'appelles ? » ; sur ordinateur, l'accueil n'a plus de grands côtés vides, avec un décor par univers (château de la licorne, vallée des dinosaures, planètes de l'espace, fond marin de l'océan…) pour que tout reste raccord avec le thème choisi par l'enfant (ARCHITECTURE §8.6 quater).
 

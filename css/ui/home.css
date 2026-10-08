@@ -187,17 +187,14 @@ html.who-swap::view-transition-group(hm-who-ava) { animation-duration: 560ms; an
   .hm:has(.hm-near:not([hidden])) .cc.is-hero .cc-stage { height: clamp(300px, calc(100dvh - 260px), 620px); }   /* colonne à part */
 }
 
-/* ---------- v2.6.1 : décor de l'accueil sur grand écran couché (img/accueil-pre.webp, ou img/decor-<univers>.webp,
-   générés avec Gemini dans le style des compagnons) : là où c'était vide, le pré et les compagnons, sous un voile aux couleurs du thème pour rester doux
-   (les blocs gardent leurs propres fonds). Chargée seulement sur grand écran. ---------- */
-@media (min-width: 900px) and (orientation: landscape) {
-  html:has(.screen.hm) body {
-    background:
-      linear-gradient(color-mix(in srgb, var(--bg-1) 72%, transparent), color-mix(in srgb, var(--bg-2) 78%, transparent)),
-      url(../../img/accueil-pre.webp) center bottom / cover no-repeat fixed;
-  }
-  /* le décor suit l'univers choisi par l'enfant (retour du parent : « que l'univers de l'app soit raccord ») ; Caramel : le
-     pré ; seul le décor de l'univers actif est téléchargé */
+/* ---------- v2.6.1 : décor de l'accueil, générés avec Gemini dans le style des compagnons, UN PAR UNIVERS (retour du
+   parent : « que l'univers de l'app soit raccord ») — sous un voile aux couleurs du thème pour rester doux (les blocs gardent
+   leurs propres fonds) ; seul le décor de l'univers actif est téléchargé (35 à 90 Ko).
+   Écran couché (ordinateur, tablette, téléphone couché) : img/decor-<univers>.webp (16:9 ; Caramel : img/accueil-pre.webp).
+   Écran debout (téléphone, tablette debout ; retour du parent : « sur mobile je ne vois pas le fond ») :
+   img/decor-v-<univers>.webp (9:16, ciel en haut, personnages dans les coins du bas), voile un peu plus marqué. ---------- */
+@media (orientation: landscape) {
+  html:has(.screen.hm) body { background: linear-gradient(color-mix(in srgb, var(--bg-1) 72%, transparent), color-mix(in srgb, var(--bg-2) 78%, transparent)), url(../../img/accueil-pre.webp) center bottom / cover no-repeat fixed; }
   html[data-theme="licorne"]:has(.screen.hm) body { background-image: linear-gradient(color-mix(in srgb, var(--bg-1) 72%, transparent), color-mix(in srgb, var(--bg-2) 78%, transparent)), url(../../img/decor-licorne.webp); }
   html[data-theme="princesse"]:has(.screen.hm) body { background-image: linear-gradient(color-mix(in srgb, var(--bg-1) 72%, transparent), color-mix(in srgb, var(--bg-2) 78%, transparent)), url(../../img/decor-princesse.webp); }
   html[data-theme="superheros"]:has(.screen.hm) body { background-image: linear-gradient(color-mix(in srgb, var(--bg-1) 72%, transparent), color-mix(in srgb, var(--bg-2) 78%, transparent)), url(../../img/decor-superheros.webp); }
@@ -206,4 +203,13 @@ html.who-swap::view-transition-group(hm-who-ava) { animation-duration: 560ms; an
   html[data-theme="espace"]:has(.screen.hm) body { background-image: linear-gradient(color-mix(in srgb, var(--bg-1) 72%, transparent), color-mix(in srgb, var(--bg-2) 78%, transparent)), url(../../img/decor-espace.webp); }
   html[data-theme="ocean"]:has(.screen.hm) body { background-image: linear-gradient(color-mix(in srgb, var(--bg-1) 72%, transparent), color-mix(in srgb, var(--bg-2) 78%, transparent)), url(../../img/decor-ocean.webp); }
 }
-
+@media (orientation: portrait) {
+  html:has(.screen.hm) body { background: linear-gradient(color-mix(in srgb, var(--bg-1) 76%, transparent), color-mix(in srgb, var(--bg-2) 82%, transparent)), url(../../img/decor-v-caramel.webp) center bottom / cover no-repeat scroll; }
+  html[data-theme="licorne"]:has(.screen.hm) body { background-image: linear-gradient(color-mix(in srgb, var(--bg-1) 76%, transparent), color-mix(in srgb, var(--bg-2) 82%, transparent)), url(../../img/decor-v-licorne.webp); }
+  html[data-theme="princesse"]:has(.screen.hm) body { background-image: linear-gradient(color-mix(in srgb, var(--bg-1) 76%, transparent), color-mix(in srgb, var(--bg-2) 82%, transparent)), url(../../img/decor-v-princesse.webp); }
+  html[data-theme="superheros"]:has(.screen.hm) body { background-image: linear-gradient(color-mix(in srgb, var(--bg-1) 76%, transparent), color-mix(in srgb, var(--bg-2) 82%, transparent)), url(../../img/decor-v-superheros.webp); }
+  html[data-theme="dinosaures"]:has(.screen.hm) body { background-image: linear-gradient(color-mix(in srgb, var(--bg-1) 76%, transparent), color-mix(in srgb, var(--bg-2) 82%, transparent)), url(../../img/decor-v-dinosaures.webp); }
+  html[data-theme="bolides"]:has(.screen.hm) body { background-image: linear-gradient(color-mix(in srgb, var(--bg-1) 76%, transparent), color-mix(in srgb, var(--bg-2) 82%, transparent)), url(../../img/decor-v-bolides.webp); }
+  html[data-theme="espace"]:has(.screen.hm) body { background-image: linear-gradient(color-mix(in srgb, var(--bg-1) 76%, transparent), color-mix(in srgb, var(--bg-2) 82%, transparent)), url(../../img/decor-v-espace.webp); }
+  html[data-theme="ocean"]:has(.screen.hm) body { background-image: linear-gradient(color-mix(in srgb, var(--bg-1) 76%, transparent), color-mix(in srgb, var(--bg-2) 82%, transparent)), url(../../img/decor-v-ocean.webp); }
+}
