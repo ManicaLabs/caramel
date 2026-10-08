@@ -438,6 +438,9 @@ docs/CDC-v2.md
 
 ## 18. Journal de livraison
 
+### v2.6.1 (08/10/2026) — des illustrations
+**Demande du parent** : une image d'accueil générée avec Gemini ; choix du parent : la verticale pour le premier écran, l'horizontale en décor de l'accueil sur grand écran, celle du pique-nique pour la fiche Google Play. Le premier écran montre le pré, le poney et ses amis au-dessus de « Bonjour ! Comment tu t'appelles ? » ; sur ordinateur, l'accueil n'a plus de grands côtés vides, avec un décor par univers (château de la licorne, vallée des dinosaures, planètes de l'espace, fond marin de l'océan…) pour que tout reste raccord avec le thème choisi par l'enfant (ARCHITECTURE §8.6 quater).
+
 ### v2.6 (07/10/2026) — la dictée de la semaine, mes poésies
 **Demandes du parent** : un jeu autour de la dictée (« dicte à haute voix lentement ») ; « charger un texte libre pour renseigner leur poésie à apprendre ». Décisions : mots et poésies TAPÉS par l'adulte (pas d'OCR, souvent écrits à la main), dictée par la voix de Caramel, l'enfant compare et coche ; poésies dans la course, mode « par cœur » par paliers, sans Zip ni étoiles. Espace parents : rubrique « Devoirs de la semaine ». **Devoirs à part** (décision du 08/10/2026) : la dictée et les poésies ne comptent pas dans le temps de jeu du jour et restent possibles quand il est atteint (« 📝 Devoirs » sur l'accueil ; dans la course, les poésies seules).
 **La dictée** :

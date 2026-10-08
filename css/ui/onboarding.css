@@ -90,3 +90,17 @@
   .ob-card { max-width: 520px; }
   .ob-title { font-size: 2.2rem; }
 }
+
+/* ---------- v2.6.1 : illustration du premier écran (« Bonjour ! Comment tu t'appelles ? »), générée avec Gemini dans le
+   style des compagnons : la petite scène du poney devient un bandeau illustré (le pré, le poney et ses amis) au-dessus du
+   titre — jamais derrière le formulaire. Téléphone : img/accueil-premier.webp (verticale, cadrée sur le bas) ; écran
+   couché : img/accueil-pre.webp. Chargée seulement ici (cache du service worker ensuite, hors précache). ---------- */
+.ob[data-step="name"] .ob-stage {
+  width: 100%; height: clamp(150px, 31dvh, 290px); border-radius: 28px;
+  background: url(../../img/accueil-premier.webp) center 82% / cover no-repeat, var(--n-meadow);
+}
+.ob[data-step="name"] .ob-stage .ob-pic { display: none; }      /* le poney est dans l'image */
+@media (min-aspect-ratio: 1/1) {
+  .ob[data-step="name"] .ob-stage { background-image: url(../../img/accueil-pre.webp); background-position: center 62%; }
+}
+@media (max-height: 700px) { .ob[data-step="name"] .ob-stage { height: clamp(120px, 24dvh, 200px); } }

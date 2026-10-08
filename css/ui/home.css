@@ -186,3 +186,24 @@ html.who-swap::view-transition-group(hm-who-ava) { animation-duration: 560ms; an
   .hm .cc.is-hero .cc-stage { height: clamp(300px, calc(100dvh - 260px), 620px); }
   .hm:has(.hm-near:not([hidden])) .cc.is-hero .cc-stage { height: clamp(300px, calc(100dvh - 260px), 620px); }   /* colonne à part */
 }
+
+/* ---------- v2.6.1 : décor de l'accueil sur grand écran couché (img/accueil-pre.webp, ou img/decor-<univers>.webp,
+   générés avec Gemini dans le style des compagnons) : là où c'était vide, le pré et les compagnons, sous un voile aux couleurs du thème pour rester doux
+   (les blocs gardent leurs propres fonds). Chargée seulement sur grand écran. ---------- */
+@media (min-width: 900px) and (orientation: landscape) {
+  html:has(.screen.hm) body {
+    background:
+      linear-gradient(color-mix(in srgb, var(--bg-1) 72%, transparent), color-mix(in srgb, var(--bg-2) 78%, transparent)),
+      url(../../img/accueil-pre.webp) center bottom / cover no-repeat fixed;
+  }
+  /* le décor suit l'univers choisi par l'enfant (retour du parent : « que l'univers de l'app soit raccord ») ; Caramel : le
+     pré ; seul le décor de l'univers actif est téléchargé */
+  html[data-theme="licorne"]:has(.screen.hm) body { background-image: linear-gradient(color-mix(in srgb, var(--bg-1) 72%, transparent), color-mix(in srgb, var(--bg-2) 78%, transparent)), url(../../img/decor-licorne.webp); }
+  html[data-theme="princesse"]:has(.screen.hm) body { background-image: linear-gradient(color-mix(in srgb, var(--bg-1) 72%, transparent), color-mix(in srgb, var(--bg-2) 78%, transparent)), url(../../img/decor-princesse.webp); }
+  html[data-theme="superheros"]:has(.screen.hm) body { background-image: linear-gradient(color-mix(in srgb, var(--bg-1) 72%, transparent), color-mix(in srgb, var(--bg-2) 78%, transparent)), url(../../img/decor-superheros.webp); }
+  html[data-theme="dinosaures"]:has(.screen.hm) body { background-image: linear-gradient(color-mix(in srgb, var(--bg-1) 72%, transparent), color-mix(in srgb, var(--bg-2) 78%, transparent)), url(../../img/decor-dinosaures.webp); }
+  html[data-theme="bolides"]:has(.screen.hm) body { background-image: linear-gradient(color-mix(in srgb, var(--bg-1) 72%, transparent), color-mix(in srgb, var(--bg-2) 78%, transparent)), url(../../img/decor-bolides.webp); }
+  html[data-theme="espace"]:has(.screen.hm) body { background-image: linear-gradient(color-mix(in srgb, var(--bg-1) 72%, transparent), color-mix(in srgb, var(--bg-2) 78%, transparent)), url(../../img/decor-espace.webp); }
+  html[data-theme="ocean"]:has(.screen.hm) body { background-image: linear-gradient(color-mix(in srgb, var(--bg-1) 72%, transparent), color-mix(in srgb, var(--bg-2) 78%, transparent)), url(../../img/decor-ocean.webp); }
+}
+

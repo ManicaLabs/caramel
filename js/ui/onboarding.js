@@ -104,6 +104,7 @@ export default {
       back.tabIndex = noBack ? -1 : 0;
       if (noBack) back.setAttribute('aria-hidden', 'true'); else back.removeAttribute('aria-hidden');
       clear(stepBox);
+      screen.dataset.step = steps[i];                    /* v2.6.1 : le 1er écran (« name ») a son illustration */
       const el = STEP[steps[i]]();
       stepBox.appendChild(el);
       motion.enter(el, { from: dir < 0 ? 'left' : 'right', dur: 380 });
