@@ -1,6 +1,6 @@
 {
   "name": "caramel",
-  "version": "2.6.2",
+  "version": "2.6.3",
   "private": true,
   "description": "Caramel 2 — accompagnement scolaire CP→CM2 (site statique, vérifications locales uniquement)",
   "type": "module",

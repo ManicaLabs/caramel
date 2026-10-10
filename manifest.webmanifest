@@ -17,5 +17,12 @@
     { "src": "icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
     { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
     { "src": "icon-monochrome-512.png", "sizes": "512x512", "type": "image/png", "purpose": "monochrome" }
+  ],
+  "screenshots": [
+    { "src": "store/captures/telephone-1-accueil.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow", "label": "L’accueil, le compagnon et le gros bouton Jouer" },
+    { "src": "store/captures/telephone-2-course.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow", "label": "La course de lecture à voix haute" },
+    { "src": "store/captures/telephone-3-tables.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow", "label": "Le Galop des tables" },
+    { "src": "store/captures/telephone-6-progres.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow", "label": "Mes progrès" },
+    { "src": "store/captures/tablette-10-1-accueil.png", "sizes": "2560x1440", "type": "image/png", "form_factor": "wide", "label": "Caramel sur tablette" }
   ]
 }

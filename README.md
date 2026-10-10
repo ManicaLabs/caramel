@@ -69,3 +69,14 @@ onnxruntime-web 1.22.0 (Microsoft, licence MIT) et piper-phonemize (paquet `@dif
 MIT), qui embarque espeak-ng (licence GPL-3.0 ou ultérieure, code source :
 [github.com/rhasspy/espeak-ng](https://github.com/rhasspy/espeak-ng)) — téléchargés depuis jsDelivr, aucun fichier
 d'espeak-ng n'est hébergé dans ce dépôt ; seule sa partie française est gardée sur l'appareil.
+Modèle de reconnaissance vocale et vosk-browser 0.0.8 (Ciaran O'Reilly ; Vosk et Kaldi embarqués) : licence Apache 2.0.
+Application Android : coquille Trusted Web Activity générée par Bubblewrap (Google, Apache 2.0). Crédits complets,
+licences et liens : [pages/licences.html](pages/licences.html).
+
+## Pages publiques et stores
+
+- `pages/` : politique de confidentialité, mentions légales, aide, licences et crédits (adresses données aux stores,
+  ouvertes depuis l'espace parents › À propos, lisibles hors ligne).
+- `store/` : publication sur Google Play (application Android en TWA) — mode d'emploi pas à pas
+  ([store/README.md](store/README.md)), textes de la fiche ([store/fiche-play.md](store/fiche-play.md)), icônes,
+  captures, configuration Bubblewrap. Jamais précaché.

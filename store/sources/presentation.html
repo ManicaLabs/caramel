@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Caramel · image de présentation Google Play (1024 × 500)</title>
+<!-- Source de l'image de présentation de la fiche Play (store/visuels/presentation-play-1024x500.png) : rendue par
+     store/outils/captures.mjs (Chrome sans interface, 1024 × 500, puis aplatie sans transparence). Les compagnons sont
+     ceux de l'appli (js/ui/mount-svg.js). Règles Play : pas de « gratuit », « n° 1 », prix, récompense ni appel à
+     l'action ; l'essentiel au centre (Play peut rogner les bords). -->
+<style>
+  @font-face { font-family: 'Fredoka'; font-weight: 600; src: url('../../fonts/fredoka-600.woff2') format('woff2'); }
+  @font-face { font-family: 'Fredoka'; font-weight: 700; src: url('../../fonts/fredoka-700.woff2') format('woff2'); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1024px; height: 500px; overflow: hidden; }
+  body {
+    position: relative; font-family: 'Fredoka', system-ui, sans-serif; color: #5b3a29;
+    /* pré des décors de Caramel (--n-meadow) */
+    background: linear-gradient(180deg, #bae6fd 0%, #e0f2fe 64%, #86efac 64%, #4ade80 100%);
+  }
+  .sun { position: absolute; left: 548px; top: 30px; width: 74px; height: 74px; border-radius: 50%;
+    background: #fde68a; box-shadow: 0 0 0 14px rgba(253, 230, 138, .45); }
+  .cloud { position: absolute; height: 34px; border-radius: 999px; background: #fff; opacity: .9; }
+  .cloud::before, .cloud::after { content: ''; position: absolute; background: #fff; border-radius: 50%; }
+  .cloud::before { width: 44px; height: 44px; left: 18px; top: -22px; }
+  .cloud::after { width: 34px; height: 34px; left: 52px; top: -14px; }
+  .card {
+    position: absolute; left: 60px; top: 84px; width: 452px; padding: 30px 34px 32px;
+    background: #fff1f5; border: 4px solid #fbcfe8; border-radius: 34px;
+    box-shadow: 0 10px 26px rgba(180, 83, 9, .18);
+  }
+  .brand { display: flex; align-items: center; gap: 18px; }
+  .brand img { width: 92px; height: 92px; }
+  h1 { font-weight: 700; font-size: 70px; line-height: 1; color: #b25209; letter-spacing: .5px; }
+  .tag { margin-top: 18px; font-weight: 600; font-size: 31px; line-height: 1.2; }
+  .lvl { display: inline-block; margin-top: 16px; padding: 6px 20px; border-radius: 999px;
+    background: #fbbf24; color: #78350f; font-weight: 700; font-size: 26px; }
+  .herd { position: absolute; right: 14px; bottom: 22px; width: 480px; height: 340px; }
+  .herd > div { position: absolute; }
+  .herd svg { display: block; overflow: visible; }
+</style>
+</head>
+<body>
+<div class="sun"></div>
+<div class="cloud" style="left: 610px; top: 70px; width: 120px"></div>
+<div class="cloud" style="left: 830px; top: 40px; width: 100px"></div>
+<div class="card">
+  <div class="brand"><img src="../../icon.svg" alt=""><h1>Caramel</h1></div>
+  <p class="tag">Lire et compter<br>avec son compagnon</p>
+  <span class="lvl">Du CP au CM2</span>
+</div>
+<div class="herd" id="herd"></div>
+<script type="module">
+  import { mountSVG } from '../../js/ui/mount-svg.js';
+  /* trois compagnons de l'appli, tournés vers la droite, posés sur l'herbe */
+  const herd = [
+    { type: 'unicorn', size: 200, x: 0, y: 146, expr: 'happy' },
+    { type: 'dragon', size: 190, x: 290, y: 150, expr: 'delighted' },
+    { type: 'pony', size: 280, x: 110, y: 72, expr: 'happy' }
+  ];
+  const host = document.getElementById('herd');
+  for (const c of herd) {
+    const d = document.createElement('div');
+    d.style.left = c.x + 'px'; d.style.top = c.y + 'px';
+    d.innerHTML = mountSVG(c.type, [], c.size, '', { expr: c.expr, stage: 2 });
+    host.appendChild(d);
+  }
+  document.documentElement.dataset.ready = '1';
+</script>
+</body>
+</html>

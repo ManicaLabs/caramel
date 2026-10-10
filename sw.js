@@ -19,7 +19,7 @@
    - Rappels quotidiens (periodicsync 'caramel-daily', enregistré par js/core/notifs.js) et notificationclick. */
 
 /* ASSETS:START */
-const VERSION = '2.6.2';
+const VERSION = '2.6.3';
 const ASSETS = [
   'index.html',
   'manifest.webmanifest',
@@ -175,7 +175,13 @@ const ASSETS = [
   'js/ui/voice-answer.js',
   'js/ui/voice-fluid.js',
   'js/ui/voice.js',
-  'js/ui/wipe.js'
+  'js/ui/wipe.js',
+  'pages/aide.html',
+  'pages/confidentialite.html',
+  'pages/licences.html',
+  'pages/mentions-legales.html',
+  'pages/pages.css',
+  'pages/pages.js'
 ];
 /* ASSETS:END */
 

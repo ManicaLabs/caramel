@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "fr.manica.caramel",
+      "sha256_cert_fingerprints": [
+        "[À COMPLÉTER : empreinte SHA-256 de la clé de signature de l'appli, Play Console › Tester et publier › Intégrité de l'appli]",
+        "[À COMPLÉTER : empreinte SHA-256 de la clé d'importation, bubblewrap fingerprint ou keytool -list -v]"
+      ]
+    }
+  }
+]

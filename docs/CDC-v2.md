@@ -438,6 +438,9 @@ docs/CDC-v2.md
 
 ## 18. Journal de livraison
 
+### v2.6.3 (10/10/2026) — les pages publiques
+Mentions légales complètes (Manica Labs, SAS au capital de 1 000 €, 999 397 490 R.C.S. Grenoble, TVA FR82 999 397 490, siège 11 avenue Paul Verlaine 38100 Grenoble, contact hello@manica.fr et téléphone, directeur de la publication Cédric Delalande) : les pages publiques (confidentialité, mentions légales, aide, licences) sont publiées sur caramel.manica.fr et liées depuis l'espace parents › À propos (`PAGES_READY`). La préparation Google Play (store/ : fiche, appli Android `fr.manica.caramel`, visuels, captures) entre dans le dépôt ; restent pour Play : compte Play, clé de signature, empreintes de assetlinks.
+
 ### v2.6.2 (08/10/2026) — le décor aussi sur téléphone
 **Retour du parent** : « sur le PC je vois le fond, mais pas sur mobile ». Choix du parent : un décor vertical par univers — sur téléphone et tablette debout, le décor de l'univers apparaît derrière l'accueil (ciel en haut, personnages dans les coins du bas), adouci.
 

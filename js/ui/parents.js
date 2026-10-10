@@ -78,9 +78,9 @@ const LINKEDIN_PROFILE = 'https://www.linkedin.com/in/cedric-delalande-57bb7860/
 const FEEDBACK_URL = 'https://www.linkedin.com/posts/cedric-delalande-57bb7860_ia-edtech-aezducation-share-7485434729584902144-3tnJ/';
 /* v2.2.4 : pages publiques (pages/, adresses données aux stores), ouvertes dans la même fenêtre : leur « ← Revenir à
    Caramel » ramène ici (pages/pages.js), la porte restant ouverte le temps de sa fenêtre de 10 minutes */
-/* v2.3 : liens montrés quand les pages sont complètes (mentions légales de Manica Labs à finir : forme, SIREN, siège,
-   directeur de la publication) ; les pages restent hors du dépôt publié jusque-là */
-export const PAGES_READY = false;
+/* v2.3 : liens montrés quand les pages sont complètes — fait le 10/10/2026 (mentions légales de Manica Labs complètes : capital,
+   R.C.S. Grenoble, téléphone) */
+export const PAGES_READY = true;
 export const INFO_PAGES = Object.freeze([
   ['pages/confidentialite.html', 'Confidentialité'], ['pages/aide.html', 'Aide'],
   ['pages/mentions-legales.html', 'Mentions légales'], ['pages/licences.html', 'Licences et crédits']

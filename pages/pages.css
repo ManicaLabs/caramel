@@ -1,0 +1,98 @@
+/* ============ PAGES PUBLIQUES (confidentialité, mentions légales, aide, licences) ============
+   Pages statiques lisibles sans JavaScript, au style de Caramel (css/base.css : jetons, polices, fond) ; adresses
+   publiques demandées par les stores (politique de confidentialité, assistance). Ouvertes depuis l'espace parents
+   (« À propos »), elles s'affichent dans la même fenêtre : « ← Revenir à Caramel » y ramène (pages.js).
+   Typographie : espace fine insécable (&#8239;) avant ; : ! ? » et après «, insécable (&nbsp;) dans « 44 Mo ».
+   Marqueurs « [À COMPLÉTER : …] » : .todo, bien visibles, à remplir avant publication. */
+
+.pg-top {
+  position: sticky; top: 0; z-index: 5;
+  padding: calc(8px + var(--safe-t)) calc(16px + var(--safe-r)) 8px calc(16px + var(--safe-l));
+  background: color-mix(in srgb, var(--bg-1) 92%, transparent);
+  border-bottom: 2px solid var(--pink-100);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+.pg-top-in { max-width: 720px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+.pg-back {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 6px 16px 6px 10px;
+  border-radius: var(--r-pill); background: var(--card); border: 2px solid var(--pink-200);
+  color: var(--title); text-decoration: none; font-weight: 600; font-size: var(--fs-s);
+}
+.pg-back img { width: 30px; height: 30px; border-radius: 8px; }
+.pg-back:active { transform: scale(.97); }
+
+.pg {
+  max-width: 720px; margin: 0 auto;
+  padding: 20px calc(16px + var(--safe-r)) 24px calc(16px + var(--safe-l));
+  font-size: 1.03rem; line-height: 1.6;
+}
+.pg h1 { font-size: var(--fs-2xl); line-height: 1.15; color: var(--title); font-weight: 700; margin: 6px 0 6px; }
+.pg-meta { color: var(--ink-3); font-size: var(--fs-s); margin-bottom: 18px; }
+.pg-lead { font-size: var(--fs-l); line-height: 1.45; color: var(--ink); margin-bottom: 8px; }
+.pg h2 { font-size: var(--fs-l); color: var(--title); font-weight: 700; line-height: 1.25; margin: 28px 0 8px; scroll-margin-top: 80px; }
+.pg h3 { font-size: var(--fs-m); color: var(--ink); font-weight: 700; margin: 18px 0 6px; scroll-margin-top: 80px; }
+.pg p, .pg ul, .pg ol, .pg dl { margin: 0 0 12px; }
+.pg ul, .pg ol { padding-left: 1.4em; }
+.pg li { margin: 4px 0; }
+.pg li::marker { color: var(--pink-400); }
+.pg strong { color: var(--ink); }
+.pg a { color: var(--title); text-underline-offset: 3px; overflow-wrap: anywhere; }
+.pg code { font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace; font-size: .9em; background: var(--pink-50);
+  border: 1px solid var(--pink-100); border-radius: 6px; padding: 0 5px; overflow-wrap: anywhere; }
+
+/* encadrés : l'essentiel en une carte, puis le détail */
+.pg-card { background: var(--card); border: var(--line); border-radius: var(--r-l); padding: 14px 18px; margin: 12px 0 16px;
+  box-shadow: var(--shadow-1); }
+.pg-card > :last-child { margin-bottom: 0; }
+.pg-card.ok { border-color: var(--ok-300); background: var(--ok-50); }
+.pg-card.warn { border-color: var(--orange-300); background: var(--orange-50); }
+.pg-card h2:first-child, .pg-card h3:first-child { margin-top: 0; }
+.pg-yes { list-style: none; padding-left: 0 !important; }
+.pg-yes li { position: relative; padding-left: 30px; }
+.pg-yes li::before { content: '✓'; content: '✓' / ''; position: absolute; left: 4px; top: 0; color: var(--ok); font-weight: 700; }
+
+/* sommaire */
+.pg-toc { margin: 8px 0 20px; padding: 12px 18px; background: var(--card); border: 2px dashed var(--pink-200); border-radius: var(--r-m); }
+.pg-toc p { font-weight: 700; color: var(--ink-2); margin-bottom: 4px; }
+.pg-toc ol { margin: 0; }
+.pg-toc a { display: inline-block; padding: 6px 0; }
+
+/* tableau des licences : une carte par brique sur téléphone */
+.pg-lic { display: grid; gap: 12px; margin: 12px 0 18px; }
+.pg-lic article { background: var(--card); border: var(--line); border-radius: var(--r-m); padding: 12px 16px; }
+.pg-lic h3 { margin: 0 0 4px; }
+.pg-lic p { margin: 0 0 6px; font-size: .97rem; }
+.pg-lic p:last-child { margin-bottom: 0; }
+.pg-tag { display: inline-block; padding: 1px 10px; border-radius: var(--r-pill); background: var(--amber-100); color: var(--amber-900);
+  font-weight: 600; font-size: var(--fs-xs); vertical-align: 2px; }
+
+/* questions d'aide repliables (details/summary : sans JavaScript) */
+.pg details { background: var(--card); border: var(--line); border-radius: var(--r-m); margin: 10px 0; }
+.pg summary { min-height: 52px; padding: 13px 44px 13px 16px; font-weight: 700; color: var(--ink); cursor: pointer; position: relative;
+  list-style: none; line-height: 1.35; }
+.pg summary::-webkit-details-marker { display: none; }
+.pg summary::after { content: '+'; content: '+' / ''; position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
+  font-size: 1.4rem; color: var(--title); }
+.pg details[open] summary::after { content: '–'; content: '–' / ''; }
+.pg details > :not(summary) { margin: 0 16px 12px; }
+
+/* marqueurs à remplir avant publication */
+.todo { background: #fde047; color: #422006; font-weight: 700; padding: 1px 6px; border-radius: 6px;
+  box-decoration-break: clone; -webkit-box-decoration-break: clone; outline: 2px dashed #a16207; outline-offset: 1px; }
+
+.pg-foot { max-width: 720px; margin: 8px auto 0; padding: 18px calc(16px + var(--safe-r)) calc(28px + var(--safe-b)) calc(16px + var(--safe-l));
+  border-top: 2px dashed var(--pink-200); color: var(--ink-3); font-size: var(--fs-s); }
+.pg-foot nav { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-bottom: 8px; }
+.pg-foot a { display: inline-block; padding: 10px 0; color: var(--title); }
+.pg-foot a[aria-current="page"] { color: var(--ink-2); text-decoration: none; }
+
+@media (hover: hover) and (pointer: fine) {
+  .pg-back:hover { border-color: var(--pink-400); }
+  .pg summary:hover { color: var(--title); }
+}
+@media print {
+  .pg-top, .pg-foot nav { display: none; }
+  body { background: #fff; }
+  .pg details { border: none; }
+  .pg details > :not(summary) { display: block; }
+}

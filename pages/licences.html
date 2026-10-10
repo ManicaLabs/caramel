@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#fff1f5">
+<meta name="color-scheme" content="light">
+<meta name="description" content="Licences et crédits des briques libres utilisées par Caramel : reconnaissance vocale, voix, polices.">
+<title>Licences et crédits · Caramel</title>
+<link rel="icon" type="image/svg+xml" href="../icon.svg">
+<link rel="stylesheet" href="../css/base.css">
+<link rel="stylesheet" href="pages.css">
+</head>
+<body>
+<!-- Attributions complètes (étude des stores, §4.3 et liste §6 n° 9). À tenir à jour à chaque changement de brique :
+     modèle Vosk (depuis la 2.2.4 : vosk-model-small-fr-0.22, Apache 2.0 ; l'ancien pguyot était en CC BY-NC-SA),
+     versions de jsDelivr (js/core/speech.js, js/core/piper-tts.js), polices (fonts/OFL.txt). -->
+<header class="pg-top"><div class="pg-top-in">
+  <a class="pg-back" href="../"><img src="../icon.svg" alt="">← Revenir à Caramel</a>
+</div></header>
+<main class="pg">
+  <h1>Licences et crédits</h1>
+  <p class="pg-meta">Dernière mise à jour&#8239;: 7 octobre 2026</p>
+  <p class="pg-lead">Caramel est construit avec des briques libres. Merci à leurs auteurs&#8239;! Voici ce que Caramel utilise, sous quelle licence, et d’où chaque brique vient.</p>
+
+  <h2>Reconnaissance vocale</h2>
+  <div class="pg-lic">
+    <article>
+      <h3>Modèle vosk-model-small-fr-0.22 <span class="pg-tag">Apache 2.0</span></h3>
+      <p>Modèle français de reconnaissance vocale, par Alpha Cephei. Hébergé avec Caramel et utilisé sans modification.</p>
+      <p><a href="https://alphacephei.com/vosk/models" rel="noopener">alphacephei.com/vosk/models</a> · <a href="https://www.apache.org/licenses/LICENSE-2.0" rel="noopener">texte de la licence Apache 2.0</a></p>
+    </article>
+    <article>
+      <h3>vosk-browser 0.0.8 <span class="pg-tag">Apache 2.0</span></h3>
+      <p>Vosk compilé pour le navigateur (WebAssembly), par Ciaran O’Reilly&#8239;; il embarque Vosk (Alpha Cephei, Apache 2.0) et Kaldi (Apache 2.0). Téléchargé depuis jsDelivr.</p>
+      <p><a href="https://github.com/ccoreilly/vosk-browser" rel="noopener">github.com/ccoreilly/vosk-browser</a> · <a href="https://github.com/alphacep/vosk-api" rel="noopener">github.com/alphacep/vosk-api</a> · <a href="https://github.com/kaldi-asr/kaldi" rel="noopener">github.com/kaldi-asr/kaldi</a></p>
+    </article>
+  </div>
+
+  <h2>Voix du compagnon</h2>
+  <div class="pg-lic">
+    <article>
+      <h3>Piper et la voix fr_FR-siwis-medium <span class="pg-tag">MIT</span></h3>
+      <p>Synthèse vocale neuronale Piper, de Michael Hansen (Rhasspy), et son modèle de voix française «&#8239;siwis&#8239;». Caramel en a converti les poids en float16 et relève la hauteur et le timbre de la voix de 5&nbsp;demi-tons (voix d’enfant).</p>
+      <p><a href="https://github.com/rhasspy/piper" rel="noopener">github.com/rhasspy/piper</a> · <a href="https://huggingface.co/rhasspy/piper-voices" rel="noopener">huggingface.co/rhasspy/piper-voices</a></p>
+    </article>
+    <article>
+      <h3>SIWIS French Speech Synthesis Database <span class="pg-tag">CC BY 4.0</span></h3>
+      <p>Enregistrements sur lesquels la voix «&#8239;siwis&#8239;» a été entraînée&#8239;: Junichi Yamagishi, Pierre-Edouard Honnet, Philip Garner et Alexandros Lazaridis (Centre for Speech Technology Research, université d’Édimbourg), 2017. Phrases du compagnon calculées une fois avec cette voix, rajeunie, découpées et encodées en MP3.</p>
+      <p><a href="https://datashare.ed.ac.uk/handle/10283/2353" rel="noopener">datashare.ed.ac.uk/handle/10283/2353</a> · <a href="https://creativecommons.org/licenses/by/4.0/deed.fr" rel="noopener">licence CC BY 4.0</a></p>
+    </article>
+    <article>
+      <h3>onnxruntime-web 1.22.0 (et 1.18.0 en secours) <span class="pg-tag">MIT</span></h3>
+      <p>Moteur qui calcule la voix fluide sur l’appareil. © Microsoft Corporation. Téléchargé depuis jsDelivr.</p>
+      <p><a href="https://github.com/microsoft/onnxruntime" rel="noopener">github.com/microsoft/onnxruntime</a></p>
+    </article>
+    <article>
+      <h3>piper-phonemize (paquet @diffusionstudio/piper-wasm 1.0.0) <span class="pg-tag">MIT</span></h3>
+      <p>Transforme le texte en sons de la langue pour la voix fluide. Téléchargé depuis jsDelivr.</p>
+      <p><a href="https://github.com/rhasspy/piper-phonemize" rel="noopener">github.com/rhasspy/piper-phonemize</a> · <a href="https://www.npmjs.com/package/@diffusionstudio/piper-wasm" rel="noopener">npmjs.com/package/@diffusionstudio/piper-wasm</a></p>
+    </article>
+    <article>
+      <h3>eSpeak NG <span class="pg-tag">GPL-3.0 ou ultérieure</span></h3>
+      <p>Compilé dans piper-phonemize avec ses données de prononciation. Il est téléchargé depuis jsDelivr par le navigateur&#8239;: Caramel n’héberge et ne distribue aucun fichier d’eSpeak NG&#8239;; seule sa partie française est gardée sur l’appareil. Code source&#8239;:</p>
+      <p><a href="https://github.com/espeak-ng/espeak-ng" rel="noopener">github.com/espeak-ng/espeak-ng</a> · version utilisée par Piper&#8239;: <a href="https://github.com/rhasspy/espeak-ng" rel="noopener">github.com/rhasspy/espeak-ng</a> · <a href="https://www.gnu.org/licenses/gpl-3.0.fr.html" rel="noopener">licence GPL-3.0</a></p>
+    </article>
+  </div>
+
+  <h2>Polices</h2>
+  <div class="pg-lic">
+    <article>
+      <h3>Fredoka <span class="pg-tag">SIL OFL 1.1</span></h3>
+      <p>© The Fredoka Project Authors (Milena Brandão, Hafontia). Police de l’interface. Version modifiée pour Caramel&#8239;: ajout d’une espace fine insécable.</p>
+      <p><a href="https://github.com/hafontia/Fredoka-One" rel="noopener">github.com/hafontia/Fredoka-One</a></p>
+    </article>
+    <article>
+      <h3>Andika <span class="pg-tag">SIL OFL 1.1</span></h3>
+      <p>© SIL International. Police des textes à lire, dessinée pour les lecteurs débutants.</p>
+      <p><a href="https://software.sil.org/andika/" rel="noopener">software.sil.org/andika</a> · <a href="https://openfontlicense.org/" rel="noopener">licence SIL OFL 1.1</a></p>
+    </article>
+  </div>
+
+  <h2>Application Android</h2>
+  <div class="pg-lic">
+    <article>
+      <h3>Bubblewrap, android-browser-helper, AndroidX <span class="pg-tag">Apache 2.0</span></h3>
+      <p>L’application Android est une «&#8239;activité web de confiance&#8239;» (Trusted Web Activity) générée par Bubblewrap (Google)&#8239;: elle ouvre Caramel dans Chrome, en plein écran.</p>
+      <p><a href="https://github.com/GoogleChromeLabs/bubblewrap" rel="noopener">github.com/GoogleChromeLabs/bubblewrap</a> · <a href="https://github.com/GoogleChrome/android-browser-helper" rel="noopener">github.com/GoogleChrome/android-browser-helper</a></p>
+    </article>
+  </div>
+
+  <h2>Caramel</h2>
+  <p>Textes, histoires, exercices, compagnons dessinés et code de Caramel&#8239;: créations originales de l’éditeur (voir les <a href="mentions-legales.html">mentions légales</a>). Le code source est public&#8239;: <a href="https://github.com/ManicaLabs/caramel" rel="noopener">github.com/ManicaLabs/caramel</a>.</p>
+</main>
+<footer class="pg-foot">
+  <nav aria-label="Pages d’information">
+    <a href="confidentialite.html">Confidentialité</a>
+    <a href="mentions-legales.html">Mentions légales</a>
+    <a href="aide.html">Aide</a>
+    <a href="licences.html" aria-current="page">Licences et crédits</a>
+  </nav>
+  <p>Caramel · soutien scolaire du CP au CM2 · gratuit, sans publicité</p>
+</footer>
+<script src="pages.js"></script>
+</body>
+</html>

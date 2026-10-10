@@ -230,3 +230,23 @@ test('voix enregistrée (v2.2.2) : clips hors précache, cache dédié caramel-v
   await part.get(clip, 'cors');
   assert.ok(!part.store.get('caramel-voix-v1').has(clip), 'réponse partielle (206) jamais mise en cache');
 });
+
+test('pages publiques (v2.2.4) : précachées, servies hors ligne à la navigation ; les autres pages restent au réseau', async () => {
+  const assets = assetsInSw(), v = readVersion(root);
+  const pages = ['pages/confidentialite.html', 'pages/mentions-legales.html', 'pages/aide.html', 'pages/licences.html', 'pages/pages.css', 'pages/pages.js'];
+  for (const f of pages) assert.ok(listAssets(root).includes(f), 'précache : ' + f);
+  assert.ok(!listAssets(root).some(f => f.startsWith('store/')), 'jamais les visuels ni les captures des stores');
+  let offline = false;
+  const s = loadSw({ net: async url => {
+    if (offline) throw new TypeError('hors ligne');
+    const r = new Response('réseau:' + url, { status: 200 }); Object.defineProperty(r, 'type', { value: 'basic' }); return r;
+  } });
+  /* précache simulé à partir de la liste réelle (sw.js peut être en attente de régénération) */
+  const cache = await s.ctx.caches.open('caramel-' + v);
+  for (const f of new Set([...assets, ...pages])) await cache.put(SCOPE + f, new Response('cache:' + f, { status: 200 }));
+  offline = true;
+  assert.equal(await (await s.get(SCOPE + 'pages/aide.html', 'navigate')).text(), 'cache:pages/aide.html');
+  assert.equal(await (await s.get(SCOPE + 'pages/confidentialite.html', 'navigate')).text(), 'cache:pages/confidentialite.html');
+  assert.equal(await s.get(SCOPE + 'tests/harness/speech.html', 'navigate'), null, 'bancs d’essai : réseau normal');
+  assert.equal(await s.get(SCOPE + 'store/README.md', 'navigate'), null);
+});
