@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "fr.manica.caramel",
+      "sha256_cert_fingerprints": [
+        "47:B8:71:0C:1D:B3:7E:E1:C8:60:18:8B:48:1E:37:C2:66:B6:3D:A5:F0:04:74:D2:25:A6:E7:03:27:85:FE:40",
+        "C0:3F:EC:6C:06:37:2B:4E:29:B5:26:FD:37:0F:E7:B0:2B:01:C2:46:25:F1:F5:94:88:09:9C:AD:32:8D:1A:E0"
+      ]
+    }
+  }
+]
